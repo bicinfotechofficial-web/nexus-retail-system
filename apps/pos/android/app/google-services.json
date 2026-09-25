@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "137960797974",
+    "project_id": "caramel-cottage-retail",
+    "storage_bucket": "caramel-cottage-retail.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:137960797974:android:0bef52460e74598fcc0237",
+        "android_client_info": {
+          "package_name": "in.caramelcottage.pos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATXsPhrfURFgkTbJmkHofutztF89p42Dw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
