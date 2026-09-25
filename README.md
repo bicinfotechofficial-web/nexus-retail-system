@@ -2,7 +2,7 @@
 
 A multi-location cake shop POS, inventory and admin system. It has a Flutter Android POS app with offline billing and a Bluetooth thermal printer, a Flutter Web admin console, and Firebase (Firestore + Auth) on the Spark plan.
 
-**Status:** Phase 0. Contracts approved; scaffold (C-2), `packages/core` (C-3) and Firebase wiring (C-4) done. Waiting on B-3 and B-5, then the Phase 1 agents start (C-5).
+**Status:** Phase 0 complete; Phase 1 starting. The data and printer contracts are in place (D-026), and the agent briefs are in [`docs/agents/`](docs/agents/README.md).
 
 ## Start here
 | Doc | What it defines |
@@ -15,6 +15,7 @@ A multi-location cake shop POS, inventory and admin system. It has a Flutter And
 | [05-AGENT-PLAN](docs/05-AGENT-PLAN.md) | Who builds what, phases, definitions of done |
 | [06-TASKS](docs/06-TASKS.md) | Every task, with owner, dependencies and done check |
 | [SETUP-FIREBASE](docs/SETUP-FIREBASE.md) | Tools, the local emulator, and connecting the apps to Firebase |
+| [agents/](docs/agents/README.md) | Phase 1 agent briefs and the rules every agent follows |
 
 Requirements baseline: Caramel Cottage BRD v3 (`docs/requirements/BRD-v4.md`; v3 kept for history).
 

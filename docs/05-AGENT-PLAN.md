@@ -35,6 +35,8 @@ nexus-retail-system/
 The Printer agent starts **on day 1**, alongside Phase 0. It is the riskiest piece because of the hardware, and it depends only on the `ReceiptDocument` interface.
 
 ## Agent briefs
+The full, self-contained briefs each agent works from are in [`docs/agents/`](agents/README.md). The summaries below are the scope; the briefs add the task order, contracts (D-026) and working rules.
+
 
 ### Backend — `firebase/`, `packages/data/`
 - Firestore rules implementing every item in `04-PERMISSIONS.md`, and indexes.
