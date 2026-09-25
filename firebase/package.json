@@ -1,0 +1,19 @@
+{
+  "name": "nexus-firestore-rules",
+  "private": true,
+  "description": "Firestore security rules tests for the Caramel Cottage retail system (BE-1 to BE-6).",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-caramel-cottage \"vitest run\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "vitest": "^4.1.11"
+  }
+}
