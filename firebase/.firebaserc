@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "demo-caramel-cottage",
+    "demo": "demo-caramel-cottage",
+    "prod": "caramel-cottage-retail"
+  }
+}

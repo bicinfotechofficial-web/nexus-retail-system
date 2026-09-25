@@ -10,9 +10,9 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 |---|---|---|---|---|
 | B-1 | Review and approve the Phase 0 docs, and answer the Proposed decisions (D-003, D-007, D-008, D-009, D-010, D-020) | — | Every Proposed row is Locked or changed | DONE |
 | B-2 | Create the Firebase project on the Spark plan: Auth Email/Password, Firestore **Standard** edition in `asia-south1`, a registered web app | — | Web config shared with the central agent (see `FIREBASE-PROJECT.md`) | DONE |
-| B-3 | Install on your machine: Flutter SDK (stable), Android Studio + SDK, Node 20+, Firebase CLI, FlutterFire CLI | — | `flutter doctor` shows no errors for Android | TODO |
+| B-3 | Install on your machine: Flutter SDK (stable), Android Studio + SDK, Node 20+, Java 21, Firebase CLI, FlutterFire CLI (see `docs/SETUP-FIREBASE.md` §1) | — | `flutter doctor` shows no errors for Android | TODO |
 | B-4 | Send the pilot printer's model name and paper width | — | Recorded in D-020 | TODO |
-| B-5 | Run `flutterfire configure` in `apps/pos` and `apps/admin` (the central agent provides the exact command) | B-2, B-3, C-4 | `firebase_options.dart` committed | TODO |
+| B-5 | Run `flutterfire configure` in `apps/pos` and `apps/admin`, using the commands in `docs/SETUP-FIREBASE.md` §3 | B-2, B-3, C-4 | `firebase_options.dart` committed | TODO |
 | B-6 | Device pilot: install the APK, pair the printer, run the test-print screen and the pilot checklist | Phase 2 | Checklist signed off | TODO |
 
 ## Central
@@ -21,7 +21,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | C-1 | Phase 0 contracts (docs 00–05) | — | L | Committed | DONE |
 | C-2 | Monorepo scaffold: pub workspace, `analysis_options.yaml`, the four workspace packages (`packages/core`, `packages/data`, `packages/printer`, `test/e2e`) and two apps as empty shells, CI script `tool/check.sh` (boundaries, format, analyze, test) | B-1 | S | `tool/check.sh` passes on an empty scaffold | DONE |
 | C-3 | `packages/core`: enums, models with `toMap`/`fromMap` for every collection in 02-DATA-MODEL, `Money` (paise), `FirestorePaths`, permission constants, `BillCalculator` (subtotal, discount, round-off, payment validation), `ReturnCalculator` (proration, max returnable), `BusinessDate` (IST), plus `SummaryDeltas` (the summary increments for each operation) | C-2 | L | ≥ 95% line coverage on the calculators. Every rounding edge case is tested | DONE |
-| C-4 | Firebase wiring: `firebase.json`, `.firebaserc`, emulator config, and a setup guide for B-5 | B-2, C-2 | S | `firebase emulators:start` runs locally | TODO |
+| C-4 | Firebase wiring: `firebase/firebase.json`, `.firebaserc`, emulator config (demo project), placeholder rules and indexes, and the setup guide for B-5 (`docs/SETUP-FIREBASE.md`) | B-2, C-2 | S | `firebase emulators:start` runs locally | DONE |
 | C-5 | Launch Phase 1 agents with their briefs and task IDs | C-3 | S | All agents WIP | TODO |
 | C-6 | Handle change requests and keep 00-DECISIONS current | ongoing | — | CHANGE-REQUESTS has no open row older than one working session | TODO |
 | C-7 | Integration: merge the agent branches, fix the seams, run every suite | Phase 1 | L | All suites green on `main` | TODO |

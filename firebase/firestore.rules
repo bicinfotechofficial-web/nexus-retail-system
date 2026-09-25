@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Placeholder from C-4: deny everything. BE-2 to BE-5 replace this with the
+// rules contract in docs/04-PERMISSIONS.md. Never deploy a looser version.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
