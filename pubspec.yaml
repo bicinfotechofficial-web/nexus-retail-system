@@ -1,0 +1,20 @@
+name: nexus_workspace
+description: Workspace root for the Caramel Cottage retail system. Holds no code.
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+# One resolution and one pubspec.lock for every member (D-002).
+# Members declare `resolution: workspace` in their own pubspec.
+workspace:
+  - packages/core
+  - packages/data
+  - packages/printer
+  - apps/pos
+  - apps/admin
+  - test/e2e
+
+dev_dependencies:
+  # Provides the lint set that analysis_options.yaml includes.
+  flutter_lints: ^6.0.0

@@ -1,0 +1,41 @@
+# One lint config for the whole workspace. Members must not add their own
+# analysis_options.yaml; ask for a change through docs/CHANGE-REQUESTS.md.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/firebase_options.dart"
+    - "**/build/**"
+    - "**/node_modules/**"
+
+linter:
+  rules:
+    # Money and quantities are ints and must never mix with doubles silently (D-006).
+    - avoid_dynamic_calls
+    - avoid_double_and_int_checks
+    - prefer_int_literals
+    # Offline writes are fire-and-track; a dropped future is a lost write.
+    - unawaited_futures
+    - discarded_futures
+    - cancel_subscriptions
+    - close_sinks
+    # Readability and safety.
+    - always_declare_return_types
+    - avoid_print
+    - avoid_relative_lib_imports
+    - only_throw_errors
+    - prefer_final_locals
+    - prefer_final_in_for_each
+    - prefer_single_quotes
+    - sort_pub_dependencies
+    - directives_ordering
+    - use_super_parameters
+    - unnecessary_lambdas
+    - test_types_in_equals
+    - hash_and_equals

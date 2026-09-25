@@ -29,6 +29,7 @@ Status values: **Locked** (build against it), **Proposed** (waiting for Bicy's O
 | D-020 | Printer paper width is **80 mm (48 columns)** by default, with 58 mm (32 columns) configurable per device. Connection is Bluetooth Classic SPP with ESC/POS. | "Slightly larger than a petrol-pump slip". | After hardware testing with the pilot printer. | Locked |
 | D-021 | Cold-storage backup and data retention are **out of the MVP**. Scheduled Firestore export needs Blaze. | One pilot store stays well under the free storage limit. | Blaze. | Locked |
 | D-022 | Business date = the device's local date in IST (`Asia/Kolkata`), stored as `YYYY-MM-DD` next to `serverCreatedAt`. | Summaries need a stable day key that works offline. | If clock tampering shows up, compare it against `serverCreatedAt` in reports. | Locked |
+| D-023 | POS Android application ID is **`com.caramelcottage.pos`** (Kotlin namespace the same). Workspace package names carry a `nexus_` prefix (`nexus_core`, `nexus_data`, `nexus_printer`, `nexus_pos`, `nexus_admin`, `nexus_e2e`). | The application ID is registered with Firebase in B-5 and on Play later, and can't change after that. `in.caramelcottage.pos` (matching the `.in` domain) is also valid if preferred. | Before B-5 only. | Proposed |
 
 ## Blaze upgrade path (after approval)
 

@@ -1,0 +1,26 @@
+name: nexus_pos
+description: Caramel Cottage POS for Android.
+publish_to: none
+version: 0.1.0+1
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  nexus_core:
+    path: ../../packages/core
+  nexus_data:
+    path: ../../packages/data
+  nexus_printer:
+    path: ../../packages/printer
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

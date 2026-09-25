@@ -19,7 +19,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
 | C-1 | Phase 0 contracts (docs 00–05) | — | L | Committed | DONE |
-| C-2 | Monorepo scaffold: pub workspace, `analysis_options.yaml`, the four packages and two apps as empty shells, CI script `tool/check.sh` (format, analyze, test) | B-1 | S | `tool/check.sh` passes on an empty scaffold | TODO |
+| C-2 | Monorepo scaffold: pub workspace, `analysis_options.yaml`, the four workspace packages (`packages/core`, `packages/data`, `packages/printer`, `test/e2e`) and two apps as empty shells, CI script `tool/check.sh` (boundaries, format, analyze, test) | B-1 | S | `tool/check.sh` passes on an empty scaffold | DONE |
 | C-3 | `packages/core`: enums, models with `toMap`/`fromMap` for every collection in 02-DATA-MODEL, `Money` (paise), `FirestorePaths`, permission constants, `BillCalculator` (subtotal, discount, round-off, payment validation), `ReturnCalculator` (proration, max returnable), `BusinessDate` (IST) | C-2 | L | ≥ 95% line coverage on the calculators. Every rounding edge case is tested | TODO |
 | C-4 | Firebase wiring: `firebase.json`, `.firebaserc`, emulator config, and a setup guide for B-5 | B-2, C-2 | S | `firebase emulators:start` runs locally | TODO |
 | C-5 | Launch Phase 1 agents with their briefs and task IDs | C-3 | S | All agents WIP | TODO |

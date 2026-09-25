@@ -1,0 +1,11 @@
+name: nexus_core
+description: Pure Dart models, money, calculators, permission constants and Firestore paths.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+
+dev_dependencies:
+  test: ^1.26.0

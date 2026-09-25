@@ -1,0 +1,8 @@
+# Keep LF everywhere so `dart format --set-exit-if-changed` and bash scripts
+# behave the same on Windows and Linux.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.jar binary
+*.ico binary

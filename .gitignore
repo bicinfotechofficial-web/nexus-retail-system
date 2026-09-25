@@ -1,0 +1,55 @@
+# OS and editors
+.DS_Store
+Thumbs.db
+*.swp
+*.iml
+*.ipr
+*.iws
+.idea/
+.history/
+
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+coverage/
+**/doc/api/
+*.log
+app.*.symbols
+app.*.map.json
+.widget_preview/
+migrate_working_dir/
+# Workspace members resolve through the root; only the root lock is committed.
+/packages/*/pubspec.lock
+/apps/*/pubspec.lock
+/test/e2e/pubspec.lock
+pubspec_overrides.yaml
+
+# Android
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/gradlew
+**/android/gradlew.bat
+**/android/gradle/wrapper/gradle-wrapper.jar
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/**/GeneratedPluginRegistrant.java
+**/android/.cxx/
+# Signing material never enters the repo (C-8).
+key.properties
+*.keystore
+*.jks
+
+# Firebase / Node
+node_modules/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+database-debug.log*
+.firebase/
