@@ -75,7 +75,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 ## Admin web — `apps/admin/`
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
-| AD-1 | Shell: login, responsive side nav, location switcher (All or a single location), permission guard | C-3 | M | `flutter build web` succeeds | TODO |
+| AD-1 | Shell: login, responsive side nav, location switcher (All or a single location), permission guard | C-3 | M | `flutter build web` succeeds | REVIEW |
 | AD-2 | Dashboard: today's sales per location and in total, bill count, returns, low-stock count per location | BE-11 | M | Widget test | TODO |
 | AD-3 | Locations CRUD, including setting the PIN (hashed on the client), offline limit and discount cap | BE-11 | M | Widget test | TODO |
 | AD-4 | Users: create a Store Manager through the secondary Firebase App, assign a location, disable | BE-11 | M | Emulator test that the admin stays signed in | TODO |
