@@ -4,6 +4,8 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 import '../features/billing/billing_screen.dart';
+import '../features/payment/bill_saved_screen.dart';
+import '../features/payment/payment_screen.dart';
 import '../features/placeholder_screen.dart';
 import 'destinations.dart';
 import 'providers.dart';
@@ -60,8 +62,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.payment,
+        builder: (context, state) => const PaymentScreen(),
+      ),
+      GoRoute(
+        path: Routes.billSaved,
+        redirect: (context, state) =>
+            state.extra is Bill ? null : Destinations.billing.path,
         builder: (context, state) =>
-            const PlaceholderScreen(title: 'Payment', task: 'POS-5'),
+            BillSavedScreen(bill: state.extra! as Bill),
       ),
       GoRoute(
         path: Destinations.bills.path,
