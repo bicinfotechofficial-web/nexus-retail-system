@@ -59,7 +59,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 ## POS app — `apps/pos/`
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
-| POS-1 | App shell: Riverpod, go_router, theme (Caramel Cottage colours), app-bar sync chip, permission-aware navigation | C-3 | M | Builds a debug APK | TODO |
+| POS-1 | App shell: Riverpod, go_router, theme (Caramel Cottage colours), app-bar sync chip, permission-aware navigation | C-3 | M | Builds a debug APK | REVIEW |
 | POS-2 | Login plus prefetch of the user, role, location, catalog and raw materials. Handles a disabled user | BE-11 | S | Widget tests | TODO |
 | POS-3 | Device setup (first run): register, name the device, pick a printer | BE-9, PR-5 | S | Widget tests | TODO |
 | POS-4 | Billing screen: product grid, categories, search, cart with qty ± and remove, running total | POS-1 | L | Widget tests | TODO |
