@@ -90,11 +90,11 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 ## QA — `test/e2e/`
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
-| QA-1 | Scenario test plan from 01-MVP-SCOPE acceptance and 03-SYNC, reviewed by the central agent | C-1 | S | `test/e2e/PLAN.md` | TODO |
+| QA-1 | Scenario test plan from 01-MVP-SCOPE acceptance and 03-SYNC, reviewed by the central agent | C-1 | S | `test/e2e/PLAN.md` | REVIEW |
 | QA-2 | Two devices billing offline at the same location (two emulator clients with the network disabled), then sync. Check: no duplicate IDs and exact stock | BE-10, BE-12 | M | Green | TODO |
 | QA-3 | Kill mid-batch and duplicate submit. Check: one bill and a single deduction | BE-10 | M | Green | TODO |
 | QA-4 | Denied paths: next-day cancel, over-return, cross-location, a disabled user's queued writes | BE-6, BE-10 | M | Green | TODO |
-| QA-5 | Reconciliation: for random bills, returns and cancels, the summary equals the sum of the docs, for each day and month | BE-10 | M | Property test green | TODO |
+| QA-5 | Reconciliation: for random bills, returns and cancels, the summary equals the sum of the docs, for each day and month | BE-10 | M | Property test green | REVIEW |
 | QA-6 | Concurrent PRODUCE + SALE + ADJUST stock totals | BE-10 | S | Green | TODO |
 | QA-7 | Review every agent branch before merge, and log findings in `docs/QA-FINDINGS.md` | ongoing | — | No open P1 finding at merge | TODO |
 | QA-8 | Pilot checklist for B-6 (a device-side manual script) | Phase 2 | S | Checklist committed | TODO |
