@@ -1,18 +1,28 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 
-void main() {
-  runApp(const PosApp());
-}
+import 'app/app.dart';
+import 'fakes/fake_backend.dart';
+import 'firebase_options.dart';
 
-/// Shell only. POS-1 replaces this with the Riverpod and go_router shell.
-class PosApp extends StatelessWidget {
-  const PosApp({super.key});
+/// `--dart-define=FAKE_DATA=true` runs on in-memory fakes, without Firebase.
+const bool useFakeData = bool.fromEnvironment('FAKE_DATA');
 
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Caramel Cottage POS',
-      home: Scaffold(body: Center(child: Text('Caramel Cottage POS'))),
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final List<Override> overrides;
+  if (useFakeData) {
+    overrides = FakeBackend().overrides;
+  } else {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
     );
+    // The nexus_data and nexus_printer implementations are overridden here
+    // once they are merged (BE-8…BE-13, PR-5). Until then the providers
+    // report that they aren't configured.
+    overrides = const [];
   }
+  runApp(ProviderScope(overrides: overrides, child: const PosApp()));
 }

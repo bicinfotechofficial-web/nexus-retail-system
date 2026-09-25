@@ -59,11 +59,11 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 ## POS app — `apps/pos/`
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
-| POS-1 | App shell: Riverpod, go_router, theme (Caramel Cottage colours), app-bar sync chip, permission-aware navigation | C-3 | M | Builds a debug APK | TODO |
+| POS-1 | App shell: Riverpod, go_router, theme (Caramel Cottage colours), app-bar sync chip, permission-aware navigation | C-3 | M | Builds a debug APK | REVIEW |
 | POS-2 | Login plus prefetch of the user, role, location, catalog and raw materials. Handles a disabled user | BE-11 | S | Widget tests | TODO |
 | POS-3 | Device setup (first run): register, name the device, pick a printer | BE-9, PR-5 | S | Widget tests | TODO |
-| POS-4 | Billing screen: product grid, categories, search, cart with qty ± and remove, running total | POS-1 | L | Widget tests | TODO |
-| POS-5 | Payment screen: discount (flat or %, cap check), round-off shown, split payment editor, cash tendered and change, save → print | POS-4, BE-10 | L | Tests: sum mismatch blocks Save, and a double tap saves once | TODO |
+| POS-4 | Billing screen: product grid, categories, search, cart with qty ± and remove, running total | POS-1 | L | Widget tests | REVIEW |
+| POS-5 | Payment screen: discount (flat or %, cap check), round-off shown, split payment editor, cash tendered and change, save → print | POS-4, BE-10 | L | Tests: sum mismatch blocks Save, and a double tap saves once | REVIEW |
 | POS-6 | Receipt preview and print, reprint, print-failure handling (the bill is saved already, so offer a retry) | PR-5, POS-5 | S | Widget test | TODO |
 | POS-7 | Bills list for today and earlier dates, bill detail, same-day cancel with a reason | BE-11 | M | Widget tests | TODO |
 | POS-8 | Return flow: pick a bill, choose lines and qty (capped), refund split, print the return slip | POS-7 | M | Widget tests | TODO |
