@@ -10,9 +10,9 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 |---|---|---|---|---|
 | B-1 | Review and approve the Phase 0 docs, and answer the Proposed decisions (D-003, D-007, D-008, D-009, D-010, D-020) | — | Every Proposed row is Locked or changed | DONE |
 | B-2 | Create the Firebase project on the Spark plan: Auth Email/Password, Firestore **Standard** edition in `asia-south1`, a registered web app | — | Web config shared with the central agent (see `FIREBASE-PROJECT.md`) | DONE |
-| B-3 | Install on your machine: Flutter SDK (stable), Android Studio + SDK, Node 20+, Java 21, Firebase CLI, FlutterFire CLI (see `docs/SETUP-FIREBASE.md` §1) | — | `flutter doctor` shows no errors for Android | TODO |
+| B-3 | Install on your machine: Flutter SDK (stable), Android Studio + SDK, Node 20+, Java 21, Firebase CLI, FlutterFire CLI (see `docs/SETUP-FIREBASE.md` §1) | — | `flutter doctor` shows no errors for Android | DONE |
 | B-4 | Send the pilot printer's model name and paper width | — | Recorded in D-020 | TODO |
-| B-5 | Run `flutterfire configure` in `apps/pos` and `apps/admin`, using the commands in `docs/SETUP-FIREBASE.md` §3 | B-2, B-3, C-4 | `firebase_options.dart` committed | TODO |
+| B-5 | Run `flutterfire configure` in `apps/pos` and `apps/admin`, using the commands in `docs/SETUP-FIREBASE.md` §3 | B-2, B-3, C-4 | `firebase_options.dart` committed | DONE |
 | B-6 | Device pilot: install the APK, pair the printer, run the test-print screen and the pilot checklist | Phase 2 | Checklist signed off | TODO |
 
 ## Central

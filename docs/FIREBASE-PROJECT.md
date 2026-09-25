@@ -23,6 +23,15 @@ const firebaseConfig = {
 };
 ```
 
+## Android app `in.caramelcottage.pos`
+Registered by `flutterfire configure` in B-5 (D-023).
+
+| Setting | Value |
+|---|---|
+| App ID | `1:137960797974:android:0bef52460e74598fcc0237` |
+| Config files | `apps/pos/android/app/google-services.json`, `apps/pos/lib/firebase_options.dart` |
+
+The admin app's `apps/admin/lib/firebase_options.dart` uses the `admin-web` app above.
+
 ## Still to do
-- The Android app registration (`in.caramelcottage.pos`) is created by `flutterfire configure` during B-5. The exact commands are in [SETUP-FIREBASE](SETUP-FIREBASE.md) §3.
-- Before the pilot: restrict the API key to the app's package name and web domain in Google Cloud Console → Credentials.
+- Before the pilot: restrict both API keys in Google Cloud Console → Credentials. The Android key (starts `AIzaSyATX`) to package `in.caramelcottage.pos` plus the release signing certificate (C-8), and the web key (starts `AIzaSyDLc`) to the admin console's domain.
