@@ -8,8 +8,8 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 ## Owner (Bicy)
 | ID | Task | Needs | Done when | Status |
 |---|---|---|---|---|
-| B-1 | Review and approve the Phase 0 docs, and answer the Proposed decisions (D-003, D-007, D-008, D-009, D-010, D-020) | — | Every Proposed row is Locked or changed | TODO |
-| B-2 | Create the Firebase project on the Spark plan: Auth Email/Password, Firestore **Standard** edition in `asia-south1`, a registered web app | — | Web config shared with the central agent | TODO |
+| B-1 | Review and approve the Phase 0 docs, and answer the Proposed decisions (D-003, D-007, D-008, D-009, D-010, D-020) | — | Every Proposed row is Locked or changed | DONE |
+| B-2 | Create the Firebase project on the Spark plan: Auth Email/Password, Firestore **Standard** edition in `asia-south1`, a registered web app | — | Web config shared with the central agent (see `FIREBASE-PROJECT.md`) | DONE |
 | B-3 | Install on your machine: Flutter SDK (stable), Android Studio + SDK, Node 20+, Firebase CLI, FlutterFire CLI | — | `flutter doctor` shows no errors for Android | TODO |
 | B-4 | Send the pilot printer's model name and paper width | — | Recorded in D-020 | TODO |
 | B-5 | Run `flutterfire configure` in `apps/pos` and `apps/admin` (the central agent provides the exact command) | B-2, B-3, C-4 | `firebase_options.dart` committed | TODO |
@@ -26,7 +26,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | C-6 | Handle change requests and keep 00-DECISIONS current | ongoing | — | CHANGE-REQUESTS has no open row older than one working session | TODO |
 | C-7 | Integration: merge the agent branches, fix the seams, run every suite | Phase 1 | L | All suites green on `main` | TODO |
 | C-8 | Release build: signed release APK, admin web build, pilot setup guide (seed, first admin login, device registration, printer pairing) | C-7 | M | APK and guide delivered to Bicy | TODO |
-| C-9 | BRD v4: fold in D-003 and every other deviation | B-1 | S | `docs/requirements/BRD-v4.md` committed | TODO |
+| C-9 | BRD v4: fold in D-003 and every other deviation | B-1 | S | `docs/requirements/BRD-v4.md` committed | DONE |
 
 ## Backend — `firebase/`, `packages/data/`
 | ID | Task | Needs | Size | Done when | Status |

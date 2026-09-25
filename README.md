@@ -15,4 +15,4 @@ A multi-location cake shop POS, inventory and admin system. It has a Flutter And
 | [05-AGENT-PLAN](docs/05-AGENT-PLAN.md) | Who builds what, phases, definitions of done |
 | [06-TASKS](docs/06-TASKS.md) | Every task, with owner, dependencies and done check |
 
-Requirements baseline: Caramel Cottage BRD v3 (`docs/requirements/BRD-v3.md`).
+Requirements baseline: Caramel Cottage BRD v3 (`docs/requirements/BRD-v4.md`; v3 kept for history).
