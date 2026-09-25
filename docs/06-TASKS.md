@@ -82,7 +82,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | AD-5 | Devices list: last seen, retire | BE-11 | S | Widget test | TODO |
 | AD-6 | Catalog: products CRUD, price change (audited), approval queue, raw materials | BE-10 | M | Widget tests | TODO |
 | AD-7 | Stock view by location, plus a low-stock table across locations | BE-11 | S | Widget test | TODO |
-| AD-8 | Reports: daily, monthly and annual. Gross, discount, net, returns, cancellations, by mode, top products. One location or all combined | BE-11 | L | Aggregation unit tests | TODO |
+| AD-8 | Reports: daily, monthly and annual. Gross, discount, net, returns, cancellations, by mode, top products. One location or all combined | BE-11 | L | Aggregation unit tests | REVIEW |
 | AD-9 | Expenses: create, edit and list by location, category and month | BE-10 | M | Widget test | TODO |
 | AD-10 | Financials: sales − expenses per month and location | AD-8, AD-9 | S | Unit test | TODO |
 | AD-11 | Audit log viewer with filters, showing a before/after diff | BE-11 | M | Widget test | TODO |
