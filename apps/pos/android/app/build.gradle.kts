@@ -16,7 +16,9 @@ android {
 
     defaultConfig {
         // Registered with Firebase in B-5. Never change it after that (D-023).
-        applicationId = "com.caramelcottage.pos"
+        // Differs from `namespace` on purpose: `in` is a Kotlin keyword, so the
+        // code package stays com.caramelcottage.pos.
+        applicationId = "in.caramelcottage.pos"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
