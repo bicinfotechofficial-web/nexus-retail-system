@@ -40,6 +40,6 @@
 1. Two devices at the same location bill offline at the same time, then sync, with zero duplicate bill numbers and stock that is exactly correct.
 2. Killing the app or rebooting the phone mid-bill never produces a duplicate bill or a double stock deduction.
 3. A Store Manager cannot read or write another location's data (verified with rules tests, not just the UI).
-4. A printed receipt matches the saved bill in every field.
+4. A printed receipt matches the saved bill, as read back from the server, in every printed field: location name, address and phone; bill number; date and time; each line's name, qty, price and total; subtotal; discount; round-off; total; payments with cash tendered and change; the GST block when present; served by; and the footer.
 5. The admin's daily totals equal the sum of the bills and returns for that day.
-6. At the offline limit, billing is blocked, and an Admin PIN unlocks 2 more hours.
+6. At the offline limit, billing is blocked, and an Admin PIN allows billing for the next 2 hours.

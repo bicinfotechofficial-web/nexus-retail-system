@@ -10,20 +10,22 @@ The POS app must work without network for hours, with **several devices at the s
 ## 2. Every business operation is one atomic batch
 | Operation | Docs in the batch |
 |---|---|
-| Create bill | bill (create) · stock `FG_*` increments (−qty) · SALE movement · dailySummary + monthlySummary increments · device `lastBillSeq` |
+| Create bill | bill (create, with `soldQty`) · stock `FG_*` increments (−qty) · SALE movement · dailySummary + monthlySummary increments · device `lastBillSeq` |
 | Cancel bill | bill (update status → CANCELLED) · stock increments (+qty) · CANCEL movement · summary increments (cancelled, byMode −, byProduct −) · audit |
-| Return | return (create) · bill `returnedQty` increments · stock increments (+qty) · RETURN movement · summary increments · audit |
-| Stock in / out / wastage / produce | movement (create) · stock increments · audit (wastage only) |
-| Adjust (physical count) | movement with before/after · stock increment by (counted − localQty) · audit |
+| Return | return (create) · bill `returnedQty` increments + `lastReturnId` · stock increments (+qty) · RETURN movement · summary increments · audit · device `lastReturnSeq` |
+| Stock in / out / wastage / produce | movement (create) · stock increments · audit (wastage only) · device `lastMovementSeq` |
+| Adjust (physical count) | movement with before/after · stock increment by (counted − localQty) · audit · device `lastMovementSeq` |
 | Expense create/edit | expense · monthlySummary increment · audit |
 
 A batch either lands completely or not at all. Neither the summaries nor the stock can drift away from the documents they are derived from.
+
+**Conflicts between devices (D-029).** A cancel and a return of the same bill, or two returns of the same item beyond what was sold, can be made on two offline devices. The rules accept whichever syncs first and reject the other, whose whole batch becomes a sync error (§6). The customer-facing rule is simple: returns and cancellations for one bill are handled at one counter.
 
 ## 3. Bill numbering without collisions (D-003, D-004)
 1. **Device registration** (online only): in a transaction, read `locations/{loc}.nextDeviceNo`, increment it, and create `devices/D{nn}`. Store `deviceId` locally.
 2. **Per-device counters**: `billSeq`, `movementSeq` and `returnSeq` are stored in a local durable key-value store (Hive box, flushed after every write).
 3. **Allocating a number**: increment the counter and **persist it before building the batch**. If the app is killed after that point, a number is skipped, which is acceptable. A number is never used twice.
-4. **Recovering the counter** on app start: `billSeq = max(local, devices/{id}.lastBillSeq from cache or server)`.
+4. **Recovering the counters** on app start: `billSeq = max(local, devices/{id}.lastBillSeq)`, and the same for `movementSeq` (`lastMovementSeq`) and `returnSeq` (`lastReturnSeq`), from the cache or the server.
 5. **Reinstalling** gives a new device code, never the old one.
 
 Result: bill IDs are unique across the whole system with no coordination, and two offline devices can never clash.
@@ -44,7 +46,7 @@ The local ledger (Hive box `pending`) holds `{path, createdAt}` for every bill, 
   1. `await firestore.waitForPendingWrites()` (timeout 30 s).
   2. For each ledger entry, run `get(GetOptions(source: Source.server))`. If the doc exists, remove it from the ledger.
   3. If a doc is **missing** after the pending writes flushed, the server rejected it: show it as a **Sync error** on the sync-health screen with the bill details so the SM can re-enter it. This should never happen, and each one is treated as a bug.
-  4. On success, set `lastSyncAt = now` (local) and update `devices/{id}.lastSeenAt` (at most every 5 minutes).
+  4. When `waitForPendingWrites` finished and every ledger entry was resolved (confirmed, or moved to sync errors), set `lastSyncAt = now` (local) and update `devices/{id}.lastSeenAt` (at most every 5 minutes). A sync error does not hold `lastSyncAt` back. It is first set at sign-in or device registration.
 - UI: a status chip in the app bar showing ● Online / ◐ Syncing (n pending) / ○ Offline since HH:MM.
 
 ## 7. Offline limit (D-016)
@@ -52,8 +54,8 @@ The local ledger (Hive box `pending`) holds `{path, createdAt}` for every bill, 
 - `elapsed ≥ 0.8 × limit`: a persistent amber banner, "Connect to internet — billing will stop in X min".
 - `elapsed ≥ limit`: **billing is blocked**. Stock operations and viewing still work. The block screen offers:
   - **Retry sync**
-  - **Admin PIN override**: the entered PIN is verified locally against the cached `overridePinHash` (PBKDF2). On success, `lastSyncAt` is treated as extended by `overrideExtensionHours`, and an `OFFLINE_OVERRIDE` audit doc is queued.
-- Known limitation: someone can move the device clock back to get around the block. This is accepted for the pilot. Reports can flag bills where `clientCreatedAt` and `serverCreatedAt` differ by more than the limit.
+  - **Admin PIN override**: the entered PIN is verified locally against the cached `overridePinHash` (PBKDF2). On success, billing is allowed until `now + overrideExtensionHours`, however long the device has been offline, and an `OFFLINE_OVERRIDE` audit doc is queued (ID `Ids.overrideAuditId`).
+- Known limitations, accepted for the pilot (D-031): someone can move the device clock back to get around the block, and anyone at the location can read the PIN hash and try to guess it offline. Reports can flag bills where `clientCreatedAt` and `serverCreatedAt` differ by more than the limit, and PINs are at least 8 digits.
 
 ## 8. Auth while offline
 - The first login on a device needs network. Firebase Auth keeps the session afterwards.

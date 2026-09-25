@@ -221,6 +221,12 @@ void main() {
         {RefundError.nonPositiveAmount},
       );
       expect(ReturnCalculator.checkRefunds(Money.zero, []), isEmpty);
+      expect(
+        ReturnCalculator.checkRefunds(const Money(500), [
+          for (var i = 0; i < 5; i++) p(PaymentMode.cash, 100),
+        ]),
+        {RefundError.tooManyRefunds},
+      );
     });
   });
 }

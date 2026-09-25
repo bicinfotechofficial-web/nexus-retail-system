@@ -1,4 +1,5 @@
 import 'enums.dart';
+import 'limits.dart';
 import 'models/sales.dart';
 import 'money.dart';
 
@@ -62,6 +63,9 @@ final class BillTotals {
 
 enum BillError {
   emptyCart,
+
+  /// More than [Limits.maxBillLines] lines.
+  tooManyLines,
   nonPositiveQty,
   negativePrice,
   duplicateProduct,
@@ -130,7 +134,7 @@ final class PaymentCheck {
 /// same bill.
 abstract final class BillCalculator {
   /// At most 4 payment entries per bill (04-PERMISSIONS #6).
-  static const int maxPayments = 4;
+  static const int maxPayments = Limits.maxPayments;
 
   /// Works out every total for [cart].
   ///
@@ -145,6 +149,12 @@ abstract final class BillCalculator {
   }) {
     if (cart.isEmpty) {
       throw const BillValidationException(BillError.emptyCart, 'no lines');
+    }
+    if (cart.length > Limits.maxBillLines) {
+      throw BillValidationException(
+        BillError.tooManyLines,
+        '${cart.length} > ${Limits.maxBillLines}',
+      );
     }
     final seen = <String>{};
     final lines = <BillLine>[];

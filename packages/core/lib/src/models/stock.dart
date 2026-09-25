@@ -70,6 +70,7 @@ final class Movement {
     required this.createdBy,
     required this.deviceId,
     this.reason,
+    this.note,
     this.refId,
     this.serverCreatedAt,
   });
@@ -81,6 +82,7 @@ final class Movement {
       type: r.enumValue('type', MovementType.fromWire),
       lines: r.objects('lines', MovementLine._fromReader),
       reason: r.stringOrNull('reason'),
+      note: r.stringOrNull('note'),
       refId: r.stringOrNull('refId'),
       businessDate: r.string('businessDate'),
       clientCreatedAt: r.dateTime('clientCreatedAt'),
@@ -97,6 +99,9 @@ final class Movement {
   final List<MovementLine> lines;
   final String? reason;
 
+  /// Free text, e.g. the supplier on a STOCK_IN.
+  final String? note;
+
   /// billId or returnId.
   final String? refId;
   final String businessDate;
@@ -109,6 +114,7 @@ final class Movement {
     'type': type.wire,
     'lines': lines.map((l) => l.toMap()).toList(),
     'reason': reason,
+    'note': note,
     'refId': refId,
     'businessDate': businessDate,
     'clientCreatedAt': clientCreatedAt,

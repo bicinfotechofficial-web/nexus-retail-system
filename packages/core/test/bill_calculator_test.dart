@@ -164,6 +164,19 @@ void main() {
           throwsBill(BillError.emptyCart),
         );
       });
+      test('more lines than the limit (D-030)', () {
+        final max = [
+          for (var i = 0; i < Limits.maxBillLines; i++) line('P$i', 1, 100),
+        ];
+        expect(
+          BillCalculator.compute(max).lines,
+          hasLength(Limits.maxBillLines),
+        );
+        expect(
+          () => BillCalculator.compute([...max, line('X', 1, 100)]),
+          throwsBill(BillError.tooManyLines),
+        );
+      });
       test('zero or negative qty', () {
         expect(
           () => BillCalculator.compute([line('A', 0, 100)]),

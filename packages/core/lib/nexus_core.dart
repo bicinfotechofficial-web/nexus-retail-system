@@ -13,6 +13,7 @@ export 'src/business_date.dart';
 export 'src/enums.dart';
 export 'src/firestore_paths.dart';
 export 'src/ids.dart';
+export 'src/limits.dart';
 export 'src/map_reader.dart';
 export 'src/models/admin.dart';
 export 'src/models/catalog.dart';

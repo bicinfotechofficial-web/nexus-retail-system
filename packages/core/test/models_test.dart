@@ -80,6 +80,8 @@ void main() {
         'registeredAt': at,
         'lastSeenAt': at,
         'lastBillSeq': 42,
+        'lastMovementSeq': 7,
+        'lastReturnSeq': 1,
         'retired': false,
       },
       Device.fromMap,
@@ -144,6 +146,7 @@ void main() {
           {'itemKey': 'FG_bf', 'delta': 2},
         ],
         'reason': 'count',
+        'note': null,
         'refId': null,
         'businessDate': '2026-09-25',
         'clientCreatedAt': at,
@@ -190,6 +193,8 @@ void main() {
         'businessDate': '2026-09-25',
       },
       'returnedQty': {'bf': 1},
+      'soldQty': {'bf': 2},
+      'lastReturnId': 'D01-R000001',
       'servedBy': {'uid': 'u1', 'name': 'SM'},
       'businessDate': '2026-09-25',
       'clientCreatedAt': at,
@@ -320,6 +325,8 @@ void main() {
         'registeredBy': 'u',
       });
       expect(d.lastBillSeq, 0);
+      expect(d.lastMovementSeq, 0);
+      expect(d.lastReturnSeq, 0);
       expect(d.retired, isFalse);
     });
 
@@ -388,6 +395,15 @@ void main() {
         ).isSellableAt('PTB'),
         isFalse,
       );
+    });
+
+    test('Bill.soldQty is derived from the lines', () {
+      final b = billFrom(
+        BillCalculator.compute([line('A', 2, 100), line('B', 1, 50)]),
+      );
+      expect(b.soldQty, {'A': 2, 'B': 1});
+      expect(b.toMap()['soldQty'], {'A': 2, 'B': 1});
+      expect(b.lastReturnId, isNull);
     });
 
     test('Bill.discountAmount is zero without a discount', () {

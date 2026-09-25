@@ -32,7 +32,11 @@ abstract interface class SyncService {
   Stream<SyncStatus> get status;
   Stream<List<SyncError>> get errors;
 
-  /// When the ledger was last fully confirmed, or null if never.
+  /// The end of the last sync pass in which `waitForPendingWrites` finished
+  /// and every ledger entry was resolved, either confirmed or moved to
+  /// [errors]. A sync error does not hold it back. It is first set at
+  /// sign-in or device registration, so it is never null on a registered
+  /// device (03-SYNC §6).
   DateTime? get lastSyncAt;
 
   /// Runs a sync pass now (the Retry button).
@@ -62,8 +66,9 @@ final class BillingBlocked extends OfflineState {
 abstract interface class OfflineGuard {
   Stream<OfflineState> get state;
 
-  /// Checks [pin] against the location's cached hash. On success, extends
-  /// the limit by `overrideExtensionHours` and queues an OFFLINE_OVERRIDE
-  /// audit entry. Returns false for a wrong PIN.
+  /// Checks [pin] against the location's cached hash. On success, billing
+  /// is allowed until `now + overrideExtensionHours`, however long the
+  /// device has been offline, and an OFFLINE_OVERRIDE audit entry is queued
+  /// with ID `Ids.overrideAuditId` (D-016). Returns false for a wrong PIN.
   Future<bool> override(String pin);
 }

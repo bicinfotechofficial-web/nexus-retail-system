@@ -19,8 +19,12 @@ abstract interface class StockRepository {
 
 /// Stock operations at the signed-in user's location. Each is one movement
 /// plus increments, and an audit entry where 04-PERMISSIONS #10 requires it.
+/// A movement has at most `Limits.maxMovementLines` lines. Stock docs are
+/// always written with `set(merge)` and `qty: increment(delta)`, never a
+/// literal `qty`, so a first use and a concurrent offline use both add up
+/// (D-005, QA-004).
 abstract interface class StockService {
-  /// Raw materials received.
+  /// Raw materials received. [note] is stored in `Movement.note`.
   Future<Movement> stockIn(List<StockLineInput> lines, {String? note});
 
   /// Raw materials taken out for a reason other than wastage.

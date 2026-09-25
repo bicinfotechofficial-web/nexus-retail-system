@@ -1,5 +1,6 @@
 import 'bill_calculator.dart';
 import 'enums.dart';
+import 'limits.dart';
 import 'models/sales.dart';
 import 'money.dart';
 
@@ -24,7 +25,7 @@ enum ReturnError {
   exceedsReturnable,
 }
 
-enum RefundError { noRefunds, nonPositiveAmount, sumMismatch }
+enum RefundError { noRefunds, tooManyRefunds, nonPositiveAmount, sumMismatch }
 
 final class ReturnValidationException implements Exception {
   const ReturnValidationException(this.error, this.detail);
@@ -135,6 +136,9 @@ abstract final class ReturnCalculator {
     final errors = <RefundError>{};
     if (refunds.isEmpty && refundTotal.isPositive) {
       errors.add(RefundError.noRefunds);
+    }
+    if (refunds.length > Limits.maxRefunds) {
+      errors.add(RefundError.tooManyRefunds);
     }
     var sum = Money.zero;
     for (final r in refunds) {

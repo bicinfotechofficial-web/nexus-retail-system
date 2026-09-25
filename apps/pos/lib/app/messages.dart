@@ -6,6 +6,9 @@ abstract final class Messages {
   static String billError(BillError error, {int? maxDiscountPct}) =>
       switch (error) {
         BillError.emptyCart => 'The cart is empty. Add an item first.',
+        BillError.tooManyLines =>
+          'A bill can have at most ${Limits.maxBillLines} items. '
+              'Start a second bill for the rest.',
         BillError.nonPositiveQty => 'Every item needs a quantity of 1 or more.',
         BillError.negativePrice =>
           'An item has a negative price. Ask the Admin to check the catalog.',

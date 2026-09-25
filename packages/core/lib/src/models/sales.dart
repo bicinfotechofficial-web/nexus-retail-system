@@ -26,6 +26,7 @@ final class Bill {
     this.cashTendered,
     this.cancel,
     this.returnedQty = const {},
+    this.lastReturnId,
     this.serverCreatedAt,
   });
 
@@ -55,6 +56,7 @@ final class Bill {
         null => null,
       },
       returnedQty: r.intMap('returnedQty'),
+      lastReturnId: r.stringOrNull('lastReturnId'),
       servedBy: ServedBy.fromReader(r.child('servedBy')),
       businessDate: r.string('businessDate'),
       clientCreatedAt: r.dateTime('clientCreatedAt'),
@@ -94,8 +96,12 @@ final class Bill {
   final BillStatus status;
   final BillCancel? cancel;
 
-  /// productId → qty returned so far.
+  /// productId → qty returned so far. Only returns write it, and never a 0.
   final Map<String, int> returnedQty;
+
+  /// The return that last raised [returnedQty], written in the same batch;
+  /// the rules require it to be a new return doc (04-PERMISSIONS #5).
+  final String? lastReturnId;
   final ServedBy servedBy;
   final String businessDate;
   final DateTime clientCreatedAt;
@@ -103,6 +109,10 @@ final class Bill {
   final String createdBy;
 
   Money get discountAmount => discount?.amount ?? Money.zero;
+
+  /// productId → qty sold. Written with the bill so the rules can cap
+  /// `returnedQty` without looping over `lines` (04-PERMISSIONS #5, D-029).
+  Map<String, int> get soldQty => {for (final l in lines) l.productId: l.qty};
 
   Map<String, Object?> toMap() => {
     'billNo': billNo,
@@ -120,6 +130,8 @@ final class Bill {
     'status': status.wire,
     'cancel': cancel?.toMap(),
     'returnedQty': returnedQty,
+    'soldQty': soldQty,
+    'lastReturnId': lastReturnId,
     'servedBy': servedBy.toMap(),
     'businessDate': businessDate,
     'clientCreatedAt': clientCreatedAt,

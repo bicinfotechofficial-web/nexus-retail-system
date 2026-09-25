@@ -30,3 +30,31 @@ All rows below are open. The central agent records the outcome of each, and QA c
 | QA-020 | main | P3 | `StockService.stockIn(lines, {note})` takes a note, but `Movement` and 02-DATA-MODEL movements have no note field (only `reason`, which is for WASTAGE_*, ADJUST and CANCEL). | `packages/data/lib/src/api/stock.dart`; 02-DATA-MODEL movements; `Movement` | Either store the note in `reason` for STOCK_IN, or add a `note` field to the model. |
 | QA-021 | main | P3 | The `OFFLINE_OVERRIDE` audit doc has no defined ID or `entityPath`. Audit docs are create-only and keyed by the entity's ID, but an override has no entity, and it can be repeated (D-016), so its ID must be unique per override. | 02-DATA-MODEL `auditLog`; 03-SYNC §7; D-016 | An `Ids` builder, e.g. `{loc}-{deviceId}-OVR-{millis}`, and `entityPath` = the device doc. Scenario A6-4. |
 | QA-022 | main | P3 | D-008 ("cannot be sold until an Admin approves it") has no server enforcement: the rules can't check bill lines against product status or price (no loops, and the `get()` budget). D-001 says the rules are the only server enforcement, so this is a silent client-only rule. | D-008; D-001; 04-PERMISSIONS #5–6 | Record it as a client-enforced rule (`Product.isSellableAt`, `CatalogRepository.watchSellable`) and an accepted pilot limitation, or add a report flag for bills whose product was not ACTIVE. Scenario M-7. |
+
+## Central outcomes
+Recorded by the central agent. QA closes a row once the contract and a PLAN.md scenario agree.
+
+| ID | Outcome | Where it's fixed |
+|---|---|---|
+| QA-001 | Accepted. Audit IDs are `{loc}-{entityId}` (D-028), with an `Ids.auditId` builder. | D-028, 02 auditLog, 04 #10, `Ids` |
+| QA-002 | Accepted. A cancel needs an empty `returnedQty`, and a return needs a COMPLETED bill. The second to sync becomes a sync error (D-029). | D-029, 04 #5, 03 §2 |
+| QA-003 | Accepted as proposed: `soldQty` on the bill (derived from its lines in `Bill.toMap`), `returnedQty[p] ≤ soldQty[p]` checked per key by an unrolled rule, and `lastReturnId` must name a new return. | D-029, 02 bills, 04 #5–6, `Bill.soldQty`, `Bill.lastReturnId` |
+| QA-004 | Accepted, first option: stock is always written with `set(merge)` and `qty: increment(delta)`, never a literal; create and update share one rule. | 02 stock, 04 #8, `StockService` doc |
+| QA-005 | Accepted as proposed: a full device rule (create at the new `nextDeviceNo` only, the `last*Seq` counters only go up, `label`/`retired` need `location.manage`). | 04 #4 |
+| QA-006 | Accepted. `LocationService.save` never writes `nextDeviceNo`, which starts at 0; registration takes +1 and creates `D{new value}`. | 02 locations, 04 #4, `Location.nextDeviceNo`, `LocationService.save` doc |
+| QA-007 | Accepted as client-enforced (D-031). The rule keeps the two dates equal; the day itself is checked on the device. | D-031, 04 "Enforced on the client only" |
+| QA-008 | Accepted: `!exists(movement)` before the batch. | 04 #8 |
+| QA-009 | Accepted: a read rule for each subcollection. | 04 #4, #5, #7, #8, #9 |
+| QA-010 | Accepted: 20 lines per bill, return and movement, and 4 payments and 4 refunds (`Limits`, `BillError.tooManyLines`, `RefundError.tooManyRefunds`). The budget text is corrected, and BE-6 tests the maximum batches. | D-030, 04 budget note, `Limits` |
+| QA-011 | Accepted: the override allows billing until `now + overrideExtensionHours`. | D-016, 03 §7, 01 #6, `OfflineGuard.override` doc |
+| QA-012 | Accepted as proposed. | 03 §6.4, `SyncService.lastSyncAt` doc |
+| QA-013 | Kept the implemented meaning and reworded it: `netSales` and the other as-billed fields include later-cancelled bills, and reports headline net revenue as "Sales". | 02 summaries |
+| QA-014 | Accepted: an 8-digit minimum (`Limits.minOverridePinDigits`), enforced by `LocationService.save`, and recorded as a limitation. | D-031, 03 §7 |
+| QA-015 | Accepted: `lastMovementSeq` and `lastReturnSeq` on the device doc, recovered like `lastBillSeq`. | 02 devices, 03 §3, `Device` |
+| QA-016 | Device scenarios live in `apps/pos/integration_test/`, owned by QA. `test/e2e` stays pure Dart and reads the D-027 JSON plan fixtures. | agents/README, agents/QA |
+| QA-017 | Accepted: return field validation. | 04 #7 |
+| QA-018 | Accepted: users can read their own doc and `roles/*` even when inactive. | 04 #1–3 |
+| QA-019 | Accepted: acceptance #4 lists the printed fields. | 01 #4 |
+| QA-020 | Accepted: `Movement.note`. | 02 movements, `Movement` |
+| QA-021 | Accepted: `Ids.overrideAuditId`, with `entityPath` = the device doc. | 02 auditLog, `Ids` |
+| QA-022 | Accepted as client-enforced (D-031). | D-031 |

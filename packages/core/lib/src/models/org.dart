@@ -146,6 +146,10 @@ final class Location {
   /// Null means no cap (D-011).
   final int? maxDiscountPct;
   final String receiptFooter;
+
+  /// The last device number handed out; 0 for a new location. Registration
+  /// increments it by exactly 1 and creates `D{new value}` (D-004). Only
+  /// registration writes it.
   final int nextDeviceNo;
   final bool active;
 
@@ -173,6 +177,8 @@ final class Device {
     required this.registeredBy,
     required this.lastBillSeq,
     required this.retired,
+    this.lastMovementSeq = 0,
+    this.lastReturnSeq = 0,
     this.registeredAt,
     this.lastSeenAt,
   });
@@ -186,6 +192,8 @@ final class Device {
       registeredAt: r.dateTimeOrNull('registeredAt'),
       lastSeenAt: r.dateTimeOrNull('lastSeenAt'),
       lastBillSeq: r.integerOr('lastBillSeq', 0),
+      lastMovementSeq: r.integerOr('lastMovementSeq', 0),
+      lastReturnSeq: r.integerOr('lastReturnSeq', 0),
       retired: r.booleanOr('retired', false),
     );
   }
@@ -201,8 +209,12 @@ final class Device {
   final DateTime? registeredAt;
   final DateTime? lastSeenAt;
 
-  /// Recovers the local bill counter after data loss (03-SYNC §3.4).
+  /// The last bill, movement and return numbers this device used, written
+  /// in the same batch as each one. They recover the local counters after
+  /// data loss (03-SYNC §3.4). The rules only let them go up.
   final int lastBillSeq;
+  final int lastMovementSeq;
+  final int lastReturnSeq;
   final bool retired;
 
   Map<String, Object?> toMap() => {
@@ -210,6 +222,8 @@ final class Device {
     'label': label,
     'registeredBy': registeredBy,
     'lastBillSeq': lastBillSeq,
+    'lastMovementSeq': lastMovementSeq,
+    'lastReturnSeq': lastReturnSeq,
     'retired': retired,
   };
 }

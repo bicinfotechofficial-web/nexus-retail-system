@@ -1,6 +1,6 @@
 # QA Agent Brief
 
-**You own:** `test/e2e/` and `docs/QA-FINDINGS.md`
+**You own:** `test/e2e/`, `apps/pos/integration_test/` and `docs/QA-FINDINGS.md`
 **Branch:** `agent/qa`
 **Read first:** `docs/agents/README.md`, then every doc in `docs/`, most of all `01-MVP-SCOPE` (the acceptance list) and `03-SYNC-AND-OFFLINE`.
 
@@ -12,8 +12,8 @@ QA-1 test plan (start now) → QA-5 reconciliation → QA-3 → QA-2 → QA-4 �
 
 ## How to test
 - **QA-1:** `test/e2e/PLAN.md` maps every acceptance item in 01-MVP-SCOPE and every rule in 03-SYNC to a scenario, its setup, its steps and its expected result. The central agent reviews it before you build the scenarios.
-- **Pure logic (QA-5):** the summary-equals-the-docs property can be tested with `packages/core` alone (`SummaryDeltas`, the calculators) and later with the backend's `WritePlan` builders. Add it to `test/e2e` as a pure Dart test.
-- **Emulator scenarios (QA-2, QA-3, QA-4, QA-6)** need the real Firestore SDK, which runs only on a device or emulator. Write them as `integration_test` tests run on an Android emulator, against the Firebase emulator. Simulate two devices in one test with two named Firebase apps, each with its own Firestore instance, and use `disableNetwork()`/`enableNetwork()` for offline. These need the backend's implementations, so write them against the `nexus_data` interfaces and run them once BE-10 and BE-12 are merged. Until then, keep them ready but skipped, with the reason.
+- **Pure logic (QA-5):** the summary-equals-the-docs property is tested with `packages/core` alone in `test/e2e`, which stays pure Dart. To extend it to the backend's `WritePlan` builders, read the JSON plan fixtures the backend exports (D-027) instead of importing `nexus_data`.
+- **Emulator scenarios (QA-2, QA-3, QA-4, QA-6)** need the real Firestore SDK, which runs only on a device or emulator. Write them as `integration_test` tests in `apps/pos/integration_test/` (you own that folder; the POS agent owns the rest of `apps/pos/`), run on an Android emulator against the Firebase emulator. Simulate two devices in one test with two named Firebase apps, each with its own Firestore instance, and use `disableNetwork()`/`enableNetwork()` for offline. These need the backend's implementations, so write them against the `nexus_data` interfaces and run them once BE-10 and BE-12 are merged. Until then, keep them ready but skipped, with the reason.
 - **Denied paths (QA-4)** can also be proven in the Node rules harness (`firebase/`), but ask the backend agent to add them there rather than writing in their directory.
 
 ## Reviews (QA-7)

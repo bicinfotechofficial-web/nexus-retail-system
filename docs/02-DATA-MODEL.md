@@ -57,7 +57,7 @@ Seed data: `ADMIN`, `STORE_MANAGER`. Only the seeding script writes these. There
 | overrideExtensionHours | int | Default 2 |
 | maxDiscountPct | int \| null | null = no cap |
 | receiptFooter | string | e.g. "Thank you! Visit caramelcottage.in" |
-| nextDeviceNo | int | Incremented in a transaction when a device registers |
+| nextDeviceNo | int | The last device number handed out. 0 for a new location. Registration increments it by exactly 1 in a transaction and creates `D{new value}`. Nothing else writes it (D-004) |
 | active | bool | |
 
 ### locations/{loc}/devices/{deviceId}
@@ -68,7 +68,7 @@ Seed data: `ADMIN`, `STORE_MANAGER`. Only the seeding script writes these. There
 | label | string | e.g. "Counter 1 – Redmi" |
 | registeredBy, registeredAt | | |
 | lastSeenAt | Timestamp | Updated on each successful server round trip, at most once every 5 minutes |
-| lastBillSeq | int | Updated in the same batch as each bill. Used to recover the counter (see sync doc) |
+| lastBillSeq, lastMovementSeq, lastReturnSeq | int | Updated in the same batch as each bill, movement or return. They only go up, and they recover the local counters (03-SYNC §3) |
 | retired | bool | |
 
 ### locations/{loc}/stock/{itemKey}
@@ -79,20 +79,21 @@ Seed data: `ADMIN`, `STORE_MANAGER`. Only the seeding script writes these. There
 | refId | string | materialId or productId |
 | name | string | Copied from the product or material. Refreshed on the next write if it was renamed |
 | unit | `G` \| `ML` \| `PCS` | |
-| qty | int | **Written only with `increment()`**, except when the doc is created |
+| qty | int | **Written only with `increment()`**, never a literal value |
 | lowThreshold | int \| null | Set by the SM |
 | lastMovementId | string | The movement written in the same batch. The rules check it (see `04-PERMISSIONS.md` #8) |
 | updatedAt | Timestamp | |
 
-The doc is created with `qty: 0` and `set(..., merge: true)` the first time an item is used at a location. After that, `qty` changes only through increments.
+Every write is `set(..., merge: true)` with `qty: increment(delta)`. The first use at a location creates the doc (an increment on a missing field starts from 0), and a device that doesn't have the doc cached can never reset another device's quantity (D-005). `kind`, `refId`, `name` and `unit` are written with it.
 
 ### locations/{loc}/movements/{movementId}
 `movementId` = `{deviceId}-M{seq:6}` (e.g. `D01-M000042`), using a separate per-device movement counter. For movements caused by a bill, return or cancellation, the ID is `{billId}` / `{returnId}` / `{billId}-X`.
 | Field | Type | Notes |
 |---|---|---|
 | type | enum | `STOCK_IN`, `STOCK_OUT_RAW`, `WASTAGE_RAW`, `PRODUCE`, `WASTAGE_FG`, `ADJUST`, `SALE`, `RETURN`, `CANCEL` |
-| lines | `[{itemKey, delta:int, before?:int, after?:int}]` | `before`/`after` are only set on ADJUST, taken from the device's local view |
+| lines | `[{itemKey, delta:int, before?:int, after?:int}]` | At most 20 (D-030). `before`/`after` are only set on ADJUST, taken from the device's local view |
 | reason | string \| null | Required for WASTAGE_*, ADJUST and CANCEL |
+| note | string \| null | Free text, e.g. the supplier on a STOCK_IN |
 | refId | string \| null | billId or returnId |
 | businessDate, clientCreatedAt, serverCreatedAt, createdBy, deviceId | | |
 
@@ -115,7 +116,9 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | cashTendered | int \| null | For showing change only |
 | status | `COMPLETED` \| `CANCELLED` | |
 | cancel | `{reason, by, at, businessDate}` \| null | `businessDate` must equal the bill's own (the same-day rule) |
-| returnedQty | map productId → int | Incremented by returns |
+| soldQty | map productId → int | The qty of each line, written at creation so the rules can cap returns (D-029) |
+| returnedQty | map productId → int | Starts empty. Incremented by returns, never with 0. Must stay ≤ `soldQty` |
+| lastReturnId | string \| null | The return that last raised `returnedQty`, written in the same batch |
 | servedBy | `{uid, name}` | |
 | businessDate, clientCreatedAt, serverCreatedAt | | |
 
@@ -140,7 +143,7 @@ Same shape for both. Every numeric field is written **only with `increment()`**.
 | grossSales | int — Σ subtotal |
 | discounts | int |
 | roundOff | int |
-| netSales | int — Σ total of completed bills |
+| netSales | int — Σ total of bills **created** that day, including ones cancelled later |
 | returns | int — Σ refundTotal |
 | cancelled | int — Σ total of bills cancelled that day |
 | byMode | map mode → int (net payments minus refunds) |
@@ -150,6 +153,8 @@ Same shape for both. Every numeric field is written **only with `increment()`**.
 | lastWriteRef | string — full path (from the database root) of the *new* doc created in the same batch: the bill, return, CANCEL movement (`{billId}-X`) or expense audit doc. The rules check it (`04-PERMISSIONS.md` #9) |
 
 Net revenue for a period = `netSales − returns − cancelled`. Profit = that figure − `expenses`.
+
+`grossSales`, `discounts`, `roundOff`, `billCount` and `netSales` are **as billed**: a cancellation doesn't reverse them; it adds to `cancelled` and `cancelCount`. `byMode` and `byProduct` are net of cancellations and returns. Reports show **net revenue** as the headline "Sales" figure, with cancellations and returns as their own lines.
 
 ## products/{productId}
 | Field | Type | Notes |
@@ -181,7 +186,7 @@ Net revenue for a period = `netSales − returns − cancelled`. Profit = that f
 When an expense is edited, `monthlySummary.expenses` is incremented by (new − old) in the same batch.
 
 ## auditLog/{auditId}
-`auditId` = the ID of the entity doc it covers, plus a suffix when that entity can have more than one audited event (e.g. `D01-000123-X` for a cancellation, `EXP-{id}-{ts}` for an expense edit).
+`auditId` for a location-scoped event = `{loc}-{entityId}` (`Ids.auditId`), because device codes repeat across locations (D-028): `PTB-D01-000123-X` for a cancellation, `PTB-D01-R000007` for a return, `PTB-D01-M000042` for a wastage or adjust. An offline override is `{loc}-{deviceId}-OVR-{millis}` with `entityPath` = the device doc. An expense create or edit is `EXP-{id}-{millis}`.
 | Field | Type |
 |---|---|
 | action | `STOCK_ADJUST`, `WASTAGE`, `BILL_CANCEL`, `RETURN`, `EXPENSE_CREATE`, `EXPENSE_UPDATE`, `PRICE_CHANGE`, `PRODUCT_APPROVE`, `USER_CREATE`, `USER_DISABLE`, `OFFLINE_OVERRIDE`, `THRESHOLD_CHANGE`, `LOCATION_UPDATE` |

@@ -49,8 +49,24 @@ abstract final class Ids {
   /// The RETURN movement of a return shares the return's ID.
   static String returnMovementId(String returnId) => returnId;
 
-  /// `D01-000123-X`: the CANCEL movement and the cancellation audit doc.
+  /// `D01-000123-X`: the CANCEL movement of a bill. Its audit doc is
+  /// `auditId(loc, cancelId(billId))`.
   static String cancelId(String billId) => '$billId-X';
+
+  /// `PTB-D01-000123-X`: the audit doc for a location-scoped entity (a
+  /// cancellation, return, wastage or adjust movement). `auditLog` is a root
+  /// collection and device codes repeat across locations, so the location
+  /// prefix keeps IDs unique (D-028).
+  static String auditId(String locationId, String entityId) =>
+      '${_loc(locationId)}-$entityId';
+
+  /// `PTB-D01-OVR-1790000000000`: one audit doc per offline PIN override,
+  /// which can be repeated (D-016, D-028).
+  static String overrideAuditId(
+    String locationId,
+    String deviceId,
+    DateTime at,
+  ) => '${_loc(locationId)}-${_dev(deviceId)}-OVR-${at.millisecondsSinceEpoch}';
 
   /// `EXP-{expenseId}-{millis}`: one audit doc per expense create or edit.
   static String expenseAuditId(String expenseId, DateTime at) =>

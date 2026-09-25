@@ -11,6 +11,16 @@ void main() {
       expect(Ids.saleMovementId('D01-000123'), 'D01-000123');
       expect(Ids.returnMovementId('D01-R000001'), 'D01-R000001');
       expect(Ids.cancelId('D01-000123'), 'D01-000123-X');
+      expect(Ids.auditId('PTB', 'D01-000123-X'), 'PTB-D01-000123-X');
+      expect(Ids.auditId('MNJ', 'D01-000123-X'), 'MNJ-D01-000123-X');
+      expect(
+        Ids.overrideAuditId(
+          'PTB',
+          'D02',
+          DateTime.fromMillisecondsSinceEpoch(9, isUtc: true),
+        ),
+        'PTB-D02-OVR-9',
+      );
       expect(Ids.deviceCode(1), 'D01');
       expect(Ids.deviceCode(99), 'D99');
       expect(Ids.rawItemKey('mix'), 'RM_mix');

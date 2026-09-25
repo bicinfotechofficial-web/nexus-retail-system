@@ -6,9 +6,9 @@ Five build agents work in parallel, each in its own session and on its own branc
 |---|---|---|---|
 | Backend | [BACKEND](BACKEND.md) | `firebase/`, `packages/data/` (except `src/api/`) | `agent/backend` |
 | Printer | [PRINTER](PRINTER.md) | `packages/printer/` (except `src/api.dart`) | `agent/printer` |
-| POS | [POS](POS.md) | `apps/pos/` | `agent/pos` |
+| POS | [POS](POS.md) | `apps/pos/` (except `integration_test/`) | `agent/pos` |
 | Admin | [ADMIN](ADMIN.md) | `apps/admin/` | `agent/admin` |
-| QA | [QA](QA.md) | `test/e2e/`, `docs/QA-FINDINGS.md` | `agent/qa` |
+| QA | [QA](QA.md) | `test/e2e/`, `apps/pos/integration_test/`, `docs/QA-FINDINGS.md` | `agent/qa` |
 
 ## Starting an agent (for Bicy)
 1. Open a new Claude Code session with this GitHub repo attached, so it can push to its branch.
