@@ -31,7 +31,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 ## Backend — `firebase/`, `packages/data/`
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
-| BE-1 | Rules test harness (Node, `@firebase/rules-unit-testing`, emulator) with fixtures for Admin, SM@PTB, SM@MNJ, a disabled user and an anonymous user | C-4 | S | An example test runs green | TODO |
+| BE-1 | Rules test harness (Node, `@firebase/rules-unit-testing`, emulator) with fixtures for Admin, SM@PTB, SM@MNJ, a disabled user and an anonymous user | C-4 | S | An example test runs green | REVIEW |
 | BE-2 | Rules: helper functions, default deny, `roles`, `users`, `locations`, `devices` (04-PERMISSIONS #1–4) | BE-1 | M | Allow and deny tests for each rule | TODO |
 | BE-3 | Rules: `bills` create, validation, cancel, returnedQty (#5–6) | BE-2 | L | Tests include a duplicate create (denied), a next-day cancel (denied) and a bad payment sum (denied) | TODO |
 | BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | TODO |
