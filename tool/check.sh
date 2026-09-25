@@ -27,9 +27,33 @@ done
 MEMBERS=(packages/core packages/data packages/printer apps/pos apps/admin test/e2e)
 # Pure Dart members. They must never depend on Flutter.
 PURE_DART=(packages/core test/e2e)
+# Money logic in packages/core must keep >= 95% line coverage (C-3).
+COVERAGE_MIN=95
+COVERAGE_FILES=(
+  lib/src/money.dart
+  lib/src/bill_calculator.dart
+  lib/src/return_calculator.dart
+  lib/src/summary_delta.dart
+)
 
 step() { printf '\n==> %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+
+# Prints line coverage for each gated file and fails below COVERAGE_MIN.
+check_coverage() {
+  local lcov="$1" f pct
+  for f in "${COVERAGE_FILES[@]}"; do
+    pct=$(awk -v want="$f" '
+      /^SF:/ { cur = substr($0, 4); gsub(/\\/, "/", cur); on = (cur ~ want "$") }
+      on && /^DA:/ { split(substr($0, 4), a, ","); total++; if (a[2] > 0) hit++ }
+      END { if (total == 0) print "none"; else printf "%.1f", 100 * hit / total }
+    ' "$lcov")
+    [[ "$pct" != none ]] || fail "no coverage data for packages/core/$f"
+    printf '   coverage %5s%%  %s\n' "$pct" "$f"
+    awk -v p="$pct" -v min="$COVERAGE_MIN" 'BEGIN { exit !(p >= min) }' \
+      || fail "packages/core/$f is below ${COVERAGE_MIN}% line coverage"
+  done
+}
 
 command -v flutter >/dev/null || fail "flutter is not on PATH (see B-3)"
 
@@ -89,6 +113,12 @@ for m in "${MEMBERS[@]}"; do
   echo "-- $m"
   if grep -Eq 'sdk: *flutter' "$m/pubspec.yaml"; then
     (cd "$m" && flutter test --no-pub --reporter=compact)
+  elif [[ "$m" == packages/core ]]; then
+    (cd "$m" && rm -rf .dart_tool/coverage \
+      && dart test --reporter=compact --coverage=.dart_tool/coverage \
+      && dart run coverage:format_coverage --lcov --report-on=lib \
+        --in=.dart_tool/coverage --out=.dart_tool/coverage/lcov.info >/dev/null)
+    check_coverage "$m/.dart_tool/coverage/lcov.info"
   else
     (cd "$m" && dart test --reporter=compact)
   fi

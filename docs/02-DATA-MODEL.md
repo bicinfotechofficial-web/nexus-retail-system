@@ -87,7 +87,7 @@ Seed data: `ADMIN`, `STORE_MANAGER`. Only the seeding script writes these. There
 The doc is created with `qty: 0` and `set(..., merge: true)` the first time an item is used at a location. After that, `qty` changes only through increments.
 
 ### locations/{loc}/movements/{movementId}
-`movementId` = `{deviceId}-M{seq}`, using a separate per-device movement counter. For movements caused by a bill, return or cancellation, the ID is `{billId}` / `{returnId}` / `{billId}-X`.
+`movementId` = `{deviceId}-M{seq:6}` (e.g. `D01-M000042`), using a separate per-device movement counter. For movements caused by a bill, return or cancellation, the ID is `{billId}` / `{returnId}` / `{billId}-X`.
 | Field | Type | Notes |
 |---|---|---|
 | type | enum | `STOCK_IN`, `STOCK_OUT_RAW`, `WASTAGE_RAW`, `PRODUCE`, `WASTAGE_FG`, `ADJUST`, `SALE`, `RETURN`, `CANCEL` |
@@ -104,7 +104,7 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 |---|---|---|
 | billNo | string | `PTB-D01-000123` |
 | deviceId, seq | string, int | |
-| lines | `[{productId, name, qty, unitPrice, lineTotal}]` | `name` and `unitPrice` are copied at the time of sale |
+| lines | `[{productId, name, qty, unitPrice, lineTotal}]` | `name` and `unitPrice` are copied at the time of sale. At most one line per product (D-024) |
 | subtotal | int | Σ lineTotal |
 | discount | `{type: FLAT\|PCT, value:int, amount:int}` \| null | `value` is paise for FLAT, whole % for PCT |
 | taxableValue | int | subtotal − discount.amount |
@@ -120,17 +120,17 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | businessDate, clientCreatedAt, serverCreatedAt | | |
 
 ### locations/{loc}/returns/{returnId}
-`returnId` = `{deviceId}-R{seq}`, using a separate per-device return counter.
+`returnId` = `{deviceId}-R{seq:6}` (e.g. `D01-R000007`), using a separate per-device return counter.
 | Field | Type | Notes |
 |---|---|---|
 | billId, billNo | string | |
-| lines | `[{productId, name, qty, amount}]` | `amount` is prorated: the line's share of the bill's net amount, rounded to the paise |
-| refundTotal | int | Σ amount, rounded to the nearest ₹1 |
+| lines | `[{productId, name, qty, amount}]` | `amount` is prorated from the line's share of the bill's net amount, cumulatively (D-024) |
+| refundTotal | int | Whole rupees, rounded cumulatively so a bill's refunds add up to its total (D-024) |
 | refunds | `[{mode, amount}]` | Σ == refundTotal. Any mix of modes |
 | reason | string | |
 | businessDate, createdBy, deviceId, clientCreatedAt, serverCreatedAt | | |
 
-Before creating a return, the client checks that `bill.returnedQty[p] + qty ≤ sold qty`.
+Before creating a return, the client checks that `bill.returnedQty[p] + qty ≤ sold qty`. `ReturnCalculator` in `packages/core` does this and all the return arithmetic.
 
 ### locations/{loc}/dailySummary/{YYYY-MM-DD} and monthlySummary/{YYYY-MM}
 Same shape for both. Every numeric field is written **only with `increment()`**.
@@ -144,7 +144,7 @@ Same shape for both. Every numeric field is written **only with `increment()`**.
 | returns | int — Σ refundTotal |
 | cancelled | int — Σ total of bills cancelled that day |
 | byMode | map mode → int (net payments minus refunds) |
-| byProduct | map productId → `{qty:int, amount:int}` |
+| byProduct | map productId → `{qty:int, amount:int}` — `amount` is net of the bill discount (D-024) |
 | expenses | int (monthly only) |
 | byExpenseCategory | map category → int (monthly only) |
 | lastWriteRef | string — full path (from the database root) of the *new* doc created in the same batch: the bill, return, CANCEL movement (`{billId}-X`) or expense audit doc. The rules check it (`04-PERMISSIONS.md` #9) |

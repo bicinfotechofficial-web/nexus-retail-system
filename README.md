@@ -2,7 +2,7 @@
 
 A multi-location cake shop POS, inventory and admin system. It has a Flutter Android POS app with offline billing and a Bluetooth thermal printer, a Flutter Web admin console, and Firebase (Firestore + Auth) on the Spark plan.
 
-**Status:** Phase 0. Contracts approved, monorepo scaffold in place (C-2). Next: `packages/core` (C-3) and Firebase wiring (C-4).
+**Status:** Phase 0. Contracts approved, scaffold (C-2) and `packages/core` (C-3) done. Next: Firebase wiring (C-4), then Phase 1 agents (C-5).
 
 ## Start here
 | Doc | What it defines |
@@ -35,7 +35,7 @@ Built and checked with Flutter **3.47.5** stable (Dart 3.13). On Windows, run th
 
 ```bash
 flutter pub get          # once, at the repo root; resolves every member
-tool/check.sh            # boundaries, format, analyze (fatal infos), tests
+tool/check.sh            # boundaries, format, analyze (fatal infos), tests, core coverage gate
 tool/check.sh --fix      # format in place, then check
 tool/check.sh --e2e      # also test/e2e and firebase rules tests; needs the emulator
 ```
