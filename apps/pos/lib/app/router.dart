@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
+import '../features/billing/billing_screen.dart';
 import '../features/placeholder_screen.dart';
 import 'destinations.dart';
 import 'providers.dart';
@@ -55,8 +56,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: Destinations.billing.path,
+        builder: (context, state) => const BillingScreen(),
+      ),
+      GoRoute(
+        path: Routes.payment,
         builder: (context, state) =>
-            const PlaceholderScreen(title: 'Billing', task: 'POS-4'),
+            const PlaceholderScreen(title: 'Payment', task: 'POS-5'),
       ),
       GoRoute(
         path: Destinations.bills.path,
