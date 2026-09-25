@@ -9,6 +9,11 @@ import 'package:nexus_data/nexus_data.dart';
 
 import 'helpers.dart';
 
+Finder inSwitcher(String text) => find.descendant(
+  of: find.byKey(const Key('location-switcher')),
+  matching: find.text(text),
+);
+
 void main() {
   late FakeBackend backend;
   setUp(() => backend = FakeBackend.seeded(today: testToday));
@@ -58,7 +63,7 @@ void main() {
     await tester.tap(find.text('Manjeri (MNJ)').last);
     await tester.pumpAndSettle();
     expect(find.text(LocationSwitcher.allLabel), findsNothing);
-    expect(find.text('Manjeri (MNJ)'), findsOneWidget);
+    expect(inSwitcher('Manjeri (MNJ)'), findsOneWidget);
   });
 
   testWidgets('a Store Manager sees only their location, without "All"', (
@@ -69,7 +74,7 @@ void main() {
 
     expect(find.byType(AdminShell), findsOneWidget);
     expect(find.text(LocationSwitcher.allLabel), findsNothing);
-    expect(find.text('Pattambi (PTB)'), findsOneWidget);
+    expect(inSwitcher('Pattambi (PTB)'), findsOneWidget);
     await tester.tap(find.byKey(const Key('location-switcher')));
     await tester.pumpAndSettle();
     expect(find.text('Manjeri (MNJ)'), findsNothing);
