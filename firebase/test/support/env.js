@@ -73,7 +73,7 @@ export async function seedFixtures(env) {
       writes.push(setDoc(doc(db, 'locations', id), loc));
     }
     for (const actor of Object.values(ACTORS)) {
-      if (!actor.uid) continue;
+      if (!actor.doc) continue;
       writes.push(
         setDoc(doc(db, 'users', actor.uid), {
           ...actor.doc,
@@ -91,7 +91,9 @@ export function dbAs(env, actorKey) {
   const actor = ACTORS[actorKey];
   if (!actor) throw new Error(`Unknown actor: ${actorKey}`);
   const ctx = actor.uid
-    ? env.authenticatedContext(actor.uid, { email: actor.doc.email })
+    ? env.authenticatedContext(actor.uid, {
+        email: actor.doc?.email ?? `${actor.uid}@example.test`,
+      })
     : env.unauthenticatedContext();
   return ctx.firestore();
 }

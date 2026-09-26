@@ -101,8 +101,11 @@ export const ROLES = {
 
 export const LOC = { PTB: 'PTB', MNJ: 'MNJ' };
 
-/** The PIN every fixture location uses for the offline override. */
-export const TEST_PIN = '2468';
+/**
+ * The PIN every fixture location uses for the offline override. PINs are at
+ * least 8 digits (Limits.minOverridePinDigits, D-031).
+ */
+export const TEST_PIN = '24681357';
 
 /** PBKDF2-SHA256, 100k iterations, `salt$hash` in base64 (02-DATA-MODEL). */
 export function hashPin(pin, salt) {
@@ -123,7 +126,8 @@ function location(code, name) {
     overrideExtensionHours: 2,
     maxDiscountPct: 20,
     receiptFooter: 'Thank you!',
-    nextDeviceNo: 1,
+    // The last device number handed out; 0 for a new location (D-004).
+    nextDeviceNo: 0,
     active: true,
   };
 }
@@ -136,7 +140,8 @@ export const LOCATIONS = {
 
 /**
  * The test actors. `uid: null` means an unauthenticated context. `doc` is the
- * users/{uid} doc seeded for that actor, without timestamps.
+ * users/{uid} doc seeded for that actor, without timestamps; null means no
+ * doc is seeded.
  */
 export const ACTORS = {
   admin: {
@@ -179,5 +184,7 @@ export const ACTORS = {
       active: false,
     },
   },
+  // Signed in, but no users/{uid} doc (sign-in reports noProfile).
+  noProfile: { uid: 'no-profile', doc: null },
   anonymous: { uid: null, doc: null },
 };
