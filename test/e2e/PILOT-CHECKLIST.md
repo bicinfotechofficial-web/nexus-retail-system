@@ -73,6 +73,7 @@ Keep every receipt in the envelope; you'll need them in step 14.
 | 4.5 | Try to save with payments that don't add up to the total. | The Save button stays off and the screen shows how much is remaining or over. | |
 | 4.6 | Tap Save twice very quickly on a new bill. | Only **one** bill is saved (check the Bills list: one new bill number, not two). | |
 | 4.7 | Open the Bills list, pick the bill from 4.1 and reprint it. | The reprint matches the first receipt and has a "REPRINT" line. | |
+| 4.8 | Lay the receipt from 4.3 (the longest so far) next to the on-screen preview of the same bill. | The same lines in the same order. No blank line and no line broken in two in the middle of the slip, and no stray letters or symbols between lines (QA-032). | |
 
 ## 5. Check the saved bill on the admin console
 **Proves:** #4 (the receipt matches the bill as saved on the server) and #5.
@@ -140,6 +141,9 @@ Keep every receipt in the envelope; you'll need them in step 14.
 | 11.1 | With internet on, make a new bill with 2 items on Phone A. Wait until both phones show ● Online. Turn airplane mode on for both. | | |
 | 11.2 | On Phone A, return 1 item of that bill. On Phone B, cancel the same bill. | Both phones allow it (they can't see each other). | |
 | 11.3 | Turn internet on for **Phone A first**, wait for ● Online, then Phone B. | Phone A has no sync errors. Phone B's sync-health screen shows **one sync error** for the cancel. On the admin console, the bill is not cancelled and its return counts once. Tell the customer only the return stands. | |
+| 11.4 | With internet on, make a new bill with **3 of one item** on Phone A. Wait until both phones show ● Online, then turn airplane mode on for both. On each phone, return **1** of that item. | Both phones allow it and print a return slip. | |
+| 11.5 | Turn internet on for Phone A first, wait for ● Online, then Phone B. | Phone A has no sync errors. Phone B's sync-health screen shows **one sync error** for its return (it was worked out from an out-of-date bill, D-029). On the admin console the bill shows 1 returned. Void Phone B's return slip. | |
+| 11.6 | On Phone B, now online, open the same bill and return 1 of the item again. Then return the last one. | Both are accepted. The three refunds that stand (steps 11.4 on Phone A, and 11.6) add up to exactly the bill total, never more. | |
 
 ## 12. Stock operations
 **Proves:** stock is recorded correctly (part of #1's "stock that is exactly correct").
