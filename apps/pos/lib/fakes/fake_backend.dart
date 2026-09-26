@@ -21,8 +21,14 @@ final class FakeBackend {
     SyncStatus syncStatus = const Online(),
     DateTime Function()? now,
   }) : auth = FakeAuthService(session),
-       sync = FakeSyncService(syncStatus),
        _now = now ?? DateTime.now {
+    sync = FakeSyncService(syncStatus, _now)..lastSyncAt = _now();
+    offline = FakeOfflineGuard(
+      now: _now,
+      lastSyncAt: () => sync.lastSyncAt,
+      location: () => auth.current?.location,
+    );
+    sync.onSynced = offline.synced;
     sales = FakeSalesService(
       auth: auth,
       bills: bills,
@@ -40,8 +46,8 @@ final class FakeBackend {
   final FakeSummaryRepository summaries = FakeSummaryRepository();
   late final FakeSalesService sales;
   late final FakeStock stock;
-  final FakeSyncService sync;
-  final FakeOfflineGuard offline = FakeOfflineGuard();
+  late final FakeSyncService sync;
+  late final FakeOfflineGuard offline;
   final FakeDeviceService device = FakeDeviceService();
   final FakePrinterService printer = FakePrinterService();
 

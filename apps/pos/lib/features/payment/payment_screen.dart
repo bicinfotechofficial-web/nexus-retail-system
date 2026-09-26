@@ -11,6 +11,7 @@ import '../../widgets/pos_scaffold.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_row.dart';
 import '../billing/cart.dart';
+import '../offline/billing_blocked.dart';
 
 enum _DiscountKind { none, flat, percent }
 
@@ -254,6 +255,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A block mid-payment swaps the page, keeping what was entered for
+    // after a sync or override (03-SYNC §7).
+    if (ref.watch(offlineViewProvider.select((v) => v.blocked)) && !_saving) {
+      return const PosScaffold(
+        title: 'Payment',
+        showDrawer: false,
+        body: BillingBlockedView(),
+      );
+    }
     final form = _form();
     final totals = form.totals;
     final location = _location;

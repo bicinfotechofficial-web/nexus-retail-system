@@ -6,6 +6,7 @@ import 'package:nexus_data/nexus_data.dart';
 import '../features/billing/billing_screen.dart';
 import '../features/bills/bill_detail_screen.dart';
 import '../features/bills/bills_screen.dart';
+import '../features/offline/sync_health_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/placeholder_screen.dart';
@@ -22,6 +23,9 @@ abstract final class Routes {
   static const String noAccess = '/no-access';
   static const String payment = '/payment';
   static const String billSaved = '/bill-saved';
+
+  /// Any signed-in user with a POS screen may open it.
+  static const String syncHealth = '/sync';
   static const String stockIn = '/stock/in';
   static const String stockOut = '/stock/out';
   static const String stockWastage = '/stock/wastage';
@@ -154,6 +158,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ThresholdScreen(itemKey: state.pathParameters['itemKey']!),
           ),
         ],
+      ),
+      GoRoute(
+        path: Routes.syncHealth,
+        builder: (context, state) => const SyncHealthScreen(),
       ),
       GoRoute(
         path: Destinations.summary.path,

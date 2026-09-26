@@ -22,17 +22,6 @@ Future<FakeBackend> openStock(WidgetTester tester, {FakeBackend? b}) async {
   return backend;
 }
 
-/// Chooses [label] in the dropdown under [key], scrolling its menu.
-Future<void> pick(WidgetTester tester, String key, String label) async {
-  await tapKey(tester, key);
-  final menu = find.byType(Scrollable).last;
-  final item = find.descendant(of: menu, matching: find.text(label));
-  await tester.dragUntilVisible(item, menu, const Offset(0, -100));
-  await tester.pumpAndSettle();
-  await tester.tap(item.last);
-  await tester.pumpAndSettle();
-}
-
 /// Scrolls the stock list until the row of [itemKey] is built.
 Future<void> showRow(WidgetTester tester, String itemKey) async {
   await tester.dragUntilVisible(

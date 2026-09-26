@@ -8,6 +8,7 @@ import '../../app/providers.dart';
 import '../../app/theme.dart';
 import '../../widgets/pos_scaffold.dart';
 import '../../widgets/total_row.dart';
+import '../offline/billing_blocked.dart';
 import 'cart.dart';
 
 /// The home screen: product grid by category, search, and the cart.
@@ -34,47 +35,49 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     final products = ref.watch(sellableProductsProvider);
     return PosScaffold(
       title: 'Billing',
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: TextField(
-              key: const Key('search'),
-              controller: _search,
-              decoration: InputDecoration(
-                hintText: 'Search items',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => setState(() {
-                          _search.clear();
-                          _query = '';
-                        }),
-                      ),
+      body: BillingGate(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+              child: TextField(
+                key: const Key('search'),
+                controller: _search,
+                decoration: InputDecoration(
+                  hintText: 'Search items',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setState(() {
+                            _search.clear();
+                            _query = '';
+                          }),
+                        ),
+                ),
+                onChanged: (v) => setState(() => _query = v.trim()),
               ),
-              onChanged: (v) => setState(() => _query = v.trim()),
             ),
-          ),
-          Expanded(
-            child: products.when(
-              data: _catalog,
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    "Couldn't load the catalog.\n$e",
-                    textAlign: TextAlign.center,
+            Expanded(
+              child: products.when(
+                data: _catalog,
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      "Couldn't load the catalog.\n$e",
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const CartPanel(),
-        ],
+            const CartPanel(),
+          ],
+        ),
       ),
     );
   }

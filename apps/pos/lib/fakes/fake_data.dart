@@ -447,43 +447,131 @@ final class FakeSummaryRepository implements SummaryRepository {
 }
 
 final class FakeSyncService implements SyncService {
-  FakeSyncService([SyncStatus initial = const Online()])
-    : _status = Latest(initial);
+  FakeSyncService([
+    SyncStatus initial = const Online(),
+    DateTime Function()? now,
+  ]) : _status = Latest(initial),
+       _now = now ?? DateTime.now;
 
   final Latest<SyncStatus> _status;
+  final Latest<List<SyncError>> _errors = Latest(const []);
+  final DateTime Function() _now;
+
+  /// Whether a sync pass can reach the server. When false, [syncNow] leaves
+  /// [lastSyncAt] where it was.
+  bool online = true;
+
+  /// Called after every sync pass that completed, e.g. to re-check the
+  /// offline limit.
+  void Function()? onSynced;
 
   /// Emits a new status to the app-bar chip.
   void emit(SyncStatus value) => _status.value = value;
+
+  /// A write the server rejected (03-SYNC §6.3).
+  void addError(SyncError error) => _errors.value = [..._errors.value, error];
 
   @override
   Stream<SyncStatus> get status => _status.stream;
 
   @override
-  Stream<List<SyncError>> get errors => Stream.value(const []);
+  Stream<List<SyncError>> get errors => _errors.stream;
 
   @override
   DateTime? lastSyncAt;
 
   int syncNowCalls = 0;
 
+  /// Marks a completed sync pass now: an interactive online sign-in and a
+  /// registration do this too (03-SYNC §6).
+  void markSynced() {
+    lastSyncAt = _now();
+    onSynced?.call();
+  }
+
   @override
   Future<void> syncNow() async {
     syncNowCalls++;
-    lastSyncAt = DateTime.now();
+    if (!online) return;
+    emit(const Online());
+    markSynced();
   }
 }
 
+/// The offline limit (03-SYNC §7) computed from [FakeSyncService.lastSyncAt]
+/// and the injected clock, like the real guard. [evaluate] re-checks it;
+/// tests call it after moving the clock.
 final class FakeOfflineGuard implements OfflineGuard {
-  FakeOfflineGuard({this.pin = defaultPin})
-    : assert(pin.length >= Limits.minOverridePinDigits);
+  FakeOfflineGuard({
+    this.pin = defaultPin,
+    DateTime Function()? now,
+    DateTime? Function()? lastSyncAt,
+    Location? Function()? location,
+    this.deviceId = Seed.deviceId,
+  }) : assert(pin.length >= Limits.minOverridePinDigits),
+       _now = now ?? DateTime.now,
+       _lastSyncAt = lastSyncAt ?? (() => null),
+       _location = location ?? (() => Seed.location);
 
   /// 8 digits, the minimum a location may use (D-031, QA-030).
   static const String defaultPin = '24681357';
 
   final String pin;
+  final String deviceId;
+  final DateTime Function() _now;
+  final DateTime? Function() _lastSyncAt;
+  final Location? Function() _location;
   final Latest<OfflineState> _state = Latest(const WithinLimit());
 
+  /// The end of the current PIN override, if any. Persisted by the real
+  /// guard (QA-025).
+  DateTime? overrideUntil;
+
+  /// Every [override] call's PIN, right or wrong.
+  final List<String> overrideCalls = [];
+
+  /// The OFFLINE_OVERRIDE audit IDs queued by successful overrides.
+  final List<String> auditIds = [];
+
+  /// Emits [value] as is, bypassing the clock.
   void emit(OfflineState value) => _state.value = value;
+
+  OfflineState get current => _state.value;
+
+  /// Recomputes the state from the clock, the last sync and any override,
+  /// and emits it.
+  OfflineState evaluate() {
+    final now = _now();
+    final until = overrideUntil;
+    final location = _location();
+    final limit = Duration(
+      hours: location?.offlineLimitHours ?? Location.defaultOfflineLimitHours,
+    );
+    final last = _lastSyncAt();
+    final OfflineState next;
+    if (until != null && now.isBefore(until)) {
+      next = NearLimit(until.difference(now));
+    } else if (last == null) {
+      next = const WithinLimit();
+    } else {
+      final elapsed = now.difference(last);
+      if (elapsed >= limit) {
+        next = const BillingBlocked();
+      } else if (elapsed * 5 >= limit * 4) {
+        next = NearLimit(limit - elapsed);
+      } else {
+        next = const WithinLimit();
+      }
+    }
+    _state.value = next;
+    return next;
+  }
+
+  /// A sync pass completed: an override is no longer needed.
+  void synced() {
+    overrideUntil = null;
+    evaluate();
+  }
 
   // `@override` would name the `override` method below, so use dart:core's.
   @core.override
@@ -491,10 +579,23 @@ final class FakeOfflineGuard implements OfflineGuard {
 
   @core.override
   Future<bool> override(String pin) async {
+    overrideCalls.add(pin);
     if (pin.length < Limits.minOverridePinDigits || pin != this.pin) {
       return false;
     }
-    _state.value = const WithinLimit();
+    final now = _now();
+    final location = _location();
+    overrideUntil = now.add(
+      Duration(
+        hours:
+            location?.overrideExtensionHours ??
+            Location.defaultOverrideExtensionHours,
+      ),
+    );
+    auditIds.add(
+      Ids.overrideAuditId(location?.code ?? Seed.locationId, deviceId, now),
+    );
+    evaluate();
     return true;
   }
 }

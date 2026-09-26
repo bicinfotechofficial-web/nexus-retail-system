@@ -127,3 +127,33 @@ final lowStockProvider = StreamProvider<List<StockItem>>((ref) {
 final rawMaterialsProvider = StreamProvider<List<RawMaterial>>(
   (ref) => ref.watch(catalogRepositoryProvider).watchRawMaterials(),
 );
+
+final offlineStateProvider = StreamProvider<OfflineState>(
+  (ref) => ref.watch(offlineGuardProvider).state,
+);
+
+final syncErrorsProvider = StreamProvider<List<SyncError>>(
+  (ref) => ref.watch(syncServiceProvider).errors,
+);
+
+/// The offline state, with a [NearLimit] countdown pinned to a deadline on
+/// the device clock when it arrives, so the banner keeps counting down
+/// between emissions and every screen shows the same time.
+final class OfflineView {
+  const OfflineView(this.state, this.deadline);
+
+  final OfflineState state;
+
+  /// When billing stops, for [NearLimit]; null otherwise.
+  final DateTime? deadline;
+
+  bool get blocked => state is BillingBlocked;
+}
+
+final offlineViewProvider = Provider<OfflineView>((ref) {
+  final state = ref.watch(offlineStateProvider).value ?? const WithinLimit();
+  final deadline = state is NearLimit
+      ? ref.read(clockProvider)().add(state.billingStopsIn)
+      : null;
+  return OfflineView(state, deadline);
+});

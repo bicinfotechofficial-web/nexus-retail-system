@@ -9,10 +9,26 @@ import 'package:nexus_pos/fakes/fake_backend.dart';
 /// 10:30 IST on 2026-09-26, as a UTC instant.
 final DateTime testNow = DateTime.utc(2026, 9, 26, 5);
 
+/// A device clock the test moves by hand.
+final class TestClock {
+  TestClock([DateTime? start]) : now = start ?? testNow;
+
+  DateTime now;
+
+  DateTime call() => now;
+
+  void advance(Duration d) => now = now.add(d);
+}
+
 FakeBackend fakeBackend({
   SessionContext? session,
   SyncStatus syncStatus = const Online(),
-}) => FakeBackend(session: session, syncStatus: syncStatus, now: () => testNow);
+  TestClock? clock,
+}) => FakeBackend(
+  session: session,
+  syncStatus: syncStatus,
+  now: clock?.call ?? () => testNow,
+);
 
 /// A Store Manager session whose role has only [permissions].
 SessionContext sessionWith(
@@ -123,4 +139,15 @@ Future<void> openBill(WidgetTester tester, FakeBackend b, String billId) async {
   await pumpPos(tester, backend: b);
   await openNav(tester, 'Bills');
   await tapKey(tester, 'bill-$billId');
+}
+
+/// Chooses [label] in the dropdown under [key], scrolling its menu.
+Future<void> pick(WidgetTester tester, String key, String label) async {
+  await tapKey(tester, key);
+  final menu = find.byType(Scrollable).last;
+  final item = find.descendant(of: menu, matching: find.text(label));
+  await tester.dragUntilVisible(item, menu, const Offset(0, -100));
+  await tester.pumpAndSettle();
+  await tester.tap(item.last);
+  await tester.pumpAndSettle();
 }

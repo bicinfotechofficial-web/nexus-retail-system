@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../app/destinations.dart';
 import '../app/providers.dart';
+import '../app/router.dart';
+import 'offline_banner.dart';
 import 'sync_chip.dart';
 
 /// The app bar with the sync chip, and the permission-aware drawer.
@@ -48,7 +50,16 @@ class PosScaffold extends ConsumerWidget {
         actions: [...actions, const SyncChip()],
       ),
       drawer: showDrawer ? const PosDrawer() : null,
-      body: SafeArea(bottom: bottom == null, child: body),
+      body: SafeArea(
+        bottom: bottom == null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const OfflineBanner(),
+            Expanded(child: body),
+          ],
+        ),
+      ),
       bottomNavigationBar: bottom == null ? null : SafeArea(child: bottom!),
     );
   }
@@ -73,11 +84,14 @@ class PosDrawer extends ConsumerWidget {
     final here = GoRouterState.of(context).uri.path;
     final selected = items.indexWhere((d) => d.path == here);
     final low = ref.watch(_visibleLowStockProvider);
+    final errors = ref.watch(syncErrorsProvider).value?.length ?? 0;
+    final syncIndex = session == null ? null : items.length;
+    final onSync = here == Routes.syncHealth;
     return NavigationDrawer(
-      selectedIndex: selected < 0 ? null : selected,
+      selectedIndex: onSync ? syncIndex : (selected < 0 ? null : selected),
       onDestinationSelected: (i) {
         Navigator.of(context).pop();
-        context.go(items[i].path);
+        context.go(i < items.length ? items[i].path : Routes.syncHealth);
       },
       children: [
         Padding(
@@ -107,6 +121,20 @@ class PosDrawer extends ConsumerWidget {
                 : Icon(d.icon),
             label: Text(d.label),
           ),
+        if (session != null) ...[
+          const Divider(indent: 28, endIndent: 28),
+          NavigationDrawerDestination(
+            key: const Key('nav-Sync health'),
+            icon: errors > 0
+                ? Badge(
+                    key: const Key('sync-errors-badge'),
+                    label: Text('$errors'),
+                    child: const Icon(Icons.sync_problem),
+                  )
+                : const Icon(Icons.sync),
+            label: const Text('Sync health'),
+          ),
+        ],
       ],
     );
   }
