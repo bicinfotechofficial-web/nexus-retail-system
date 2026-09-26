@@ -2,9 +2,10 @@
 /// D-012, D-014, D-024), for every day and month at every location and for
 /// all locations combined.
 ///
-/// A fixed-seed property test over random bills, same-day cancellations and
-/// partial or full returns across several days, a month boundary and two
-/// locations. The summaries are built only from `SummaryDeltas` (as the
+/// A fixed-seed property test over random bills (up to the 20-line cap,
+/// D-030), same-day cancellations, partial or full returns, and conflicting
+/// offline cancels and returns resolved first-to-sync-wins (D-029), across
+/// several days, a month boundary and two locations. The summaries are built only from `SummaryDeltas` (as the
 /// batches write them); the oracle below recomputes every figure from the
 /// bill and return documents alone, using the definitions in
 /// 02-DATA-MODEL and 00-DECISIONS.
@@ -73,6 +74,12 @@ void main() {
       'cancel after return refused': c.deniedCancelAfterReturn,
       'over-return refused': c.deniedOverReturns,
       'return on cancelled bill refused': c.deniedReturnOnCancelled,
+      'bills over 10 lines': c.wideBills,
+      'bills at the 20-line cap': c.maxLineBills,
+      '21-line cart refused': c.deniedTooManyLines,
+      'stale cancel lost to a return': c.conflictCancelLost,
+      'stale return lost to a cancel': c.conflictReturnLost,
+      'stale return over soldQty lost': c.conflictOverReturnLost,
     };
     for (final e in reached.entries) {
       expect(e.value, greaterThanOrEqualTo(5), reason: e.key);
@@ -90,6 +97,42 @@ void main() {
           }
           for (final ret in sim.returnsAt(loc)) {
             checkReturn(ret);
+          }
+        }
+      });
+
+      test('bills stay within the list limits and carry soldQty (D-030)', () {
+        for (final loc in locations) {
+          for (final e in sim.billDocsAt(loc).entries) {
+            checkLimitsAndSoldQty(e.key, e.value);
+          }
+        }
+      });
+
+      test('returnedQty never exceeds soldQty, and a bill with a return is '
+          'never cancelled (D-025, D-029)', () {
+        for (final loc in locations) {
+          final returns = {for (final r in sim.returnsAt(loc)) r.id: r};
+          for (final e in sim.billDocsAt(loc).entries) {
+            checkReturnState(e.key, e.value, returns);
+          }
+        }
+      });
+
+      test('every lost conflict is a sync error and wrote nothing', () {
+        final c = sim.coverage;
+        expect(
+          sim.syncErrors.length,
+          c.conflictCancelLost +
+              c.conflictReturnLost +
+              c.conflictOverReturnLost,
+        );
+        for (final loc in locations) {
+          final returnIds = {for (final r in sim.returnsAt(loc)) r.id};
+          for (final path in sim.syncErrors) {
+            if (path.startsWith('${FirestorePaths.returns(loc)}/')) {
+              expect(returnIds, isNot(contains(path.split('/').last)));
+            }
           }
         }
       });
@@ -364,6 +407,63 @@ void checkReturn(SaleReturn r) {
   for (final l in r.lines) {
     expect(l.qty, greaterThan(0), reason: r.id);
     expect(l.amount.isNegative, isFalse, reason: r.id);
+  }
+}
+
+/// D-030 and 04-PERMISSIONS #6: at most 20 lines and 4 payments, and a
+/// stored `soldQty` with one key per line holding that line's qty.
+void checkLimitsAndSoldQty(String billId, Map<String, Object?> doc) {
+  final lines = (doc['lines']! as List).cast<Map<String, Object?>>();
+  expect(
+    lines.length,
+    inInclusiveRange(1, Limits.maxBillLines),
+    reason: billId,
+  );
+  expect(
+    (doc['payments']! as List).length,
+    lessThanOrEqualTo(Limits.maxPayments),
+    reason: billId,
+  );
+  expect(doc['soldQty'], {
+    for (final l in lines) l['productId']: l['qty'],
+  }, reason: '$billId soldQty = the qty of each line');
+}
+
+/// D-025, D-029: cumulative `returnedQty` stays within `soldQty` and never
+/// holds a 0; a cancelled bill has an empty `returnedQty`; `lastReturnId`
+/// names the bill's latest return.
+void checkReturnState(
+  String billId,
+  Map<String, Object?> doc,
+  Map<String, SaleReturn> returns,
+) {
+  final sold = (doc['soldQty']! as Map).cast<String, int>();
+  final returned = (doc['returnedQty']! as Map).cast<String, int>();
+  for (final e in returned.entries) {
+    expect(e.value, greaterThan(0), reason: '$billId never writes a 0');
+    expect(
+      e.value,
+      lessThanOrEqualTo(sold[e.key] ?? 0),
+      reason: '$billId ${e.key} returnedQty <= soldQty',
+    );
+  }
+  if (doc['status'] == BillStatus.cancelled.wire) {
+    expect(returned, isEmpty, reason: '$billId cancelled with a return');
+  }
+  final mine = [
+    for (final r in returns.values)
+      if (r.billId == billId) r,
+  ];
+  final last = doc['lastReturnId'] as String?;
+  if (mine.isEmpty) {
+    expect(last, isNull, reason: billId);
+  } else {
+    expect(returns[last]?.billId, billId, reason: '$billId lastReturnId');
+    expect(
+      returns[last]!.clientCreatedAt,
+      mine.map((r) => r.clientCreatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+      reason: '$billId lastReturnId is the latest return',
+    );
   }
 }
 
