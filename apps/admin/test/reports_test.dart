@@ -105,6 +105,8 @@ void main() {
     // 6,900 − 200 − 300.
     expect(_text(tester, 'total-net-revenue'), '₹6,400.00');
     expect(_text(tester, 'total-bills'), '15');
+    // The headline "Sales" is net revenue (QA-013).
+    expect(_text(tester, 'report-sales'), '₹6,400.00');
 
     expect(_text(tester, 'mode-CASH'), '₹3,000.00');
     expect(_text(tester, 'mode-UPI'), '₹1,700.00');

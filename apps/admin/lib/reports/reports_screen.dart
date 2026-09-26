@@ -188,7 +188,20 @@ class _ReportBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // The headline "Sales" is net revenue: billed minus returns and
+        // cancellations (02-DATA-MODEL summaries, QA-013).
         Text('Sales', style: theme.textTheme.titleMedium),
+        Text(
+          report.total.netRevenue.format(),
+          key: const Key('report-sales'),
+          style: theme.textTheme.headlineMedium,
+        ),
+        Text(
+          'Net revenue: billed, less returns and cancellations.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        Text('Breakdown', style: theme.textTheme.titleMedium),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
@@ -208,7 +221,7 @@ class _ReportBody extends StatelessWidget {
               line('gross', 'Gross sales', (s) => s.grossSales.format()),
               line('discounts', 'Discounts', (s) => (-s.discounts).format()),
               line('round-off', 'Round-off', (s) => s.roundOff.format()),
-              line('net-sales', 'Net sales', (s) => s.netSales.format()),
+              line('net-sales', 'Billed', (s) => s.netSales.format()),
               line(
                 'returns',
                 'Returns',
@@ -219,7 +232,11 @@ class _ReportBody extends StatelessWidget {
                 'Cancellations',
                 (s) => '${(-s.cancelled).format()} (${s.cancelCount})',
               ),
-              line('net-revenue', 'Net revenue', (s) => s.netRevenue.format()),
+              line(
+                'net-revenue',
+                'Sales (net revenue)',
+                (s) => s.netRevenue.format(),
+              ),
               line('bills', 'Bills', (s) => '${s.billCount}'),
             ],
           ),

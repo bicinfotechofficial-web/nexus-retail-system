@@ -90,6 +90,16 @@ void main() {
     expect(_text(tester, 'total-low-stock'), '3');
 
     expect(find.text('₹8,500.50'), findsNWidgets(2)); // KPI card and total
+    // The headline "Sales" is net revenue, not the as-billed figure.
+    final sales = find.byKey(const Key('kpi-net-revenue'));
+    expect(
+      find.descendant(of: sales, matching: find.text('Sales')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sales, matching: find.text('₹8,000.50')),
+      findsOneWidget,
+    );
     expect(find.text('flour · PTB'), findsOneWidget);
     expect(find.text('eggs · MNJ'), findsOneWidget);
     expect(find.text('cream · PTB'), findsNothing);

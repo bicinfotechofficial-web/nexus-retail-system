@@ -70,15 +70,16 @@ class DashboardScreen extends ConsumerWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _Kpi(
-              key: const Key('kpi-net-sales'),
-              label: 'Net sales',
-              value: total.netSales.format(),
-            ),
+            // The headline "Sales" is net revenue (QA-013).
             _Kpi(
               key: const Key('kpi-net-revenue'),
-              label: 'Net revenue',
+              label: 'Sales',
               value: total.netRevenue.format(),
+            ),
+            _Kpi(
+              key: const Key('kpi-net-sales'),
+              label: 'Billed',
+              value: total.netSales.format(),
             ),
             _Kpi(
               key: const Key('kpi-bills'),
@@ -106,11 +107,11 @@ class DashboardScreen extends ConsumerWidget {
             key: const Key('dashboard-table'),
             columns: const [
               DataColumn(label: Text('Location')),
-              DataColumn(label: Text('Net sales'), numeric: true),
+              DataColumn(label: Text('Sales'), numeric: true),
+              DataColumn(label: Text('Billed'), numeric: true),
               DataColumn(label: Text('Bills'), numeric: true),
               DataColumn(label: Text('Returns'), numeric: true),
               DataColumn(label: Text('Cancelled'), numeric: true),
-              DataColumn(label: Text('Net revenue'), numeric: true),
               DataColumn(label: Text('Low stock'), numeric: true),
             ],
             rows: [
@@ -160,11 +161,11 @@ class DashboardScreen extends ConsumerWidget {
       key: ValueKey(id),
       cells: [
         cell('location', label),
+        cell('net-revenue', s.netRevenue.format()),
         cell('net-sales', s.netSales.format()),
         cell('bills', '${s.billCount}'),
         cell('returns', '${s.returns.format()} (${s.returnCount})'),
         cell('cancelled', '${s.cancelled.format()} (${s.cancelCount})'),
-        cell('net-revenue', s.netRevenue.format()),
         cell('low-stock', '$low'),
       ],
     );
