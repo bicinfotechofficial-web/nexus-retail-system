@@ -10,8 +10,8 @@ rules_version = '2';
 //   the docs that rule is about.
 // - Evaluated expressions: at most 1000 per rule evaluation (per document in a
 //   batch). Unrolled per-line checks are what use it up: the largest bill
-//   (20 lines, 4 payments) and the largest return update (20 products) are
-//   the tight spots, and BE-6 tests them. Guard unrolled checks with ?: so
+//   (15 lines, 4 payments) and the largest return update (15 products) are
+//   the tight spots, and BE-6 tests them (D-030, CR-001). Guard unrolled checks with ?: so
 //   only the entries that exist are evaluated, and keep per-entry checks to
 //   what the contract needs.
 service cloud.firestore {
@@ -183,53 +183,48 @@ service cloud.firestore {
     // Line i: well formed, lineTotal = qty x unitPrice, and soldQty carries
     // exactly this line's qty. soldQty.size() == lines.size() then also rules
     // out two lines for one product (D-024).
-    // Per-line checks are unrolled up to the cap, but only the lines that
-    // exist are evaluated: each check is followed by `size() == n ? true : ...`
-    // (?: evaluates one branch; || and && evaluate both sides). Every
+    // Checks over list entries are unrolled up to the cap (15 lines on a
+    // bill, D-030), and only the entries that exist are evaluated: every
     // evaluated expression counts towards Firestore's limit of 1000 per rule
-    // evaluation, so a guard per slot for all 20 slots would not fit.
+    // evaluation (CR-001), so the unrolled code dispatches on size() with ?:
+    // rather than guarding each of the 15 slots.
 
-    // One bill line: soldQty carries exactly its qty for its product.
-    // soldQty.size() == lines.size() then rules out two lines for one
-    // product (D-024). Line arithmetic and positive quantities are the
-    // client's (BillCalculator): with 20 lines there's no budget for them,
-    // and soldQty only has to be right for the return cap (#5b).
-    // (Inlined below as `sold.get(ls[i].productId, -1) == ls[i].qty`.)
-    function billLinesFrom0(ls, sold) {
-      return sold.get(ls[0].productId, -1) == ls[0].qty
-          && (ls.size() == 1 ? true : sold.get(ls[1].productId, -1) == ls[1].qty
-          && (ls.size() == 2 ? true : sold.get(ls[2].productId, -1) == ls[2].qty
-          && (ls.size() == 3 ? true : sold.get(ls[3].productId, -1) == ls[3].qty
-          && (ls.size() == 4 ? true : sold.get(ls[4].productId, -1) == ls[4].qty
-          && (ls.size() == 5 ? true : billLinesFrom5(ls, sold))))));
+    // The soldQty a bill must carry: {productId: qty} built from its lines,
+    // one literal per line count. Two lines for one product collapse into
+    // one key, so the size check below catches them (D-024 (e), QA-033).
+    function soldFromLines1to5(ls) {
+      return ls.size() == 1 ? {ls[0].productId: ls[0].qty}
+        : ls.size() == 2 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty}
+        : ls.size() == 3 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty}
+        : ls.size() == 4 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty}
+        : ls.size() == 5 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty}
+        : soldFromLines6to10(ls);
     }
-    function billLinesFrom5(ls, sold) {
-      return sold.get(ls[5].productId, -1) == ls[5].qty
-          && (ls.size() == 6 ? true : sold.get(ls[6].productId, -1) == ls[6].qty
-          && (ls.size() == 7 ? true : sold.get(ls[7].productId, -1) == ls[7].qty
-          && (ls.size() == 8 ? true : sold.get(ls[8].productId, -1) == ls[8].qty
-          && (ls.size() == 9 ? true : sold.get(ls[9].productId, -1) == ls[9].qty
-          && (ls.size() == 10 ? true : billLinesFrom10(ls, sold))))));
+    function soldFromLines6to10(ls) {
+      return ls.size() == 6 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty}
+        : ls.size() == 7 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty}
+        : ls.size() == 8 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty}
+        : ls.size() == 9 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty}
+        : ls.size() == 10 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty}
+        : soldFromLines11to15(ls);
     }
-    function billLinesFrom10(ls, sold) {
-      return sold.get(ls[10].productId, -1) == ls[10].qty
-          && (ls.size() == 11 ? true : sold.get(ls[11].productId, -1) == ls[11].qty
-          && (ls.size() == 12 ? true : sold.get(ls[12].productId, -1) == ls[12].qty
-          && (ls.size() == 13 ? true : sold.get(ls[13].productId, -1) == ls[13].qty
-          && (ls.size() == 14 ? true : sold.get(ls[14].productId, -1) == ls[14].qty
-          && (ls.size() == 15 ? true : billLinesFrom15(ls, sold))))));
+    function soldFromLines11to15(ls) {
+      return ls.size() == 11 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty}
+        : ls.size() == 12 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty}
+        : ls.size() == 13 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty, ls[12].productId: ls[12].qty}
+        : ls.size() == 14 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty, ls[12].productId: ls[12].qty, ls[13].productId: ls[13].qty}
+        : {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty, ls[12].productId: ls[12].qty, ls[13].productId: ls[13].qty, ls[14].productId: ls[14].qty};
     }
-    function billLinesFrom15(ls, sold) {
-      return sold.get(ls[15].productId, -1) == ls[15].qty
-          && (ls.size() == 16 ? true : sold.get(ls[16].productId, -1) == ls[16].qty
-          && (ls.size() == 17 ? true : sold.get(ls[17].productId, -1) == ls[17].qty
-          && (ls.size() == 18 ? true : sold.get(ls[18].productId, -1) == ls[18].qty
-          && (ls.size() == 19 ? true : sold.get(ls[19].productId, -1) == ls[19].qty))));
-    }
+
+    // #6: 1-15 lines, one per product, and soldQty is exactly those
+    // products with those quantities, no key missing and none extra. Line
+    // arithmetic and positive quantities are the client's (BillCalculator);
+    // soldQty only has to be right for the return cap (#5b).
     function billLinesOk(ls, sold) {
-      return ls is list && ls.size() >= 1 && ls.size() <= 20
-        && sold is map && sold.size() == ls.size()
-        && billLinesFrom0(ls, sold);
+      let expected = ls is list && ls.size() >= 1 && ls.size() <= 15 ? soldFromLines1to5(ls) : null;
+      return expected != null
+        && expected.size() == ls.size()
+        && sold == expected;
     }
 
     // Payments (and refunds): at most 4, adding up to exactly [total]. An
@@ -327,15 +322,7 @@ service cloud.firestore {
           && (n == 11 ? true : returnedQtyOk(ks[11], rq, old, sold)
           && (n == 12 ? true : returnedQtyOk(ks[12], rq, old, sold)
           && (n == 13 ? true : returnedQtyOk(ks[13], rq, old, sold)
-          && (n == 14 ? true : returnedQtyOk(ks[14], rq, old, sold)
-          && (n == 15 ? true : returnedQtyFrom15(ks, n, rq, old, sold))))));
-    }
-    function returnedQtyFrom15(ks, n, rq, old, sold) {
-      return returnedQtyOk(ks[15], rq, old, sold)
-          && (n == 16 ? true : returnedQtyOk(ks[16], rq, old, sold)
-          && (n == 17 ? true : returnedQtyOk(ks[17], rq, old, sold)
-          && (n == 18 ? true : returnedQtyOk(ks[18], rq, old, sold)
-          && (n == 19 ? true : returnedQtyOk(ks[19], rq, old, sold)))));
+          && (n == 14 ? true : returnedQtyOk(ks[14], rq, old, sold)))));
     }
 
     // #5(b). A return raises returnedQty, tied to a return doc created in the

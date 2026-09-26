@@ -115,6 +115,16 @@ export function useRulesEnv() {
     env: null,
     db: (actorKey) => dbAs(t.env, actorKey),
     arrange: (fn) => arrange(t.env, fn),
+    /**
+     * Gives the actor a one-off role holding exactly [permissions], at the
+     * actor's own location, for a test that needs a single permission.
+     */
+    withPermissions: (actorKey, permissions) =>
+      arrange(t.env, async (db) => {
+        const roleId = `ONLY_${actorKey}`;
+        await setDoc(doc(db, 'roles', roleId), { name: 'Test', permissions, allLocations: false });
+        await setDoc(doc(db, 'users', ACTORS[actorKey].uid), { roleId }, { merge: true });
+      }),
   };
   beforeAll(async () => {
     t.env = await createRulesEnv();

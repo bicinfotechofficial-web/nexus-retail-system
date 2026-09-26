@@ -38,6 +38,12 @@ describe('fixtures', () => {
     );
   });
 
+  it('give the Cashier column and a stock counter only part of the permissions (QA-034)', () => {
+    expect([...ROLES[ROLE.CASHIER].permissions].sort()).toEqual(['bill.create', 'catalog.view', 'device.register']);
+    expect(ROLES[ROLE.STOCK_COUNTER].permissions).toContain('stock.adjust');
+    expect(ROLES[ROLE.STOCK_COUNTER].permissions).not.toContain('stock.move');
+  });
+
   it('cover Admin, SM@PTB, SM@MNJ, a disabled user, a user without a profile and an anonymous user', () => {
     expect(ACTORS.admin.doc).toMatchObject({ roleId: ROLE.ADMIN, locationId: null, active: true });
     expect(ACTORS.smPtb.doc).toMatchObject({ roleId: ROLE.STORE_MANAGER, locationId: LOC.PTB, active: true });
@@ -46,6 +52,8 @@ describe('fixtures', () => {
     expect(ACTORS.noProfile.uid).toBeTruthy();
     expect(ACTORS.noProfile.doc).toBeNull();
     expect(ACTORS.anonymous.uid).toBeNull();
+    expect(ACTORS.cashierPtb.doc).toMatchObject({ roleId: ROLE.CASHIER, locationId: LOC.PTB });
+    expect(ACTORS.counterPtb.doc).toMatchObject({ roleId: ROLE.STOCK_COUNTER, locationId: LOC.PTB });
   });
 
   it('hash the override PIN as salt$hash in base64', () => {
@@ -67,7 +75,7 @@ describe('emulator harness', () => {
       );
       counts = [roles.size, locations.size, users.size];
     });
-    expect(counts).toEqual([2, 2, 4]);
+    expect(counts).toEqual([4, 2, 6]);
   });
 
   it('starts every test from a clean database', async () => {

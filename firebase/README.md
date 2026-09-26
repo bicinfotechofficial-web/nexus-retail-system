@@ -29,7 +29,7 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 | Path | What it is |
 |---|---|
 | `test/support/fixtures.js` | Roles, locations and the test actors. Roles are parsed from `packages/core/lib/src/permissions.dart`, so they can't drift from the app's permission sets |
-| `test/support/env.js` | `useRulesEnv()`: one test environment per file, and a clean, seeded database before each test. `t.db('<actor>')` gives a client acting as that actor with the rules on; `t.arrange(fn)` writes setup state with the rules off |
+| `test/support/env.js` | `useRulesEnv()`: one test environment per file, and a clean, seeded database before each test. `t.db('<actor>')` gives a client acting as that actor with the rules on; `t.arrange(fn)` writes setup state with the rules off; `t.withPermissions(actor, perms)` narrows an actor's role |
 | `test/support/builders.js` | Doc builders (`makeBill`, `makeCancel`, ...) with consistent arithmetic, so a test only spells out the field it tampers with |
 | `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6) |
 
@@ -40,7 +40,11 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 | `smPtb` | `sm-ptb` | STORE_MANAGER | PTB | yes |
 | `smMnj` | `sm-mnj` | STORE_MANAGER | MNJ | yes |
 | `disabled` | `sm-ptb-disabled` | STORE_MANAGER | PTB | no |
+| `cashierPtb` | `cashier-ptb` | CASHIER: `catalog.view`, `bill.create`, `device.register` (the matrix's future column) | PTB | yes |
+| `counterPtb` | `counter-ptb` | STOCK_COUNTER: `catalog.view`, `stock.adjust` (no `stock.move`) | PTB | yes |
 | `noProfile` | `no-profile` | signed in, no `users` doc | — | — |
 | `anonymous` | — | not signed in | — | — |
+
+The two partial roles exist only in the tests, so each permission-gated rule can be shown to need its own permission (QA-034). For a single permission, `t.withPermissions('<actor>', [...])` gives that actor a one-off role holding exactly those.
 
 Both fixture locations start with `nextDeviceNo: 0` and use the offline override PIN `24681357`.

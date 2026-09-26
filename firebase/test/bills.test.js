@@ -58,6 +58,12 @@ describe('#5 bills: create', () => {
     await assertFails(create('smPtb', makeBill({ lines: [['puff-veg', 1, 2500]] })));
   });
 
+  it('needs bill.create: the Cashier may bill, the stock counter may not (QA-034)', async () => {
+    await assertSucceeds(create('cashierPtb', makeBill({ uid: ACTORS.cashierPtb.uid, userName: 'Cashier PTB' })));
+    const id2 = billId('D01', 2);
+    await assertFails(create('counterPtb', makeBill({ seq: 2, uid: ACTORS.counterPtb.uid }), LOC.PTB, id2));
+  });
+
   it('denies an SM creating a bill at another location', async () => {
     const bill = makeBill({ loc: LOC.MNJ });
     await assertFails(create('smPtb', bill, LOC.MNJ));
@@ -72,8 +78,8 @@ describe('#5 bills: create', () => {
 
 // ---- #6 validation ----------------------------------------------------
 // The rules check what #6 lists. Line arithmetic, positive quantities and
-// payment modes and signs are BillCalculator's: at 20 lines there's no room
-// for them in the 1000-expression budget (see firestore.rules).
+// payment modes and signs are BillCalculator's: the 1000-expression budget
+// goes to the checks #6 lists (see firestore.rules, CR-001).
 
 describe('#6 bills: validation', () => {
   it('accepts a discounted bill with round-off and a split payment', async () => {
@@ -146,22 +152,30 @@ describe('#6 bills: validation', () => {
     await assertFails(create('smPtb', { ...bill, soldQty: { 'cake-choco-1kg': 1, 'puff-egg': 2 } }));
   });
 
-  it('denies two lines for one product (D-024)', async () => {
-    const bill = makeBill({ lines: [['puff-veg', 1, 2550], ['puff-veg', 2, 2550]] });
-    // The builder's soldQty collapses to one key.
-    await assertFails(create('smPtb', { ...bill, payments: [{ mode: 'CASH', amount: bill.total }] }));
+  it('denies two lines for one product, whatever soldQty says (D-024 (e), QA-033)', async () => {
+    // Same qty on both lines, and an extra key to make the sizes match: the
+    // hand-built bill QA-033 found accepted.
+    const bill = makeBill({ lines: [['puff-veg', 1, 2550], ['puff-veg', 1, 2550]] });
+    await assertFails(create('smPtb', { ...bill, soldQty: { 'puff-veg': 1, 'cake-x': 5 } }));
+    await assertFails(create('smPtb', { ...bill, soldQty: { 'puff-veg': 2 } }));
+    await assertFails(create('smPtb', { ...bill, soldQty: { 'puff-veg': 1 } }));
   });
 
-  it('accepts 20 lines with 4 payments, the largest bill, and denies 21 lines (D-030)', async () => {
+  it('denies a soldQty key that is not on the bill, even with every line matched (QA-033)', async () => {
+    const bill = makeBill({ lines: [['cake-choco-1kg', 1, 65000]] });
+    await assertFails(create('smPtb', { ...bill, soldQty: { 'cake-choco-1kg': 1, 'cake-x': 5 } }));
+  });
+
+  it('accepts 15 lines with 4 payments, the largest bill, and denies 16 lines (D-030)', async () => {
     const payments = [
-      { mode: 'CASH', amount: 50000 },
-      { mode: 'UPI', amount: 50000 },
-      { mode: 'CARD', amount: 50000 },
-      { mode: 'WALLET', amount: 50000 },
+      { mode: 'CASH', amount: 40000 },
+      { mode: 'UPI', amount: 40000 },
+      { mode: 'CARD', amount: 40000 },
+      { mode: 'WALLET', amount: 30000 },
     ];
-    await assertSucceeds(create('smPtb', makeBill({ lines: manyLines(20), payments })));
+    await assertSucceeds(create('smPtb', makeBill({ lines: manyLines(15), payments })));
     const id2 = billId('D01', 2);
-    await assertFails(create('smPtb', makeBill({ seq: 2, lines: manyLines(21) }), LOC.PTB, id2));
+    await assertFails(create('smPtb', makeBill({ seq: 2, lines: manyLines(16) }), LOC.PTB, id2));
   });
 
   it('denies an empty bill', async () => {
@@ -193,6 +207,20 @@ describe('#5 bills: read', () => {
   it('lets the Admin read every location', async () => {
     await arrangeBill(makeBill({ loc: LOC.MNJ }), LOC.MNJ);
     await assertSucceeds(getDoc(billRef(t.db('admin'), LOC.MNJ)));
+  });
+
+  it('lets any one of report.own, bill.create and return.create read (QA-034)', async () => {
+    await arrangeBill();
+    await assertSucceeds(getDoc(billRef(t.db('cashierPtb'))));
+    await t.withPermissions('smPtb', ['report.own']);
+    await assertSucceeds(getDoc(billRef(t.db('smPtb'))));
+    await t.withPermissions('smPtb', ['return.create']);
+    await assertSucceeds(getDoc(billRef(t.db('smPtb'))));
+  });
+
+  it('denies a role with none of them at the same location', async () => {
+    await arrangeBill();
+    await assertFails(getDoc(billRef(t.db('counterPtb'))));
   });
 
   it("denies another location's SM and a disabled user", async () => {
@@ -272,11 +300,19 @@ describe('#5(a) bills: cancel', () => {
     await assertFails(updateDoc(billRef(t.db('smPtb')), { status: 'CANCELLED' }));
   });
 
-  it("denies another location's SM, and a user without bill.cancel", async () => {
+  it("denies another location's SM and a disabled user", async () => {
     await arrangeBill();
     await arrangeCancelDocs();
     await assertFails(cancel('smMnj'));
     await assertFails(cancel('disabled'));
+  });
+
+  it('needs bill.cancel itself: the Cashier (bill.create only) is denied, a bill.cancel-only role allowed (QA-034)', async () => {
+    await arrangeBill();
+    await arrangeCancelDocs();
+    await assertFails(cancel('cashierPtb'));
+    await t.withPermissions('counterPtb', ['bill.cancel']);
+    await assertSucceeds(cancel('counterPtb'));
   });
 
   it('lets the Admin cancel at any location', async () => {
@@ -308,6 +344,13 @@ describe('#5(b) bills: returnedQty', () => {
     await arrangeBill();
     await t.arrange((db) => setDoc(doc(db, 'locations', LOC.PTB, 'returns', RETURN_ID), { billId: ID }));
     await assertFails(updateDoc(billRef(t.db('smPtb')), { returnedQty: { 'puff-veg': 1 }, lastReturnId: RETURN_ID }));
+  });
+
+  it("denies raising returnedQty at another location or without return.create", async () => {
+    await arrangeBill();
+    const rq = { returnedQty: { 'puff-veg': 1 }, lastReturnId: 'D01-R000001' };
+    await assertFails(updateDoc(billRef(t.db('smMnj')), rq));
+    await assertFails(updateDoc(billRef(t.db('cashierPtb')), rq));
   });
 
   it('denies changing anything else with returnedQty', async () => {
