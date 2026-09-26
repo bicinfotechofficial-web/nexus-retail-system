@@ -1,8 +1,10 @@
 /// Size limits that keep every write batch within the Firestore rules
 /// budget and let the rules check lists without loops (D-030).
 abstract final class Limits {
-  /// Lines on one bill. Each line is a stock doc in the bill's batch.
-  static const int maxBillLines = 20;
+  /// Lines on one bill, and so on one return. Each line is a stock doc in
+  /// the batch, and the rules unroll per-line checks, which must stay under
+  /// Firestore's 1000-expression limit per evaluation (CR-001).
+  static const int maxBillLines = 15;
 
   /// Lines on one stock movement (STOCK_IN, PRODUCE, ...).
   static const int maxMovementLines = 20;

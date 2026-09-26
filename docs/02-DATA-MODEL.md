@@ -105,7 +105,7 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 |---|---|---|
 | billNo | string | `PTB-D01-000123` |
 | deviceId, seq | string, int | |
-| lines | `[{productId, name, qty, unitPrice, lineTotal}]` | `name` and `unitPrice` are copied at the time of sale. At most one line per product (D-024) |
+| lines | `[{productId, name, qty, unitPrice, lineTotal}]` | `name` and `unitPrice` are copied at the time of sale. At most one line per product (D-024), and at most 15 lines (D-030) |
 | subtotal | int | Σ lineTotal |
 | discount | `{type: FLAT\|PCT, value:int, amount:int}` \| null | `value` is paise for FLAT, whole % for PCT |
 | taxableValue | int | subtotal − discount.amount |
