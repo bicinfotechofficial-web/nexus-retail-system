@@ -13,6 +13,7 @@ import '../features/placeholder_screen.dart';
 import '../features/returns/return_screen.dart';
 import '../features/stock/movement_screens.dart';
 import '../features/stock/stock_screen.dart';
+import '../features/suggest/suggest_screen.dart';
 import '../features/summary/day_summary_screen.dart';
 import 'destinations.dart';
 import 'providers.dart';
@@ -158,6 +159,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ThresholdScreen(itemKey: state.pathParameters['itemKey']!),
           ),
         ],
+      ),
+      GoRoute(
+        path: Destinations.suggest.path,
+        builder: (context, state) => const SuggestScreen(),
       ),
       GoRoute(
         path: Routes.syncHealth,

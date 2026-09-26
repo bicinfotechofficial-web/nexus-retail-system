@@ -35,6 +35,7 @@ final class FakeBackend {
       summaries: summaries,
       now: _now,
     );
+    catalogService = FakeCatalogService(auth: auth, catalog: catalog);
     stock = FakeStock(auth: auth, catalog: catalog, now: _now)
       ..seed(Seed.locationId, Seed.stock);
   }
@@ -46,6 +47,7 @@ final class FakeBackend {
   final FakeSummaryRepository summaries = FakeSummaryRepository();
   late final FakeSalesService sales;
   late final FakeStock stock;
+  late final FakeCatalogService catalogService;
   late final FakeSyncService sync;
   late final FakeOfflineGuard offline;
   final FakeDeviceService device = FakeDeviceService();
@@ -61,6 +63,7 @@ final class FakeBackend {
     offlineGuardProvider.overrideWithValue(offline),
     deviceServiceProvider.overrideWithValue(device),
     printerServiceProvider.overrideWithValue(printer),
+    catalogServiceProvider.overrideWithValue(catalogService),
     stockRepositoryProvider.overrideWithValue(stock),
     stockServiceProvider.overrideWithValue(stock),
     clockProvider.overrideWithValue(_now),

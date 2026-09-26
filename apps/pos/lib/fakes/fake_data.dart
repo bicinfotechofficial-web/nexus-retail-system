@@ -84,6 +84,120 @@ final class FakeCatalogRepository implements CatalogRepository {
   Stream<List<RawMaterial>> watchRawMaterials() => _materials.stream;
 }
 
+/// Catalog writes in memory. Only [suggest] is used by the POS; the rest
+/// keep the interface complete.
+final class FakeCatalogService implements CatalogService {
+  FakeCatalogService({required this.auth, required this.catalog});
+
+  final FakeAuthService auth;
+  final FakeCatalogRepository catalog;
+  int _n = 0;
+
+  /// Every [suggest] call's name, including failed ones.
+  final List<String> suggestCalls = [];
+
+  /// When set, the next call throws it instead of saving.
+  Exception? failNext;
+
+  SessionContext _check(String permission) {
+    final session = auth.current;
+    if (session == null) throw const DataFailure(FailureReason.noProfile);
+    if (!session.can(permission)) {
+      throw const DataFailure(FailureReason.notPermitted);
+    }
+    final failure = failNext;
+    if (failure != null) {
+      failNext = null;
+      throw failure;
+    }
+    return session;
+  }
+
+  @override
+  Future<Product> suggest({
+    required String name,
+    required String category,
+    required Money proposedPrice,
+  }) async {
+    suggestCalls.add(name);
+    final session = _check(Permission.catalogSuggest);
+    final location = session.location;
+    if (location == null) throw const DataFailure(FailureReason.noProfile);
+    if (name.trim().isEmpty || category.trim().isEmpty) {
+      throw const DataFailure(FailureReason.ruleViolation, 'name, category');
+    }
+    if (!proposedPrice.isPositive) {
+      throw const DataFailure(FailureReason.ruleViolation, 'proposedPrice');
+    }
+    _n++;
+    final product = Product(
+      id: 'local-${location.code}-$_n',
+      name: name.trim(),
+      category: category.trim(),
+      scope: location.code,
+      status: ProductStatus.pending,
+      sortOrder: 1000 + _n,
+      createdBy: session.user.uid,
+      proposedPrice: proposedPrice,
+    );
+    catalog.products = [...catalog.products, product];
+    return product;
+  }
+
+  @override
+  Future<Product> save(Product product) async {
+    _check(Permission.catalogManage);
+    catalog.products = [
+      ...catalog.products.where((p) => p.id != product.id),
+      product,
+    ];
+    return product;
+  }
+
+  @override
+  Future<Product> approve({
+    required String productId,
+    required Money price,
+  }) async {
+    _check(Permission.catalogManage);
+    final p = catalog.products.where((p) => p.id == productId).firstOrNull;
+    if (p == null) throw DataFailure(FailureReason.notFound, productId);
+    final approved = Product(
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      price: price,
+      proposedPrice: p.proposedPrice,
+      unit: p.unit,
+      gstRate: p.gstRate,
+      scope: p.scope,
+      status: ProductStatus.active,
+      recipe: p.recipe,
+      sortOrder: p.sortOrder,
+      createdBy: p.createdBy,
+    );
+    return save(approved);
+  }
+
+  @override
+  Future<RawMaterial> addRawMaterial({
+    required String name,
+    required StockUnit unit,
+  }) async {
+    final session = _check(Permission.rawMaterialCreate);
+    _n++;
+    final m = RawMaterial(
+      id: 'rm-$_n',
+      name: name.trim(),
+      unit: unit,
+      active: true,
+      createdBy: session.user.uid,
+    );
+    catalog.rawMaterials = [...catalog.rawMaterials, m];
+    return m;
+  }
+}
+
 /// Creates bills, cancellations and returns in memory with the real core
 /// calculators (`BillCalculator`, `cancelBlocker`, `ReturnCalculator`,
 /// `SummaryDeltas`), like the real service.

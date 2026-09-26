@@ -157,3 +157,13 @@ final offlineViewProvider = Provider<OfflineView>((ref) {
       : null;
   return OfflineView(state, deadline);
 });
+
+/// PENDING suggestions from the session's location, awaiting approval.
+final pendingSuggestionsProvider = StreamProvider<List<Product>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref
+      .watch(catalogRepositoryProvider)
+      .watchPending()
+      .map((all) => all.where((p) => p.scope == loc).toList());
+});
