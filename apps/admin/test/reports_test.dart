@@ -55,6 +55,14 @@ FakeBackend _backend() {
           '2026-09': const Summary(netSales: Money.rupees(100000)),
         },
         'MNJ': {'2026-09': const Summary(netSales: Money.rupees(50000))},
+        // Kottakkal closed in August; its history stays (QA-031).
+        'KTL': {
+          '2026-07': const Summary(netSales: Money.rupees(40000)),
+          '2026-08': const Summary(
+            netSales: Money.rupees(30000),
+            returns: Money.rupees(500),
+          ),
+        },
       },
     ),
   );
@@ -144,14 +152,17 @@ void main() {
 
     await _tapTooltip(tester, 'Previous');
     expect(_text(tester, 'report-period'), 'August 2026');
-    expect(_text(tester, 'total-net-sales'), '₹90,000.00');
+    // PTB 90,000 + the closed KTL's 30,000.
+    expect(_text(tester, 'total-net-sales'), '₹1,20,000.00');
 
-    // Annual 2026 = its months only: 90,000 + 1,00,000 + 50,000.
+    // Annual 2026 = its months only: PTB 90,000 + 1,00,000, MNJ 50,000,
+    // KTL 40,000 + 30,000.
     await _tapText(tester, 'Annual');
     expect(_text(tester, 'report-period'), '2026');
     expect(_text(tester, 'PTB-net-sales'), '₹1,90,000.00');
     expect(_text(tester, 'MNJ-net-sales'), '₹50,000.00');
-    expect(_text(tester, 'total-net-sales'), '₹2,40,000.00');
+    expect(_text(tester, 'KTL-net-sales'), '₹70,000.00');
+    expect(_text(tester, 'total-net-sales'), '₹3,10,000.00');
 
     await _tapTooltip(tester, 'Previous');
     expect(_text(tester, 'report-period'), '2025');
@@ -171,5 +182,30 @@ void main() {
     expect(_text(tester, 'total-net-sales'), '₹2,000.00');
     expect(_text(tester, 'total-net-revenue'), '₹1,700.00');
     expect(_text(tester, 'top-0'), 'Red Velvet 1 kg');
+  });
+
+  testWidgets('a deactivated location keeps its history (QA-031)', (
+    tester,
+  ) async {
+    await _openReports(tester);
+    await _tapText(tester, 'Monthly');
+    await _tapTooltip(tester, 'Previous');
+
+    // In "All locations", as its own column, marked inactive.
+    expect(find.text('KTL (inactive)'), findsOneWidget);
+    expect(_text(tester, 'KTL-net-sales'), '₹30,000.00');
+    expect(_text(tester, 'KTL-net-revenue'), '₹29,500.00');
+
+    // And on its own, from the switcher.
+    await tester.tap(find.byKey(const Key('location-switcher')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kottakkal (KTL) (inactive)').last);
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'total-net-sales'), '₹30,000.00');
+    expect(_text(tester, 'report-sales'), '₹29,500.00');
+
+    // Last year's figure doesn't change when a store closes.
+    await _tapText(tester, 'Annual');
+    expect(_text(tester, 'total-net-sales'), '₹70,000.00');
   });
 }

@@ -4,15 +4,71 @@ import 'package:nexus_data/nexus_data.dart';
 import '../common/model_copies.dart';
 import 'fake_repositories.dart';
 
-/// The audit entries the fakes would have written, oldest first. The real
-/// data layer writes them in the same batch as the change (D-019).
-final class FakeAuditTrail {
-  final List<({AuditAction action, String entityId})> entries = [];
+/// The audit log of the fakes: [seeded] history plus the entries the fake
+/// services write. The real data layer writes each entry in the same batch
+/// as the change (D-019). Also the fake [AuditRepository].
+final class FakeAuditTrail implements AuditRepository {
+  FakeAuditTrail({List<AuditEntry> seeded = const [], this.clock})
+    : seeded = List.unmodifiable(seeded);
 
-  void add(AuditAction action, String entityId) =>
-      entries.add((action: action, entityId: entityId));
+  /// History that was there before the fakes started.
+  final List<AuditEntry> seeded;
 
-  List<AuditAction> get actions => [for (final e in entries) e.action];
+  /// Entries written since, oldest first.
+  final List<AuditEntry> written = [];
+  final DateTime Function()? clock;
+
+  /// Records an entry. [entityId] stands in for the path when no
+  /// [entityPath] is given.
+  void add(
+    AuditAction action,
+    String entityId, {
+    String? entityPath,
+    String? locationId,
+    Map<String, Object?>? before,
+    Map<String, Object?>? after,
+    String? reason,
+    String by = 'unknown',
+    String? id,
+  }) {
+    final now = (clock ?? DateTime.now)();
+    written.add(
+      AuditEntry(
+        id: id ?? '$entityId-${written.length}',
+        action: action,
+        entityPath: entityPath ?? entityId,
+        locationId: locationId,
+        before: before,
+        after: after,
+        reason: reason,
+        by: by,
+        at: now,
+        clientAt: now,
+      ),
+    );
+  }
+
+  /// The actions written since the fakes started, oldest first.
+  List<AuditAction> get actions => [for (final e in written) e.action];
+
+  /// The last query, for tests.
+  AuditQuery? lastQuery;
+
+  @override
+  Future<List<AuditEntry>> query(AuditQuery query) async {
+    lastQuery = query;
+    DateTime when(AuditEntry e) => e.at ?? e.clientAt;
+    final matches = [
+      for (final e in [...seeded, ...written])
+        if ((query.locationId == null || e.locationId == query.locationId) &&
+            (query.userId == null || e.by == query.userId) &&
+            (query.action == null || e.action == query.action) &&
+            (query.from == null || !when(e).isBefore(query.from!)) &&
+            (query.to == null || !when(e).isAfter(query.to!)))
+          e,
+    ]..sort((a, b) => when(b).compareTo(when(a)));
+    return matches.take(query.limit).toList();
+  }
 }
 
 String _uidOf(AuthService auth) => auth.current?.user.uid ?? 'unknown';
@@ -66,7 +122,14 @@ final class FakeCatalogService implements CatalogService {
     }
     final before = catalog.byId(product.id);
     if (before != null && before.price != product.price) {
-      audit.add(AuditAction.priceChange, product.id);
+      audit.add(
+        AuditAction.priceChange,
+        product.id,
+        entityPath: FirestorePaths.product(product.id),
+        before: {'price': before.price?.paise},
+        after: {'price': product.price?.paise},
+        by: _uidOf(auth),
+      );
     }
     final saved = product.copyWith(updatedAt: _now());
     catalog.put(saved);
@@ -92,7 +155,14 @@ final class FakeCatalogService implements CatalogService {
       updatedAt: _now(),
     );
     catalog.put(approved);
-    audit.add(AuditAction.productApprove, productId);
+    audit.add(
+      AuditAction.productApprove,
+      productId,
+      entityPath: FirestorePaths.product(productId),
+      before: {'status': p.status.wire, 'price': p.price?.paise},
+      after: {'status': approved.status.wire, 'price': price.paise},
+      by: _uidOf(auth),
+    );
     return approved;
   }
 
@@ -169,10 +239,27 @@ final class FakeLocationService implements LocationService {
       nextDeviceNo: existing?.nextDeviceNo ?? 0,
     );
     locations.put(stored);
-    audit.add(AuditAction.locationUpdate, location.code);
+    audit.add(
+      AuditAction.locationUpdate,
+      location.code,
+      entityPath: FirestorePaths.location(location.code),
+      locationId: location.code,
+      before: existing == null ? null : _locationFields(existing),
+      after: _locationFields(stored),
+    );
     return stored;
   }
 }
+
+/// The audited fields of a location. Never the PIN or its hash.
+Map<String, Object?> _locationFields(Location l) => {
+  'name': l.name,
+  'address': l.address,
+  'phone': l.phone,
+  'offlineLimitHours': l.offlineLimitHours,
+  'maxDiscountPct': l.maxDiscountPct,
+  'active': l.active,
+};
 
 final class FakeUserRepository implements UserRepository {
   FakeUserRepository(List<AppUser> users) : store = Watched(List.of(users));
@@ -249,7 +336,14 @@ final class FakeUserService implements UserService {
         location: loc,
       ),
     );
-    audit.add(AuditAction.userCreate, uid);
+    audit.add(
+      AuditAction.userCreate,
+      uid,
+      entityPath: FirestorePaths.user(uid),
+      locationId: locationId,
+      after: {'email': key, 'roleId': user.roleId, 'active': true},
+      by: _uidOf(auth),
+    );
     return user;
   }
 
@@ -273,7 +367,17 @@ final class FakeUserService implements UserService {
         ),
       );
     }
-    if (!active) audit.add(AuditAction.userDisable, uid);
+    if (!active) {
+      audit.add(
+        AuditAction.userDisable,
+        uid,
+        entityPath: FirestorePaths.user(uid),
+        locationId: user.locationId,
+        before: {'active': user.active},
+        after: {'active': false},
+        by: _uidOf(auth),
+      );
+    }
   }
 }
 

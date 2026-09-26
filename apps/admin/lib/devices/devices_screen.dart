@@ -63,7 +63,8 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
         [_location, switcher].nonNulls
             .where((c) => locations.any((l) => l.code == c))
             .firstOrNull ??
-        locations.first.code;
+        // A deactivated location has no working devices; open an active one.
+        (locations.where((l) => l.active).firstOrNull ?? locations.first).code;
     final now = ref.watch(clockProvider)();
     final async = ref.watch(devicesProvider(code));
     final devices = async.value;
@@ -89,7 +90,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                 for (final l in locations)
                   DropdownMenuItem(
                     value: l.code,
-                    child: Text('${l.name} (${l.code})'),
+                    child: Text(locationLabel(l)),
                   ),
               ],
               onChanged: (v) => setState(() => _location = v),

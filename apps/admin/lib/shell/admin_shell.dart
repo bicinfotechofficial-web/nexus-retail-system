@@ -35,7 +35,8 @@ class AdminShell extends ConsumerWidget {
       actions: [
         const LocationSwitcher(),
         const SizedBox(width: 8),
-        if (session != null)
+        // Narrow windows keep the room for the switcher.
+        if (session != null && wide)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Center(
@@ -102,7 +103,8 @@ class AdminShell extends ConsumerWidget {
 }
 
 /// "All locations" or a single one. Offers only the locations the session
-/// may report on, and "All" only with `report.all`.
+/// may report on, and "All" only with `report.all`. Deactivated locations
+/// are offered too, marked "(inactive)", for their history (QA-031).
 class LocationSwitcher extends ConsumerWidget {
   const LocationSwitcher({super.key});
 
@@ -134,7 +136,7 @@ class LocationSwitcher extends ConsumerWidget {
           for (final l in allowed)
             DropdownMenuItem<String?>(
               value: l.code,
-              child: Text('${l.name} (${l.code})'),
+              child: Text(locationLabel(l)),
             ),
         ],
       ),

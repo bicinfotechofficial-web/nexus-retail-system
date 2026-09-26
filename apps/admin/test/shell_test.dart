@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus_admin/data/providers.dart';
 import 'package:nexus_admin/fakes/fake_backend.dart';
 import 'package:nexus_admin/fakes/fake_repositories.dart';
 import 'package:nexus_admin/shell/admin_shell.dart';
@@ -128,5 +129,22 @@ void main() {
     await tester.tap(find.text('Reports').last);
     await tester.pumpAndSettle();
     expect(find.byType(NavigationDrawer), findsNothing);
+  });
+
+  test('reportable locations include deactivated ones (QA-031)', () {
+    final all = FakeBackend.seedLocations;
+    expect(
+      reportableLocations(FakeBackend.adminSession(), all).map((l) => l.code),
+      ['KTL', 'MNJ', 'PTB'],
+    );
+    expect(
+      reportableLocations(
+        FakeBackend.storeManagerSession('PTB'),
+        all,
+      ).map((l) => l.code),
+      ['PTB'],
+    );
+    expect(locationLabel(all.last), 'Kottakkal (KTL) (inactive)');
+    expect(locationLabel(all.first), 'Pattambi (PTB)');
   });
 }

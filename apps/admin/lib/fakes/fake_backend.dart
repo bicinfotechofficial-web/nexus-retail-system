@@ -5,6 +5,7 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 import '../data/providers.dart';
+import 'fake_expenses.dart';
 import 'fake_repositories.dart';
 import 'fake_services.dart';
 
@@ -19,31 +20,54 @@ final class FakeBackend {
     required this.catalog,
     FakeUserRepository? users,
     FakeDeviceService? devices,
+    FakeAuditTrail? audit,
+    List<Expense> expenses = const [],
   }) : users = users ?? FakeUserRepository(const []),
-       devices = devices ?? FakeDeviceService(const {}, locations) {
-    catalogService = FakeCatalogService(catalog, auth, audit);
-    locationService = FakeLocationService(locations, audit);
+       devices = devices ?? FakeDeviceService(const {}, locations),
+       audit = audit ?? FakeAuditTrail() {
+    this.expenses = FakeExpenses(
+      summaries: summaries,
+      locations: locations,
+      audit: this.audit,
+      auth: auth,
+    );
+    expenses.forEach(this.expenses.seed);
+    catalogService = FakeCatalogService(catalog, auth, this.audit);
+    locationService = FakeLocationService(locations, this.audit);
     userService = FakeUserService(
       users: this.users,
       auth: auth,
       locations: locations,
       storeManagerRole: storeManagerRole,
-      audit: audit,
+      audit: this.audit,
     );
   }
 
-  /// Two locations (PTB, MNJ), an Admin and Store Managers, a catalog with
-  /// two PENDING suggestions, three devices per location, and daily and
-  /// monthly summaries from the 1st of the month two months before [today]
-  /// up to [today]. Deterministic for a given [seed].
+  /// Two open locations (PTB, MNJ) and one closed in August (KTL), an Admin
+  /// and Store Managers, a catalog with two PENDING suggestions, three
+  /// devices per open location, daily and monthly summaries from the 1st of
+  /// the month two months before [today] up to [today] (KTL only until it
+  /// closed), each month's expenses (fed into the monthly summaries with
+  /// `SummaryDeltas.forExpense`), stock with a few low and one negative
+  /// item, and audit entries of every action. Deterministic for a given
+  /// [seed].
   factory FakeBackend.seeded({required String today, int seed = 42}) {
     final daily = <String, Map<String, Summary>>{};
     final monthly = <String, Map<String, Summary>>{};
+    final expenses = <Expense>[];
     final rng = Random(seed);
+    final dates = _dates(today).toList();
     for (final loc in seedLocations) {
-      final scale = loc.code == 'PTB' ? 10 : 7;
+      final scale = switch (loc.code) {
+        'PTB' => 10,
+        'MNJ' => 7,
+        _ => 5,
+      };
+      // A closed location has history up to its closing day only.
+      final last = loc.active ? today : BusinessDate.addDays(dates.first, 44);
       final days = <String, Summary>{};
-      for (final date in _dates(today)) {
+      for (final date in dates) {
+        if (date.compareTo(last) > 0) break;
         days[date] = _day(rng, scale);
       }
       daily[loc.code] = days;
@@ -52,9 +76,10 @@ final class FakeBackend {
         final key = BusinessDate.monthOf(e.key);
         months[key] = (months[key] ?? const Summary()) + e.value;
       }
-      monthly[loc.code] = {
-        for (final e in months.entries) e.key: e.value + _expenses(rng, scale),
-      };
+      monthly[loc.code] = months;
+      for (final month in months.keys) {
+        expenses.addAll(_expenses(rng, scale, loc.code, month, last));
+      }
     }
     final locations = FakeLocationRepository(seedLocations);
     final mnjManager = SessionContext(
@@ -68,7 +93,7 @@ final class FakeBackend {
         createdBy: 'admin-0001',
       ),
       role: storeManagerRole,
-      location: seedLocations.last,
+      location: seedLocations.firstWhere((l) => l.code == 'MNJ'),
     );
     const relief = AppUser(
       uid: 'sm-PTB-relief',
@@ -102,6 +127,8 @@ final class FakeBackend {
         relief,
       ]),
       devices: FakeDeviceService(_seedDevices(today), locations),
+      audit: FakeAuditTrail(seeded: _seedAudit(today)),
+      expenses: expenses,
     );
   }
 
@@ -116,7 +143,8 @@ final class FakeBackend {
   final FakeCatalogRepository catalog;
   final FakeUserRepository users;
   final FakeDeviceService devices;
-  final FakeAuditTrail audit = FakeAuditTrail();
+  final FakeAuditTrail audit;
+  late final FakeExpenses expenses;
   late final FakeCatalogService catalogService;
   late final FakeLocationService locationService;
 
@@ -134,6 +162,9 @@ final class FakeBackend {
     userRepositoryProvider.overrideWithValue(users),
     userServiceProvider.overrideWithValue(userService),
     deviceServiceProvider.overrideWithValue(devices),
+    expenseRepositoryProvider.overrideWithValue(expenses),
+    expenseServiceProvider.overrideWithValue(expenses),
+    auditRepositoryProvider.overrideWithValue(audit),
   ];
 
   static const Role adminRole = Role(
@@ -179,20 +210,22 @@ final class FakeBackend {
         location: seedLocations.firstWhere((l) => l.code == locationId),
       );
 
-  static Location location(String code, String name) => Location(
-    code: code,
-    name: name,
-    address: '$name, Kerala',
-    phone: '0466 000 0000',
-    overridePinHash: 'fake\$fake',
-    receiptFooter: 'Thank you! Visit caramelcottage.in',
-    nextDeviceNo: 3,
-    active: true,
-  );
+  static Location location(String code, String name, {bool active = true}) =>
+      Location(
+        code: code,
+        name: name,
+        address: '$name, Kerala',
+        phone: '0466 000 0000',
+        overridePinHash: 'fake\$fake',
+        receiptFooter: 'Thank you! Visit caramelcottage.in',
+        nextDeviceNo: 3,
+        active: active,
+      );
 
   static final List<Location> seedLocations = [
     location('PTB', 'Pattambi'),
     location('MNJ', 'Manjeri'),
+    location('KTL', 'Kottakkal', active: false),
   ];
 
   static Product product(String id, String name, String category, int rupees) =>
@@ -373,6 +406,15 @@ final class FakeBackend {
         2,
       ),
       _item(StockKind.finished, 'vegpuff', 'Veg Puff', StockUnit.pcs, 60, null),
+      // Sold offline past the last count; negative until the next adjust.
+      _item(
+        StockKind.finished,
+        'chocpastry',
+        'Chocolate Pastry',
+        StockUnit.pcs,
+        -3,
+        5,
+      ),
     ],
     'MNJ': [
       _item(StockKind.raw, 'flour', 'Flour', StockUnit.g, 12000, 5000),
@@ -485,19 +527,211 @@ final class FakeBackend {
     );
   }
 
-  static Summary _expenses(Random rng, int scale) {
-    final rent = Money.rupees(3500 * scale);
-    final salary = Money.rupees(6000 * scale);
-    final utilities = Money.rupees(600 * scale + 50 * rng.nextInt(40));
-    final other = Money.rupees(100 * rng.nextInt(50));
-    return Summary(
-      expenses: rent + salary + utilities + other,
-      byExpenseCategory: {
-        ExpenseCategory.rent: rent,
-        ExpenseCategory.salary: salary,
-        ExpenseCategory.utilities: utilities,
-        ExpenseCategory.other: other,
-      },
-    );
+  /// A month's rent, salaries, utilities and sundries at [loc], dated no
+  /// later than [last] (today, or the day a closed location shut).
+  static List<Expense> _expenses(
+    Random rng,
+    int scale,
+    String loc,
+    String month,
+    String last,
+  ) {
+    String on(int day) {
+      final d = '$month-${day.toString().padLeft(2, '0')}';
+      return d.compareTo(last) > 0 ? last : d;
+    }
+
+    Expense e(String kind, ExpenseCategory c, int rupees, int day, String n) =>
+        Expense(
+          id: 'seed-$loc-$month-$kind',
+          locationId: loc,
+          category: c,
+          amount: Money.rupees(rupees),
+          date: on(day),
+          note: n,
+          createdBy: 'admin-0001',
+        );
+
+    return [
+      e('rent', ExpenseCategory.rent, 3500 * scale, 1, 'Shop rent'),
+      e('salary', ExpenseCategory.salary, 6000 * scale, 1, 'Staff salaries'),
+      e(
+        'power',
+        ExpenseCategory.utilities,
+        600 * scale + 50 * rng.nextInt(40),
+        12,
+        'Electricity',
+      ),
+      e(
+        'other',
+        ExpenseCategory.other,
+        100 + 100 * rng.nextInt(50),
+        20,
+        'Packaging and sundries',
+      ),
+    ];
+  }
+
+  /// A few weeks of audit history with at least one entry of each action.
+  static List<AuditEntry> _seedAudit(String today) {
+    final start = BusinessDate.startOf(today);
+    var n = 0;
+    AuditEntry entry(
+      AuditAction action,
+      String? loc,
+      String entityPath,
+      String by,
+      Duration ago, {
+      Map<String, Object?>? before,
+      Map<String, Object?>? after,
+      String? reason,
+      String? deviceId,
+    }) {
+      final at = start.add(const Duration(hours: 10)).subtract(ago);
+      return AuditEntry(
+        id: 'seed-audit-${n++}',
+        action: action,
+        entityPath: entityPath,
+        locationId: loc,
+        before: before,
+        after: after,
+        reason: reason,
+        by: by,
+        deviceId: deviceId,
+        at: at,
+        clientAt: at,
+      );
+    }
+
+    const day = Duration(days: 1);
+    return [
+      entry(
+        AuditAction.locationUpdate,
+        'KTL',
+        FirestorePaths.location('KTL'),
+        'admin-0001',
+        day * 40,
+        before: {'name': 'Kottakkal', 'active': true},
+        after: {'name': 'Kottakkal', 'active': false},
+      ),
+      entry(
+        AuditAction.userCreate,
+        'MNJ',
+        FirestorePaths.user('sm-MNJ'),
+        'admin-0001',
+        day * 30,
+        after: {'email': 'manager.mnj@caramelcottage.in', 'active': true},
+      ),
+      entry(
+        AuditAction.userDisable,
+        'PTB',
+        FirestorePaths.user('sm-PTB-relief'),
+        'admin-0001',
+        day * 25,
+        before: {'active': true},
+        after: {'active': false},
+      ),
+      entry(
+        AuditAction.productApprove,
+        null,
+        FirestorePaths.product('cupcake6'),
+        'admin-0001',
+        day * 21,
+        before: {'status': 'PENDING', 'price': null, 'proposedPrice': 22000},
+        after: {'status': 'ACTIVE', 'price': 24000, 'proposedPrice': 22000},
+      ),
+      entry(
+        AuditAction.priceChange,
+        null,
+        FirestorePaths.product('bf1kg'),
+        'admin-0001',
+        day * 14,
+        before: {'price': 60000},
+        after: {'price': 65000},
+      ),
+      entry(
+        AuditAction.expenseCreate,
+        'PTB',
+        FirestorePaths.expense('seed-PTB-power'),
+        'admin-0001',
+        day * 12,
+        after: {'category': 'UTILITIES', 'amount': 620000, 'note': 'Power'},
+      ),
+      entry(
+        AuditAction.expenseUpdate,
+        'PTB',
+        FirestorePaths.expense('seed-PTB-power'),
+        'admin-0001',
+        day * 11,
+        before: {'category': 'UTILITIES', 'amount': 620000, 'note': 'Power'},
+        after: {
+          'category': 'UTILITIES',
+          'amount': 640000,
+          'note': 'Electricity',
+        },
+      ),
+      entry(
+        AuditAction.thresholdChange,
+        'MNJ',
+        FirestorePaths.stockItem('MNJ', 'RM_cream'),
+        'sm-MNJ',
+        day * 9,
+        before: {'lowThreshold': 2000},
+        after: {'lowThreshold': 3000},
+        deviceId: 'D01',
+      ),
+      entry(
+        AuditAction.stockAdjust,
+        'PTB',
+        FirestorePaths.movement('PTB', 'D01-M000041'),
+        'sm-PTB',
+        day * 6,
+        before: {'RM_flour': 5200},
+        after: {'RM_flour': 4000},
+        reason: 'Monthly count',
+        deviceId: 'D01',
+      ),
+      entry(
+        AuditAction.wastage,
+        'MNJ',
+        FirestorePaths.movement('MNJ', 'D01-M000017'),
+        'sm-MNJ',
+        day * 4,
+        after: {'FG_rv1kg': -1},
+        reason: 'Dropped while boxing',
+        deviceId: 'D01',
+      ),
+      entry(
+        AuditAction.offlineOverride,
+        'MNJ',
+        FirestorePaths.device('MNJ', 'D02'),
+        'sm-MNJ',
+        day * 3,
+        after: {'extensionHours': 24},
+        reason: 'Internet down at the shop',
+        deviceId: 'D02',
+      ),
+      entry(
+        AuditAction.billCancel,
+        'PTB',
+        FirestorePaths.bill('PTB', 'D02-000901'),
+        'sm-PTB',
+        day * 2,
+        before: {'status': 'COMPLETED', 'total': 70000},
+        after: {'status': 'CANCELLED', 'total': 70000},
+        reason: 'Wrong cake billed',
+        deviceId: 'D02',
+      ),
+      entry(
+        AuditAction.returned,
+        'PTB',
+        FirestorePaths.saleReturn('PTB', 'D01-R000007'),
+        'sm-PTB',
+        const Duration(hours: 5),
+        after: {'refundTotal': 6000, 'lines': 1},
+        reason: 'Pastry was stale',
+        deviceId: 'D01',
+      ),
+    ];
   }
 }
