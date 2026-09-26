@@ -1,0 +1,16 @@
+           TEST PRINT           
+--------------------------------
+Printer: BT-80 Counter          
+Paper: 58 mm, 32 columns        
+Character set: Test table with ₹
+Rupee sign: ₹                   
+--------------------------------
+12345678901234567890123456789012
+<                              >
+Amount              ₹1,23,456.78
+Bold text                       
+TOTAL               ₹1,23,456.78
+--------------------------------
+ Both < and > must show on one  
+ line. If not, change the paper 
+             width.             

@@ -72,6 +72,11 @@ void main() {
       expect(b.build().single.doubleHeight, isTrue);
     });
 
+    test('raw keeps spaces and does not wrap', () {
+      final b = LineBuilder(20)..raw('<${' ' * 18}>');
+      expect(texts(b), ['<                  >']);
+    });
+
     test('center pads on the left and fills to the width', () {
       final b = LineBuilder(20)..center('abcd');
       expect(texts(b), ['        abcd        ']);
