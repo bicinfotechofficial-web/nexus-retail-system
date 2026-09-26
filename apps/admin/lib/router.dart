@@ -11,6 +11,7 @@ import 'reports/reports_screen.dart';
 import 'shell/admin_shell.dart';
 import 'shell/destinations.dart';
 import 'shell/permission_guard.dart';
+import 'users/users_screen.dart';
 
 class _SessionChanges extends ChangeNotifier {
   void ping() => notifyListeners();
@@ -43,6 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           _guarded('/reports', const ReportsScreen()),
           _guarded('/catalog', const CatalogScreen()),
           _guarded('/locations', const LocationsScreen()),
+          _guarded('/users', const UsersScreen()),
         ],
       ),
     ],

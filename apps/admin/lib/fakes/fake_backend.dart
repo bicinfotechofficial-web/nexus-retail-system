@@ -119,7 +119,9 @@ final class FakeBackend {
   final FakeAuditTrail audit = FakeAuditTrail();
   late final FakeCatalogService catalogService;
   late final FakeLocationService locationService;
-  late final FakeUserService userService;
+
+  /// Replaceable, so a test can swap in a failing service.
+  late UserService userService;
 
   List<Override> get overrides => [
     authServiceProvider.overrideWithValue(auth),

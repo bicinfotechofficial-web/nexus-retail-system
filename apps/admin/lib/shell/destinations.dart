@@ -41,6 +41,12 @@ const List<Destination> destinations = [
     icon: Icons.storefront_outlined,
     anyOf: [Permission.locationManage],
   ),
+  Destination(
+    path: '/users',
+    label: 'Users',
+    icon: Icons.people_outline,
+    anyOf: [Permission.userManage],
+  ),
 ];
 
 Destination destinationFor(String path) => destinations.firstWhere(
