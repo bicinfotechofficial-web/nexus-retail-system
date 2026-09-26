@@ -67,7 +67,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | POS-6 | Receipt preview and print, reprint, print-failure handling (the bill is saved already, so offer a retry) | PR-5, POS-5 | S | Widget test | DONE |
 | POS-7 | Bills list for today and earlier dates, bill detail, same-day cancel with a reason | BE-11 | M | Widget tests | DONE |
 | POS-8 | Return flow: pick a bill, choose lines and qty (capped), refund split, print the return slip | POS-7 | M | Widget tests | DONE |
-| POS-9 | Stock hub: current stock (negatives in red), Stock In, Stock Out/Wastage, Produce (multi-line), Adjust (physical count), threshold editing, low-stock list and badge | BE-10, BE-11 | L | Widget tests for each operation | TODO |
+| POS-9 | Stock hub: current stock (negatives in red), Stock In, Stock Out/Wastage, Produce (multi-line), Adjust (physical count), threshold editing, low-stock list and badge | BE-10, BE-11 | L | Widget tests for each operation | REVIEW |
 | POS-10 | Suggest a local special | BE-10 | S | Widget test | TODO |
 | POS-11 | Day summary: totals, by mode, returns, cancellations | BE-11 | S | Widget test | DONE |
 | POS-12 | Offline banner, billing block screen, PIN override, sync-health screen with sync errors | BE-12, BE-13 | M | Widget tests with a fake clock | TODO |

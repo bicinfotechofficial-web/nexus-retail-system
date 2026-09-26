@@ -37,6 +37,15 @@ final deviceServiceProvider = Provider<DeviceService>(
 final printerServiceProvider = Provider<PrinterService>(
   (ref) => _notConfigured('PrinterService'),
 );
+final catalogServiceProvider = Provider<CatalogService>(
+  (ref) => _notConfigured('CatalogService'),
+);
+final stockRepositoryProvider = Provider<StockRepository>(
+  (ref) => _notConfigured('StockRepository'),
+);
+final stockServiceProvider = Provider<StockService>(
+  (ref) => _notConfigured('StockService'),
+);
 
 /// The device clock. Tests override it.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
@@ -99,4 +108,22 @@ final dailySummaryProvider = StreamProvider.autoDispose.family<Summary, String>(
     if (loc == null) return Stream.value(const Summary());
     return ref.watch(summaryRepositoryProvider).watchDaily(loc, businessDate);
   },
+);
+
+/// Every stock doc at the session's location. Quantities may be negative.
+final stockProvider = StreamProvider<List<StockItem>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref.watch(stockRepositoryProvider).watchStock(loc);
+});
+
+/// Items at or below their threshold at the session's location (D-015).
+final lowStockProvider = StreamProvider<List<StockItem>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref.watch(stockRepositoryProvider).watchLowStock(loc);
+});
+
+final rawMaterialsProvider = StreamProvider<List<RawMaterial>>(
+  (ref) => ref.watch(catalogRepositoryProvider).watchRawMaterials(),
 );

@@ -27,8 +27,23 @@ class PosScaffold extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final low = showDrawer ? ref.watch(_visibleLowStockProvider) : 0;
     return Scaffold(
       appBar: AppBar(
+        leading: showDrawer
+            ? Builder(
+                builder: (context) => IconButton(
+                  tooltip: 'Open navigation menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  icon: Badge(
+                    key: const Key('menu-badge'),
+                    isLabelVisible: low > 0,
+                    label: Text('$low'),
+                    child: const Icon(Icons.menu),
+                  ),
+                ),
+              )
+            : null,
         title: Text(title),
         actions: [...actions, const SyncChip()],
       ),
@@ -38,6 +53,13 @@ class PosScaffold extends ConsumerWidget {
     );
   }
 }
+
+/// How many items are low, for a session that may open Stock (D-015).
+final _visibleLowStockProvider = Provider<int>((ref) {
+  final session = ref.watch(sessionProvider).value;
+  if (session == null || !Destinations.stock.allowedFor(session)) return 0;
+  return ref.watch(lowStockProvider).value?.length ?? 0;
+});
 
 class PosDrawer extends ConsumerWidget {
   const PosDrawer({super.key});
@@ -50,6 +72,7 @@ class PosDrawer extends ConsumerWidget {
         : Destinations.allowedFor(session);
     final here = GoRouterState.of(context).uri.path;
     final selected = items.indexWhere((d) => d.path == here);
+    final low = ref.watch(_visibleLowStockProvider);
     return NavigationDrawer(
       selectedIndex: selected < 0 ? null : selected,
       onDestinationSelected: (i) {
@@ -75,7 +98,13 @@ class PosDrawer extends ConsumerWidget {
         for (final d in items)
           NavigationDrawerDestination(
             key: Key('nav-${d.label}'),
-            icon: Icon(d.icon),
+            icon: d == Destinations.stock && low > 0
+                ? Badge(
+                    key: const Key('low-stock-badge'),
+                    label: Text('$low'),
+                    child: Icon(d.icon),
+                  )
+                : Icon(d.icon),
             label: Text(d.label),
           ),
       ],

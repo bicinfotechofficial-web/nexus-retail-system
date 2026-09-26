@@ -5,36 +5,15 @@ import 'dart:core';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
+import 'latest.dart';
 import 'seed.dart';
 
 /// In-memory implementations of the `nexus_data` interfaces the POS uses.
 /// Same signatures as the real ones, so swapping them is a provider change.
 
-/// A stream that replays its latest value to every new listener.
-final class _Latest<T> {
-  _Latest(this._value);
-
-  T _value;
-  final StreamController<T> _changes = StreamController<T>.broadcast();
-
-  T get value => _value;
-
-  set value(T v) {
-    _value = v;
-    _changes.add(v);
-  }
-
-  Stream<T> get stream async* {
-    yield _value;
-    yield* _changes.stream;
-  }
-
-  Future<void> close() => _changes.close();
-}
-
 final class FakeAuthService implements AuthService {
   FakeAuthService([SessionContext? initial])
-    : _session = _Latest(
+    : _session = Latest(
         initial ??
             const SessionContext(
               user: Seed.storeManager,
@@ -43,7 +22,7 @@ final class FakeAuthService implements AuthService {
             ),
       );
 
-  final _Latest<SessionContext?> _session;
+  final Latest<SessionContext?> _session;
 
   @override
   Stream<SessionContext?> get session => _session.stream;
@@ -74,11 +53,16 @@ final class FakeAuthService implements AuthService {
 
 final class FakeCatalogRepository implements CatalogRepository {
   FakeCatalogRepository([List<Product>? products])
-    : _products = _Latest(products ?? Seed.products);
+    : _products = Latest(products ?? Seed.products);
 
-  final _Latest<List<Product>> _products;
+  final Latest<List<Product>> _products;
+  final Latest<List<RawMaterial>> _materials = Latest(Seed.rawMaterials);
 
+  List<Product> get products => _products.value;
   set products(List<Product> value) => _products.value = value;
+
+  List<RawMaterial> get rawMaterials => _materials.value;
+  set rawMaterials(List<RawMaterial> value) => _materials.value = value;
 
   @override
   Stream<List<Product>> watchSellable(String locationId) =>
@@ -97,7 +81,7 @@ final class FakeCatalogRepository implements CatalogRepository {
   );
 
   @override
-  Stream<List<RawMaterial>> watchRawMaterials() => Stream.value(const []);
+  Stream<List<RawMaterial>> watchRawMaterials() => _materials.stream;
 }
 
 /// Creates bills, cancellations and returns in memory with the real core
@@ -464,9 +448,9 @@ final class FakeSummaryRepository implements SummaryRepository {
 
 final class FakeSyncService implements SyncService {
   FakeSyncService([SyncStatus initial = const Online()])
-    : _status = _Latest(initial);
+    : _status = Latest(initial);
 
-  final _Latest<SyncStatus> _status;
+  final Latest<SyncStatus> _status;
 
   /// Emits a new status to the app-bar chip.
   void emit(SyncStatus value) => _status.value = value;
@@ -497,7 +481,7 @@ final class FakeOfflineGuard implements OfflineGuard {
   static const String defaultPin = '24681357';
 
   final String pin;
-  final _Latest<OfflineState> _state = _Latest(const WithinLimit());
+  final Latest<OfflineState> _state = Latest(const WithinLimit());
 
   void emit(OfflineState value) => _state.value = value;
 

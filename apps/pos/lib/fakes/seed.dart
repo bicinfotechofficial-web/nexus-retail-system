@@ -84,4 +84,91 @@ abstract final class Seed {
     sortOrder: sortOrder,
     createdBy: 'seed',
   );
+
+  static const List<RawMaterial> rawMaterials = [
+    RawMaterial(
+      id: 'flour',
+      name: 'Maida flour',
+      unit: StockUnit.g,
+      active: true,
+      createdBy: 'seed',
+    ),
+    RawMaterial(
+      id: 'sugar',
+      name: 'Sugar',
+      unit: StockUnit.g,
+      active: true,
+      createdBy: 'seed',
+    ),
+    RawMaterial(
+      id: 'butter',
+      name: 'Butter',
+      unit: StockUnit.g,
+      active: true,
+      createdBy: 'seed',
+    ),
+    RawMaterial(
+      id: 'eggs',
+      name: 'Eggs',
+      unit: StockUnit.pcs,
+      active: true,
+      createdBy: 'seed',
+    ),
+    RawMaterial(
+      id: 'cream',
+      name: 'Fresh cream',
+      unit: StockUnit.ml,
+      active: true,
+      createdBy: 'seed',
+    ),
+    // Never received at PTB yet, so it has no stock doc.
+    RawMaterial(
+      id: 'cocoa',
+      name: 'Cocoa powder',
+      unit: StockUnit.g,
+      active: true,
+      createdBy: 'seed',
+    ),
+  ];
+
+  /// Opening stock at [locationId]: some low, one negative (03-SYNC §5).
+  static List<StockItem> get stock => [
+    _raw('flour', 'Maida flour', StockUnit.g, 12000, 5000),
+    _raw('sugar', 'Sugar', StockUnit.g, 3000, 4000),
+    _raw('butter', 'Butter', StockUnit.g, 1500, null),
+    _raw('eggs', 'Eggs', StockUnit.pcs, 30, 36),
+    _raw('cream', 'Fresh cream', StockUnit.ml, 2000, 1000),
+    _fg('bf-500', 'Black Forest 500 g', 3, 2),
+    _fg('rv-pastry', 'Red Velvet Pastry', 6, null),
+    _fg('veg-puff', 'Veg Puff', -2, 10),
+    _fg('brownie', 'Walnut Brownie', 1, 4),
+    _fg('cc-muffin', 'Choco Chip Muffin', 8, 4),
+  ];
+
+  static StockItem _raw(
+    String id,
+    String name,
+    StockUnit unit,
+    int qty,
+    int? threshold,
+  ) => StockItem(
+    itemKey: Ids.rawItemKey(id),
+    kind: StockKind.raw,
+    refId: id,
+    name: name,
+    unit: unit,
+    qty: qty,
+    lowThreshold: threshold,
+  );
+
+  static StockItem _fg(String id, String name, int qty, int? threshold) =>
+      StockItem(
+        itemKey: Ids.finishedItemKey(id),
+        kind: StockKind.finished,
+        refId: id,
+        name: name,
+        unit: StockUnit.pcs,
+        qty: qty,
+        lowThreshold: threshold,
+      );
 }

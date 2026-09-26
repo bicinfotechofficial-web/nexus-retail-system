@@ -5,10 +5,12 @@ import 'package:nexus_data/nexus_data.dart';
 import '../app/providers.dart';
 import 'fake_data.dart';
 import 'fake_printer.dart';
+import 'fake_stock.dart';
 import 'seed.dart';
 
 export 'fake_data.dart';
 export 'fake_printer.dart';
+export 'fake_stock.dart';
 export 'seed.dart';
 
 /// Every fake, wired together, plus the provider overrides that install
@@ -27,6 +29,8 @@ final class FakeBackend {
       summaries: summaries,
       now: _now,
     );
+    stock = FakeStock(auth: auth, catalog: catalog, now: _now)
+      ..seed(Seed.locationId, Seed.stock);
   }
 
   final DateTime Function() _now;
@@ -35,6 +39,7 @@ final class FakeBackend {
   final FakeSalesRepository bills = FakeSalesRepository();
   final FakeSummaryRepository summaries = FakeSummaryRepository();
   late final FakeSalesService sales;
+  late final FakeStock stock;
   final FakeSyncService sync;
   final FakeOfflineGuard offline = FakeOfflineGuard();
   final FakeDeviceService device = FakeDeviceService();
@@ -50,6 +55,8 @@ final class FakeBackend {
     offlineGuardProvider.overrideWithValue(offline),
     deviceServiceProvider.overrideWithValue(device),
     printerServiceProvider.overrideWithValue(printer),
+    stockRepositoryProvider.overrideWithValue(stock),
+    stockServiceProvider.overrideWithValue(stock),
     clockProvider.overrideWithValue(_now),
   ];
 
