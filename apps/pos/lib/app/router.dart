@@ -11,6 +11,7 @@ import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/placeholder_screen.dart';
 import '../features/returns/return_screen.dart';
+import '../features/setup/device_setup_screen.dart';
 import '../features/stock/movement_screens.dart';
 import '../features/stock/stock_screen.dart';
 import '../features/suggest/suggest_screen.dart';
@@ -27,6 +28,9 @@ abstract final class Routes {
 
   /// Any signed-in user with a POS screen may open it.
   static const String syncHealth = '/sync';
+
+  /// First-run device setup (POS-3): register, then choose a printer.
+  static const String setup = '/setup';
   static const String stockIn = '/stock/in';
   static const String stockOut = '/stock/out';
   static const String stockWastage = '/stock/wastage';
@@ -61,8 +65,13 @@ abstract final class Routes {
   static const Set<String> _open = {starting, signedOut, noAccess};
 
   /// Where [session] may go instead of [path], or null to stay. Pure, so
-  /// the permission rules are tested without a widget tree.
-  static String? redirect(AsyncValue<SessionContext?> session, String path) {
+  /// the permission rules are tested without a widget tree. An install
+  /// that isn't registered yet goes to [setup] first (D-004).
+  static String? redirect(
+    AsyncValue<SessionContext?> session,
+    String path, {
+    bool deviceRegistered = true,
+  }) {
     if (!session.hasValue) {
       return path == starting ? null : starting;
     }
@@ -70,6 +79,9 @@ abstract final class Routes {
     if (s == null) return path == signedOut ? null : signedOut;
 
     final allowed = Destinations.allowedFor(s);
+    if (allowed.isNotEmpty && !deviceRegistered) {
+      return path == setup ? null : setup;
+    }
     final home = allowed.isEmpty ? noAccess : allowed.first.path;
     if (_open.contains(path)) return path == home ? null : home;
 
@@ -92,8 +104,16 @@ abstract final class Routes {
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     initialLocation: Destinations.billing.path,
-    redirect: (context, state) =>
-        Routes.redirect(ref.read(sessionProvider), state.uri.path),
+    redirect: (context, state) {
+      final session = ref.read(sessionProvider);
+      return Routes.redirect(
+        session,
+        state.uri.path,
+        // Read only once signed in: before that there may be no service.
+        deviceRegistered:
+            session.value == null || ref.read(deviceIdProvider) != null,
+      );
+    },
     routes: [
       GoRoute(
         path: Destinations.billing.path,
@@ -165,6 +185,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SuggestScreen(),
       ),
       GoRoute(
+        path: Routes.setup,
+        builder: (context, state) => const DeviceSetupScreen(),
+      ),
+      GoRoute(
         path: Routes.syncHealth,
         builder: (context, state) => const SyncHealthScreen(),
       ),
@@ -199,7 +223,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
-  ref.listen(sessionProvider, (_, _) => router.refresh());
+  ref
+    ..listen(sessionProvider, (_, _) => router.refresh())
+    ..listen(deviceIdProvider, (_, _) => router.refresh());
   ref.onDispose(router.dispose);
   return router;
 });

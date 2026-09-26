@@ -720,15 +720,31 @@ final class FakeDeviceService implements DeviceService {
   @override
   String? deviceId;
 
+  /// Whether registration can reach the server (it is online only).
+  bool online = true;
+
+  /// Called after a registration, which counts as a sync (03-SYNC §6).
+  void Function()? onRegistered;
+
+  /// Every [register] call as (locationId, label), including failed ones.
+  final List<(String, String)> registerCalls = [];
+
   @override
   Future<Device> register({
     required String locationId,
     required String label,
   }) async {
+    registerCalls.add((locationId, label));
+    if (!online) throw const DataFailure(FailureReason.offline);
+    if (label.trim().isEmpty) {
+      throw const DataFailure(FailureReason.ruleViolation, 'label');
+    }
+    // The fake sales service bills as Seed.deviceId, so hand out that code.
     deviceId = Seed.deviceId;
+    onRegistered?.call();
     return Device(
       code: Seed.deviceId,
-      label: label,
+      label: label.trim(),
       registeredBy: Seed.userId,
       lastBillSeq: 0,
       retired: false,

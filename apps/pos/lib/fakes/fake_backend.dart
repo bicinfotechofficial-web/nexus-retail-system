@@ -20,7 +20,9 @@ final class FakeBackend {
     SessionContext? session,
     SyncStatus syncStatus = const Online(),
     DateTime Function()? now,
+    bool registered = true,
   }) : auth = FakeAuthService(session),
+       device = FakeDeviceService(registered ? Seed.deviceId : null),
        _now = now ?? DateTime.now {
     sync = FakeSyncService(syncStatus, _now)..lastSyncAt = _now();
     offline = FakeOfflineGuard(
@@ -29,6 +31,7 @@ final class FakeBackend {
       location: () => auth.current?.location,
     );
     sync.onSynced = offline.synced;
+    device.onRegistered = sync.markSynced;
     sales = FakeSalesService(
       auth: auth,
       bills: bills,
@@ -50,7 +53,7 @@ final class FakeBackend {
   late final FakeCatalogService catalogService;
   late final FakeSyncService sync;
   late final FakeOfflineGuard offline;
-  final FakeDeviceService device = FakeDeviceService();
+  final FakeDeviceService device;
   final FakePrinterService printer = FakePrinterService();
 
   List<Override> get overrides => [
