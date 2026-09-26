@@ -52,7 +52,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | PR-1 | `ReceiptDocument` model (header, meta, lines, totals, discount, round-off, payments, optional GST block, footer) plus a `ReturnSlipDocument` | 02-DATA-MODEL | S | Reviewed by the central agent | DONE |
 | PR-2 | Text layout engine: 48 or 32 columns, left/right alignment, wrapping of long product names, money formatting ₹1,234.00 | PR-1 | M | Golden text tests pass | REVIEW |
 | PR-3 | ESC/POS encoder: init, bold, double height for the total, alignment, feed, cut, plus a code-page check for the ₹ glyph with a fallback to "Rs." | PR-2 | M | Byte-level golden tests | REVIEW |
-| PR-4 | Bluetooth Classic transport: permissions for Android 12+ and older, list paired devices, connect, write in chunks, timeout and reconnect, remember the printer | PR-3 | L | Works against a fake transport in tests. A real device is Bicy's check | TODO |
+| PR-4 | Bluetooth Classic transport: permissions for Android 12+ and older, list paired devices, connect, write in chunks, timeout and reconnect, remember the printer | PR-3 | L | Works against a fake transport in tests. A real device is Bicy's check | REVIEW |
 | PR-5 | `PrinterService` facade (`print(ReceiptDocument)`, status stream) plus a test-print screen widget | PR-4 | S | Widget test | TODO |
 | PR-6 | Golden set: normal bill, discount + split payment, return slip, cancelled-bill reprint (a "CANCELLED" banner), 58 mm and 80 mm | PR-3 | S | Goldens committed | TODO |
 
