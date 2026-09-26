@@ -168,3 +168,73 @@ export function stockWrite(itemKey, delta, lastMovementId, { name } = {}) {
     updatedAt: serverTimestamp(),
   };
 }
+
+/** An audit doc as the batches write it (02-DATA-MODEL auditLog). */
+export function makeAudit({
+  action,
+  entityPath,
+  locationId = LOC.PTB,
+  uid = ACTORS.smPtb.uid,
+  reason = null,
+  deviceId = 'D01',
+  before = null,
+  after = null,
+} = {}) {
+  return {
+    action,
+    entityPath,
+    locationId,
+    before,
+    after,
+    reason,
+    by: uid,
+    deviceId,
+    clientAt: Timestamp.now(),
+    at: serverTimestamp(),
+  };
+}
+
+/**
+ * The set(merge) data for a daily or monthly summary: `fields` are plain
+ * numbers that become increments; nested maps (byMode, byProduct) too.
+ */
+export function summaryWrite(lastWriteRef, fields = { billCount: 1, netSales: 70100 }) {
+  const toIncrements = (o) =>
+    Object.fromEntries(
+      Object.entries(o).map(([k, v]) => [k, typeof v === 'number' ? increment(v) : toIncrements(v)]),
+    );
+  return { ...toIncrements(fields), lastWriteRef };
+}
+
+/** A valid expense doc. */
+export function makeExpense({ locationId = LOC.PTB, amount = 1500000, category = 'RENT', uid = ACTORS.admin.uid } = {}) {
+  return {
+    locationId,
+    category,
+    amount,
+    date: TODAY,
+    note: 'September rent',
+    createdBy: uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
+/** A valid product doc. */
+export function makeProduct({ status = 'ACTIVE', price = 65000, proposedPrice = null, scope = 'GLOBAL', uid = ACTORS.admin.uid } = {}) {
+  return {
+    name: 'Black Forest 1 kg',
+    category: 'Cakes',
+    price,
+    proposedPrice,
+    unit: 'PCS',
+    gstRate: null,
+    scope,
+    status,
+    recipe: null,
+    sortOrder: 10,
+    createdBy: uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}

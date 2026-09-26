@@ -35,7 +35,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | BE-2 | Rules: helper functions, default deny, `roles`, `users`, `locations`, `devices` (04-PERMISSIONS #1–4) | BE-1 | M | Allow and deny tests for each rule | REVIEW |
 | BE-3 | Rules: `bills` create, validation, cancel, returnedQty (#5–6) | BE-2 | L | Tests include a duplicate create (denied), a next-day cancel (denied) and a bad payment sum (denied) | REVIEW |
 | BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | REVIEW |
-| BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | TODO |
+| BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | REVIEW |
 | BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | TODO |
 | BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Deploys to the emulator | TODO |
 | BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq`, `lastMovementSeq` and `lastReturnSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | TODO |
