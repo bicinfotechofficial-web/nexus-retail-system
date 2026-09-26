@@ -30,7 +30,8 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 |---|---|
 | `test/support/fixtures.js` | Roles, locations and the test actors. Roles are parsed from `packages/core/lib/src/permissions.dart`, so they can't drift from the app's permission sets |
 | `test/support/env.js` | `useRulesEnv()`: one test environment per file, and a clean, seeded database before each test. `t.db('<actor>')` gives a client acting as that actor with the rules on; `t.arrange(fn)` writes setup state with the rules off |
-| `test/*.test.js` | One file per rule group |
+| `test/support/builders.js` | Doc builders (`makeBill`, `makeCancel`, ...) with consistent arithmetic, so a test only spells out the field it tampers with |
+| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6) |
 
 ## Actors
 | Key | uid | Role | Location | Active |
@@ -39,6 +40,7 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 | `smPtb` | `sm-ptb` | STORE_MANAGER | PTB | yes |
 | `smMnj` | `sm-mnj` | STORE_MANAGER | MNJ | yes |
 | `disabled` | `sm-ptb-disabled` | STORE_MANAGER | PTB | no |
+| `noProfile` | `no-profile` | signed in, no `users` doc | — | — |
 | `anonymous` | — | not signed in | — | — |
 
-Both fixture locations use the offline override PIN `2468`.
+Both fixture locations start with `nextDeviceNo: 0` and use the offline override PIN `24681357`.
