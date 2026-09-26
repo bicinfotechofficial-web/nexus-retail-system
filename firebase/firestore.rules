@@ -486,6 +486,166 @@ service cloud.firestore {
         && stockChangeOk(loc, d.keys());
     }
 
+    // ---- #9 summaries ----------------------------------------------------
+
+    function summaryKeys() {
+      return ['billCount', 'cancelCount', 'returnCount', 'grossSales', 'discounts', 'roundOff',
+              'netSales', 'returns', 'cancelled', 'byMode', 'byProduct', 'expenses',
+              'byExpenseCategory', 'lastWriteRef'];
+    }
+
+    // #9. Every summary write names, in lastWriteRef, the doc that caused
+    // it: a bill, return or CANCEL movement at this location, or an expense
+    // audit doc. That doc must be new in this batch, which ties each
+    // increment to exactly one business event. The numbers themselves are
+    // increments the rules can't see; QA-5 reconciles them.
+    function validSummaryWrite(loc) {
+      let ref = incoming().lastWriteRef;
+      return activeAt(loc)
+        && incoming().keys().hasOnly(summaryKeys())
+        && ref is string
+        && (ref.matches('^locations/' + loc + '/(bills|returns|movements)/[A-Za-z0-9-]+$')
+          || ref.matches('^auditLog/EXP-[A-Za-z0-9_-]+$'))
+        && !exists(path('/databases/' + database + '/documents/' + ref))
+        && existsAfter(path('/databases/' + database + '/documents/' + ref));
+    }
+
+    // ---- #10 auditLog ------------------------------------------------------
+
+    function auditKeys() {
+      return ['action', 'entityPath', 'locationId', 'before', 'after', 'reason', 'by',
+              'deviceId', 'clientAt', 'at'];
+    }
+    // Actions only an Admin-style permission may record. The rest are
+    // recorded by whoever does the audited thing at the location.
+    function auditPermission(action) {
+      return action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'expense.manage'
+        : action in ['PRICE_CHANGE', 'PRODUCT_APPROVE'] ? 'catalog.manage'
+        : action in ['USER_CREATE', 'USER_DISABLE'] ? 'user.manage'
+        : action == 'LOCATION_UPDATE' ? 'location.manage'
+        : null;
+    }
+
+    // #10. Location-scoped IDs are {loc}-{entityId} (D-028); expense events
+    // are EXP-{expenseId}-{millis}.
+    function validNewAudit(auditId) {
+      let a = incoming();
+      let keys = auditKeys();
+      let p = auditPermission(a.action);
+      let expense = auditId.matches('^EXP-[A-Za-z0-9_-]+$');
+      return a.keys().hasOnly(keys)
+        && a.keys().size() == keys.size()
+        && a.action in ['STOCK_ADJUST', 'WASTAGE', 'BILL_CANCEL', 'RETURN', 'EXPENSE_CREATE',
+                        'EXPENSE_UPDATE', 'PRICE_CHANGE', 'PRODUCT_APPROVE', 'USER_CREATE',
+                        'USER_DISABLE', 'OFFLINE_OVERRIDE', 'THRESHOLD_CHANGE', 'LOCATION_UPDATE']
+        && (p == null ? active() : can(p))
+        && a.by == request.auth.uid
+        && a.at == request.time
+        && a.clientAt is timestamp
+        && a.entityPath is string
+        && (a.locationId == null || (isLocationCode(a.locationId) && atLoc(a.locationId)))
+        && (expense == (a.action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE']))
+        && (expense || a.locationId == null || auditId.matches('^' + a.locationId + '-.+$'));
+    }
+
+    // ---- #11 products and raw materials ------------------------------------
+
+    function productKeys() {
+      return ['name', 'category', 'price', 'proposedPrice', 'unit', 'gstRate', 'scope', 'status',
+              'recipe', 'sortOrder', 'createdBy', 'createdAt', 'updatedAt'];
+    }
+    function isSafeKey(s) {
+      return s.matches('^[A-Za-z0-9_-]{1,100}$');
+    }
+    function validProductFields(d) {
+      return d.name is string && d.name.size() > 0
+        && d.category is string
+        && (d.price == null || (d.price is int && d.price >= 0))
+        && (d.proposedPrice == null || (d.proposedPrice is int && d.proposedPrice >= 0))
+        && d.unit == 'PCS'
+        && d.status in ['ACTIVE', 'PENDING', 'INACTIVE']
+        && (d.scope == 'GLOBAL' || isLocationCode(d.scope))
+        && d.sortOrder is int
+        && d.updatedAt == request.time;
+    }
+    // A Store Manager's suggestion: PENDING, no price yet, scoped to their own
+    // location (D-008).
+    function isSuggestion(d) {
+      return can('catalog.suggest')
+        && d.status == 'PENDING'
+        && d.price == null
+        && d.scope == me().locationId;
+    }
+
+    // ---- #12 expenses --------------------------------------------------------
+
+    function validExpenseFields(d) {
+      return d.keys().hasOnly(['locationId', 'category', 'amount', 'date', 'note', 'createdBy', 'createdAt', 'updatedAt'])
+        && isLocationCode(d.locationId) && atLoc(d.locationId)
+        && d.category in ['RENT', 'SALARY', 'UTILITIES', 'OTHER']
+        && d.amount is int && d.amount >= 0
+        && isBusinessDate(d.date)
+        && d.note is string
+        && d.updatedAt == request.time;
+    }
+
+    match /auditLog/{auditId} {
+      // Admin-style roles read every location's entries; a role with
+      // audit.view scoped to one location reads only that location's.
+      allow read: if can('audit.view') && (role().allLocations == true || resource.data.locationId == me().locationId);
+      allow create: if validNewAudit(auditId);
+      allow update, delete: if false;
+    }
+
+    match /products/{productId} {
+      allow read: if can('catalog.view');
+      allow create: if isSafeKey(productId)
+        && incoming().keys().hasOnly(productKeys())
+        && incoming().keys().hasAll(productKeys())
+        && validProductFields(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && (can('catalog.manage') || isSuggestion(incoming()));
+      // Prices, approval, deactivation and edits (#11). createdBy and
+      // createdAt never change.
+      allow update: if can('catalog.manage')
+        && !changed().hasAny(['createdBy', 'createdAt'])
+        && incoming().keys().hasOnly(productKeys())
+        && validProductFields(incoming());
+      allow delete: if false;
+    }
+
+    match /rawMaterials/{materialId} {
+      allow read: if can('catalog.view');
+      allow create: if can('rawMaterial.create')
+        && isSafeKey(materialId)
+        && incoming().keys().hasOnly(['name', 'unit', 'active', 'createdBy'])
+        && incoming().name is string && incoming().name.size() > 0
+        && incoming().unit in ['G', 'ML', 'PCS']
+        && incoming().active == true
+        && incoming().createdBy == request.auth.uid;
+      // Renaming and deactivating are catalog management; the unit is fixed
+      // because stock quantities are counted in it.
+      allow update: if can('catalog.manage')
+        && changed().hasOnly(['name', 'active'])
+        && incoming().name is string && incoming().name.size() > 0
+        && incoming().active is bool;
+      allow delete: if false;
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if can('expense.manage') && atLoc(resource.data.locationId);
+      allow create: if can('expense.manage')
+        && isSafeKey(expenseId)
+        && validExpenseFields(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if can('expense.manage')
+        && !changed().hasAny(['createdBy', 'createdAt'])
+        && validExpenseFields(incoming());
+      allow delete: if false;
+    }
+
     match /locations/{loc} {
       allow read: if activeAt(loc);
 
@@ -536,6 +696,18 @@ service cloud.firestore {
         allow update: if activeAt(loc)
           && changed().hasOnly(['name', 'qty', 'lastMovementId', 'updatedAt', 'lowThreshold'])
           && stockChangeOk(loc, changed());
+        allow delete: if false;
+      }
+
+      match /dailySummary/{day} {
+        allow read: if canAt('report.own', loc);
+        allow create, update: if isBusinessDate(day) && validSummaryWrite(loc);
+        allow delete: if false;
+      }
+
+      match /monthlySummary/{month} {
+        allow read: if canAt('report.own', loc);
+        allow create, update: if month.matches('^[0-9]{4}-[0-9]{2}$') && validSummaryWrite(loc);
         allow delete: if false;
       }
 

@@ -1,10 +1,17 @@
 // Whole business batches (03-SYNC §2), hand-built for the rules tests until
-// BE-10's plan fixtures replace them. Summaries and audit docs are left out:
-// their rules arrive in BE-5, so tests arrange audit docs beforehand.
+// BE-10's plan fixtures replace them. By default they leave out summaries and
+// audit docs; pass `full: true` for the complete batch.
 
 import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
-import { makeMovement, stockWrite } from './builders.js';
+import { TODAY, makeAudit, makeCancel, makeMovement, stockWrite, summaryWrite } from './builders.js';
+
+/** Adds the daily and monthly summary increments for `ref` (#9). */
+export function addSummaries(b, db, { loc = LOC.PTB, ref, fields, date = TODAY }) {
+  b.set(doc(db, 'locations', loc, 'dailySummary', date), summaryWrite(ref, fields), { merge: true });
+  b.set(doc(db, 'locations', loc, 'monthlySummary', date.slice(0, 7)), summaryWrite(ref, fields), { merge: true });
+  return b;
+}
 
 const at = (db, loc, ...path) => doc(db, 'locations', loc, ...path);
 
@@ -25,7 +32,7 @@ export async function arrangeDevice(t, loc = LOC.PTB, counters = {}) {
 }
 
 /** Create bill: bill, FG stock decrements, SALE movement, device lastBillSeq. */
-export function billBatch(db, bill, { loc = LOC.PTB } = {}) {
+export function billBatch(db, bill, { loc = LOC.PTB, full = false } = {}) {
   const id = `${bill.deviceId}-${String(bill.seq).padStart(6, '0')}`;
   const b = writeBatch(db);
   b.set(at(db, loc, 'bills', id), bill);
@@ -43,6 +50,40 @@ export function billBatch(db, bill, { loc = LOC.PTB } = {}) {
     }),
   );
   b.set(at(db, loc, 'devices', bill.deviceId), { lastBillSeq: bill.seq }, { merge: true });
+  if (full) {
+    addSummaries(b, db, { loc, ref: `locations/${loc}/bills/${id}`, fields: { billCount: 1, netSales: bill.total } });
+  }
+  return b;
+}
+
+/**
+ * Cancel bill: bill update, FG stock increments, CANCEL movement, summaries
+ * and audit (the whole batch).
+ */
+export function cancelBatch(db, bill, { loc = LOC.PTB, uid = ACTORS.smPtb.uid, deviceId = 'D01' } = {}) {
+  const id = `${bill.deviceId}-${String(bill.seq).padStart(6, '0')}`;
+  const x = `${id}-X`;
+  const b = writeBatch(db);
+  b.update(at(db, loc, 'bills', id), { status: 'CANCELLED', cancel: makeCancel({ uid }) });
+  for (const l of bill.lines) {
+    b.set(at(db, loc, 'stock', `FG_${l.productId}`), stockWrite(`FG_${l.productId}`, l.qty, x), { merge: true });
+  }
+  b.set(
+    at(db, loc, 'movements', x),
+    makeMovement({
+      type: 'CANCEL',
+      lines: bill.lines.map((l) => [`FG_${l.productId}`, l.qty]),
+      refId: id,
+      reason: 'Customer changed order',
+      deviceId,
+      uid,
+    }),
+  );
+  addSummaries(b, db, { loc, ref: `locations/${loc}/movements/${x}`, fields: { cancelCount: 1, cancelled: bill.total } });
+  b.set(
+    doc(db, 'auditLog', `${loc}-${x}`),
+    makeAudit({ action: 'BILL_CANCEL', entityPath: `locations/${loc}/bills/${id}`, locationId: loc, uid, deviceId }),
+  );
   return b;
 }
 
@@ -50,7 +91,7 @@ export function billBatch(db, bill, { loc = LOC.PTB } = {}) {
  * Return: return doc, bill returnedQty + lastReturnId, FG stock increments,
  * RETURN movement, device lastReturnSeq.
  */
-export function returnBatch(db, { loc = LOC.PTB, rid, ret, returnedQty, seq }) {
+export function returnBatch(db, { loc = LOC.PTB, rid, ret, returnedQty, seq, full = false }) {
   const b = writeBatch(db);
   b.set(at(db, loc, 'returns', rid), ret);
   b.update(at(db, loc, 'bills', ret.billId), { returnedQty, lastReturnId: rid });
@@ -68,6 +109,13 @@ export function returnBatch(db, { loc = LOC.PTB, rid, ret, returnedQty, seq }) {
     }),
   );
   b.set(at(db, loc, 'devices', ret.deviceId), { lastReturnSeq: seq }, { merge: true });
+  if (full) {
+    addSummaries(b, db, { loc, ref: `locations/${loc}/returns/${rid}`, fields: { returnCount: 1, returns: ret.refundTotal } });
+    b.set(
+      doc(db, 'auditLog', `${loc}-${rid}`),
+      makeAudit({ action: 'RETURN', entityPath: `locations/${loc}/returns/${rid}`, locationId: loc, uid: ret.createdBy }),
+    );
+  }
   return b;
 }
 
