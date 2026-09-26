@@ -56,4 +56,52 @@ void main() {
       expect(find.byKey(const Key('retry-print')), findsOneWidget);
     });
   });
+
+  group('reprint from a past bill (POS-6)', () {
+    testWidgets('passes reprint: true and previews it', (tester) async {
+      final b = fakeBackend();
+      await addBill(b, {
+        'bf-500': 1,
+      }, at: testNow.subtract(const Duration(days: 1)));
+      await pumpPos(tester, backend: b);
+      await openNav(tester, 'Bills');
+      await tapKey(tester, 'date-prev');
+      await tapKey(tester, 'bill-D01-000001');
+
+      await tapKey(tester, 'view-receipt');
+      final preview = tester.widget<Text>(
+        find.byKey(const Key('receipt-text')),
+      );
+      expect(preview.data, contains('REPRINT'));
+      await tapKey(tester, 'close-preview');
+
+      await tapKey(tester, 'print-button');
+      expect(b.printer.printedBills.single.id, 'D01-000001');
+      expect(b.printer.reprintFlags, [true]);
+      expect(find.byKey(const Key('print-ok')), findsOneWidget);
+    });
+
+    testWidgets('a failed reprint offers a retry', (tester) async {
+      final b = fakeBackend();
+      await addBill(b, {'bf-500': 1});
+      await openBill(tester, b, 'D01-000001');
+      b.printer.nextResults.add(const PrintFailed('Printer is off'));
+      await tapKey(tester, 'print-button');
+      expect(textOf(tester, 'print-failed'), contains('Printer is off'));
+      await tapKey(tester, 'retry-print');
+      expect(find.byKey(const Key('print-ok')), findsOneWidget);
+      expect(b.printer.reprintFlags, [true, true]);
+    });
+
+    testWidgets('a cancelled bill reprints with its banner', (tester) async {
+      final b = fakeBackend();
+      final bill = await addBill(b, {'bf-500': 1});
+      await b.sales.cancelBill(billId: bill.id, reason: 'Duplicate');
+      await openBill(tester, b, bill.id);
+      await tapKey(tester, 'print-button');
+      expect(b.printer.printedBills.single.status.name, 'cancelled');
+      await tapKey(tester, 'view-receipt');
+      expect(find.textContaining('CANCELLED'), findsWidgets);
+    });
+  });
 }

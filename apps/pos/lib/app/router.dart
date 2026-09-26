@@ -4,6 +4,8 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 import '../features/billing/billing_screen.dart';
+import '../features/bills/bill_detail_screen.dart';
+import '../features/bills/bills_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/placeholder_screen.dart';
@@ -16,6 +18,15 @@ abstract final class Routes {
   static const String noAccess = '/no-access';
   static const String payment = '/payment';
   static const String billSaved = '/bill-saved';
+
+  /// `/bills/D01-000123`: one bill, with reprint, cancel and return.
+  static String bill(String billId) => '${Destinations.bills.path}/$billId';
+
+  /// `/bills/D01-000123/return`.
+  static String billReturn(String billId) => '${bill(billId)}/return';
+
+  static final RegExp _billPath = RegExp(r'^/bills/[^/]+$');
+  static final RegExp _returnPath = RegExp(r'^/bills/[^/]+/return$');
 
   /// Pages that aren't drawer destinations, with the permissions that open
   /// them (any one of).
@@ -41,6 +52,8 @@ abstract final class Routes {
 
     final needs =
         _extra[path] ??
+        (_returnPath.hasMatch(path) ? const [Permission.returnCreate] : null) ??
+        (_billPath.hasMatch(path) ? Destinations.bills.anyOf : null) ??
         Destinations.all
             .where((d) => d.path == path)
             .map((d) => d.anyOf)
@@ -73,8 +86,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Destinations.bills.path,
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Bills', task: 'POS-7'),
+        builder: (context, state) => const BillsScreen(),
+        routes: [
+          GoRoute(
+            path: ':billId',
+            builder: (context, state) =>
+                BillDetailScreen(billId: state.pathParameters['billId']!),
+            routes: [
+              GoRoute(
+                path: 'return',
+                builder: (context, state) =>
+                    const PlaceholderScreen(title: 'Return', task: 'POS-8'),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: Destinations.stock.path,

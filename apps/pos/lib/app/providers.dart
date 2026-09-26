@@ -22,6 +22,9 @@ final salesServiceProvider = Provider<SalesService>(
 final salesRepositoryProvider = Provider<SalesRepository>(
   (ref) => _notConfigured('SalesRepository'),
 );
+final summaryRepositoryProvider = Provider<SummaryRepository>(
+  (ref) => _notConfigured('SummaryRepository'),
+);
 final syncServiceProvider = Provider<SyncService>(
   (ref) => _notConfigured('SyncService'),
 );
@@ -55,3 +58,45 @@ final sellableProductsProvider = StreamProvider<List<Product>>((ref) {
   if (locationId == null) return Stream.value(const []);
   return ref.watch(catalogRepositoryProvider).watchSellable(locationId);
 });
+
+/// The session's location code, or null (signed out, or an all-locations
+/// role with no own store).
+final locationCodeProvider = Provider<String?>(
+  (ref) => ref.watch(sessionProvider.select((s) => s.value?.location?.code)),
+);
+
+/// Bills of one business day at the session's location, newest first.
+final billsForDayProvider = StreamProvider.autoDispose
+    .family<List<Bill>, String>((ref, businessDate) {
+      final loc = ref.watch(locationCodeProvider);
+      if (loc == null) return Stream.value(const []);
+      return ref.watch(salesRepositoryProvider).watchBills(loc, businessDate);
+    });
+
+/// One bill at the session's location. Invalidate it after a cancel or a
+/// return to reload.
+final billProvider = FutureProvider.autoDispose.family<Bill?, String>((
+  ref,
+  billId,
+) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Future.value();
+  return ref.watch(salesRepositoryProvider).getBill(loc, billId);
+});
+
+/// The returns already made against a bill, newest first.
+final returnsForBillProvider = FutureProvider.autoDispose
+    .family<List<SaleReturn>, String>((ref, billId) {
+      final loc = ref.watch(locationCodeProvider);
+      if (loc == null) return Future.value(const []);
+      return ref.watch(salesRepositoryProvider).returnsForBill(loc, billId);
+    });
+
+/// The daily summary of one business day at the session's location.
+final dailySummaryProvider = StreamProvider.autoDispose.family<Summary, String>(
+  (ref, businessDate) {
+    final loc = ref.watch(locationCodeProvider);
+    if (loc == null) return Stream.value(const Summary());
+    return ref.watch(summaryRepositoryProvider).watchDaily(loc, businessDate);
+  },
+);

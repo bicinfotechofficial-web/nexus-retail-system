@@ -57,6 +57,35 @@ abstract final class Messages {
     FailureReason.unknown => 'Something went wrong. Please try again.',
   };
 
+  /// Why Cancel is unavailable (D-009, D-025).
+  static String cancelBlocker(CancelBlocker blocker) => switch (blocker) {
+    CancelBlocker.notCompleted => 'This bill is already cancelled.',
+    CancelBlocker.differentDay =>
+      'Bills can be cancelled only on the day they were made. Use a return '
+          'instead.',
+    CancelBlocker.hasReturns =>
+      "This bill has returns, so it can't be cancelled. The remaining items "
+          'can still be returned.',
+  };
+
+  static String returnError(ReturnError error) => switch (error) {
+    ReturnError.billNotCompleted =>
+      "This bill is cancelled, so it can't take a return.",
+    ReturnError.emptyReturn => 'Choose at least one item to return.',
+    ReturnError.nonPositiveQty => 'Return quantities must be 1 or more.',
+    ReturnError.productNotOnBill => "An item to return isn't on this bill.",
+    ReturnError.exceedsReturnable =>
+      'That is more than is left to return on this bill. It may have changed; '
+          'go back and open it again.',
+  };
+
+  static String refundError(RefundError error) => switch (error) {
+    RefundError.noRefunds => 'Add a refund.',
+    RefundError.tooManyRefunds => 'Use at most ${Limits.maxRefunds} refunds.',
+    RefundError.nonPositiveAmount => 'Enter an amount for every refund.',
+    RefundError.sumMismatch => "Refunds don't add up to the refund total.",
+  };
+
   static String paymentMode(PaymentMode mode) => switch (mode) {
     PaymentMode.cash => 'Cash',
     PaymentMode.upi => 'UPI',
