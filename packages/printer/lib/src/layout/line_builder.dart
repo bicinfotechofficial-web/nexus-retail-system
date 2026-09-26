@@ -62,6 +62,9 @@ final class LineBuilder {
     }
   }
 
+  /// [text] exactly as given: no wrapping, spaces kept. Must fit.
+  void raw(String text, {bool bold = false}) => _add(text, bold: bold);
+
   /// A full-width rule of [char].
   void rule([String char = '-']) => _add(char * columns);
 
