@@ -11,6 +11,14 @@
 ///
 /// The oracle in the test recomputes each summary from the documents alone.
 ///
+/// Every batch passes through [ShopSim.serverAccepts], a model of the
+/// update rules in 04-PERMISSIONS #5–6 as revised for D-029 and D-030. The
+/// simulation also plays conflicting offline writes: a device builds a
+/// cancel or a return from a stale copy of a bill while another device has
+/// already synced a return or a cancel of it. The rules model decides which
+/// one lands (first to sync wins); a rejected batch writes nothing and is
+/// counted as a sync error.
+///
 /// Once the backend's `WritePlan` builders land (BE-10), this model is
 /// replaced by applying the plans themselves to an in-memory store.
 library;
@@ -31,6 +39,18 @@ const List<SimProduct> simCatalog = [
   (id: 'P_BROWNIE', name: 'Brownie', price: 9999),
   (id: 'P_CUPCAKE', name: 'Cupcake', price: 3333),
   (id: 'P_CANDLE', name: 'Candle (free)', price: 0),
+];
+
+/// [simCatalog] plus enough extra items to build bills at and past the
+/// 20-line limit (D-030).
+final List<SimProduct> simWideCatalog = [
+  ...simCatalog,
+  for (var i = 1; i <= 20; i++)
+    (
+      id: 'P_X${i.toString().padLeft(2, '0')}',
+      name: 'Pastry $i',
+      price: 1111 * i + 7,
+    ),
 ];
 
 /// Counts of the edge cases one run produced, so the test can prove the
@@ -55,6 +75,22 @@ final class Coverage {
   int deniedOverReturns = 0;
   int deniedReturnOnCancelled = 0;
 
+  /// Bills with more than 10 lines, and bills at exactly the 20-line cap.
+  int wideBills = 0;
+  int maxLineBills = 0;
+
+  /// 21-line carts refused by `BillCalculator` (D-030).
+  int deniedTooManyLines = 0;
+
+  /// Stale offline cancels rejected because a return synced first (D-029).
+  int conflictCancelLost = 0;
+
+  /// Stale offline returns rejected because a cancel synced first (D-029).
+  int conflictReturnLost = 0;
+
+  /// Stale offline returns rejected by `returnedQty <= soldQty` (D-029).
+  int conflictOverReturnLost = 0;
+
   void add(Coverage o) {
     bills += o.bills;
     zeroTotalBills += o.zeroTotalBills;
@@ -74,6 +110,12 @@ final class Coverage {
     deniedCancelAfterReturn += o.deniedCancelAfterReturn;
     deniedOverReturns += o.deniedOverReturns;
     deniedReturnOnCancelled += o.deniedReturnOnCancelled;
+    wideBills += o.wideBills;
+    maxLineBills += o.maxLineBills;
+    deniedTooManyLines += o.deniedTooManyLines;
+    conflictCancelLost += o.conflictCancelLost;
+    conflictReturnLost += o.conflictReturnLost;
+    conflictOverReturnLost += o.conflictOverReturnLost;
   }
 }
 
@@ -96,6 +138,9 @@ final class ShopSim {
 
   final Coverage coverage = Coverage();
 
+  /// Paths of batches the rules model rejected (they became sync errors).
+  final List<String> syncErrors = [];
+
   /// Bill doc path → stored map. Insertion order is creation order.
   final Map<String, Map<String, Object?>> _billDocs = {};
 
@@ -111,6 +156,14 @@ final class ShopSim {
 
   final Map<String, int> _billSeq = {};
   final Map<String, int> _returnSeq = {};
+
+  /// The stored bill maps at [loc], as Firestore holds them (including
+  /// `soldQty`, which `Bill.fromMap` doesn't read back).
+  Map<String, Map<String, Object?>> billDocsAt(String loc) => {
+    for (final e in _billDocs.entries)
+      if (e.key.startsWith('${FirestorePaths.bills(loc)}/'))
+        e.key.split('/').last: e.value,
+  };
 
   List<Bill> billsAt(String loc) => [
     for (final e in _billDocs.entries)
@@ -139,27 +192,43 @@ final class ShopSim {
         ).add(Duration(hours: 9, minutes: i * 7));
         if (roll < 55) {
           _createBill(loc, businessDate, at);
-        } else if (roll < 70) {
+        } else if (roll < 67) {
           _cancelOne(loc, businessDate, at);
-        } else {
+        } else if (roll < 92) {
           _returnOne(loc, businessDate, at);
+        } else {
+          _conflictOne(loc, businessDate, at);
         }
       }
     }
   }
 
   void _createBill(String loc, String today, DateTime at) {
-    final picked = [...simCatalog]..shuffle(random);
-    final n = 1 + random.nextInt(4);
-    final cart = [
-      for (final p in picked.take(n))
-        CartLine(
-          productId: p.id,
-          name: p.name,
-          qty: 1 + random.nextInt(6),
-          unitPrice: Money(p.price),
-        ),
-    ];
+    // Now and then a wide bill, up to the 20-line cap (D-030).
+    final wide = random.nextInt(100) < 6;
+    final picked = [...(wide ? simWideCatalog : simCatalog)]..shuffle(random);
+    final n = wide
+        ? (random.nextInt(3) == 0
+              ? Limits.maxBillLines
+              : 11 + random.nextInt(Limits.maxBillLines - 11))
+        : 1 + random.nextInt(4);
+    CartLine line(SimProduct p) => CartLine(
+      productId: p.id,
+      name: p.name,
+      qty: 1 + random.nextInt(6),
+      unitPrice: Money(p.price),
+    );
+    final cart = [for (final p in picked.take(n)) line(p)];
+    if (n == Limits.maxBillLines) {
+      // One more line is refused before anything is written.
+      try {
+        BillCalculator.compute([...cart, line(picked[n])]);
+        throw StateError('a ${n + 1}-line cart was accepted');
+      } on BillValidationException catch (e) {
+        if (e.error != BillError.tooManyLines) rethrow;
+        coverage.deniedTooManyLines++;
+      }
+    }
     final subtotal = cart.fold<int>(0, (a, c) => a + c.unitPrice.paise * c.qty);
 
     DiscountInput? discount;
@@ -238,11 +307,14 @@ final class ShopSim {
       createdBy: 'uid-sm-$loc',
     );
     final path = FirestorePaths.bill(loc, id);
-    if (_billDocs.containsKey(path)) {
-      throw StateError('duplicate bill id $path');
+    final doc = bill.toMap();
+    if (!serverAcceptsBillCreate(loc, id, doc)) {
+      throw StateError('the rules model rejected bill $path');
     }
-    _billDocs[path] = bill.toMap();
+    _billDocs[path] = doc;
     coverage.bills++;
+    if (bill.lines.length > 10) coverage.wideBills++;
+    if (bill.lines.length == Limits.maxBillLines) coverage.maxLineBills++;
     if (bill.total.isZero) coverage.zeroTotalBills++;
     _apply(loc, today, SummaryDeltas.forBill(bill));
   }
@@ -273,9 +345,17 @@ final class ShopSim {
     final open = all.where((b) => cancelBlocker(b, today) == null).toList();
     if (open.isEmpty) return;
     final bill = open[random.nextInt(open.length)];
-    final path = FirestorePaths.bill(loc, bill.id);
+    if (!_syncCancel(loc, bill, today, at)) {
+      throw StateError('the rules model rejected a valid cancel of ${bill.id}');
+    }
+  }
+
+  /// A cancel batch built by a device from [seen] (possibly stale), applied
+  /// only if the rules model accepts it against the server's current doc.
+  bool _syncCancel(String loc, Bill seen, String today, DateTime at) {
+    final path = FirestorePaths.bill(loc, seen.id);
     // The update rule #5(a) allows: status and cancel only.
-    _billDocs[path] = {
+    final after = {
       ..._billDocs[path]!,
       'status': BillStatus.cancelled.wire,
       'cancel': BillCancel(
@@ -285,8 +365,18 @@ final class ShopSim {
         businessDate: today,
       ).toMap(),
     };
+    if (!serverAcceptsCancel(_billDocs[path]!, after)) {
+      syncErrors.add(
+        '${FirestorePaths.movements(loc)}/${Ids.cancelId(seen.id)}',
+      );
+      return false;
+    }
+    _billDocs[path] = after;
     coverage.cancels++;
-    _apply(loc, today, SummaryDeltas.forCancel(bill));
+    // The summary delta comes from the device's copy; a cancel never
+    // depends on returnedQty, which must be empty for it to land.
+    _apply(loc, today, SummaryDeltas.forCancel(seen));
+    return true;
   }
 
   void _returnOne(String loc, String today, DateTime at) {
@@ -336,7 +426,23 @@ final class ShopSim {
     };
     if (qty.values.every((q) => q == 0)) qty = {probe.key: 1};
 
-    final totals = ReturnCalculator.compute(bill, qty);
+    if (!_syncReturn(loc, bill, qty, today, at)) {
+      throw StateError('the rules model rejected a valid return of ${bill.id}');
+    }
+  }
+
+  /// A return batch built by a device from [seen] (possibly stale), applied
+  /// only if the rules model accepts it against the server's current doc.
+  /// `returnedQty` is written with increments (03-SYNC §2), so a stale
+  /// device adds to what the server holds rather than overwriting it.
+  bool _syncReturn(
+    String loc,
+    Bill seen,
+    Map<String, int> qty,
+    String today,
+    DateTime at,
+  ) {
+    final totals = ReturnCalculator.compute(seen, qty);
     final refunds = _split(totals.refundTotal, 3);
     if (ReturnCalculator.checkRefunds(totals.refundTotal, refunds).isNotEmpty) {
       throw StateError('generated an invalid refund split');
@@ -348,8 +454,8 @@ final class ShopSim {
     _returnSeq[key] = seq;
     final ret = SaleReturn(
       id: Ids.returnId(device, seq),
-      billId: bill.id,
-      billNo: bill.billNo,
+      billId: seen.id,
+      billNo: seen.billNo,
       lines: totals.lines,
       refundTotal: totals.refundTotal,
       refunds: refunds,
@@ -363,19 +469,31 @@ final class ShopSim {
     if (_returnDocs.containsKey(retPath)) {
       throw StateError('duplicate return id $retPath');
     }
-    _returnDocs[retPath] = ret.toMap();
 
-    // The update rule #5(b) allows: returnedQty increments only.
-    final billPath = FirestorePaths.bill(loc, bill.id);
-    final returnedQty = {...bill.returnedQty};
+    // The update rule #5(b) allows: returnedQty increments and lastReturnId.
+    final billPath = FirestorePaths.bill(loc, seen.id);
+    final before = _billDocs[billPath]!;
+    final returnedQty = {
+      ...(before['returnedQty']! as Map).cast<String, int>(),
+    };
     for (final l in ret.lines) {
       returnedQty[l.productId] = (returnedQty[l.productId] ?? 0) + l.qty;
     }
-    _billDocs[billPath] = {..._billDocs[billPath]!, 'returnedQty': returnedQty};
+    final after = {
+      ...before,
+      'returnedQty': returnedQty,
+      'lastReturnId': ret.id,
+    };
+    if (!serverAcceptsReturn(before, after, newReturn: true)) {
+      syncErrors.add(retPath);
+      return false;
+    }
+    _returnDocs[retPath] = ret.toMap();
+    _billDocs[billPath] = after;
 
     coverage.returns++;
     final nowFull = ReturnCalculator.returnable(
-      _bill(loc, bill.id),
+      _bill(loc, seen.id),
     ).values.every((q) => q == 0);
     if (nowFull) {
       coverage.fullReturns++;
@@ -384,13 +502,125 @@ final class ShopSim {
     }
     if (ret.refundTotal.isZero) coverage.zeroRefundReturns++;
     if (refunds.length > 1) coverage.splitRefunds++;
-    if (bill.businessDate != today) coverage.crossDayReturns++;
-    if (BusinessDate.monthOf(bill.businessDate) !=
+    if (seen.businessDate != today) coverage.crossDayReturns++;
+    if (BusinessDate.monthOf(seen.businessDate) !=
         BusinessDate.monthOf(today)) {
       coverage.crossMonthReturns++;
     }
     // D-012: the return counts on the day it is processed.
     _apply(loc, today, SummaryDeltas.forReturn(ret));
+    return true;
+  }
+
+  /// Two devices act on the same bill while offline; the first batch to
+  /// sync lands and the second is rejected by the rules (D-029). The second
+  /// device built its batch from the bill as it was before the first one.
+  ///
+  /// Only conflicts the rules can decide are played here. Two stale returns
+  /// that both stay within `soldQty` are both accepted and can over-refund
+  /// by up to ₹1 each; that case is QA-024 (see concurrent_returns_test).
+  void _conflictOne(String loc, String today, DateTime at) {
+    final open = billsAt(
+      loc,
+    ).where((b) => cancelBlocker(b, today) == null && b.total.isPositive);
+    if (open.isEmpty) return;
+    final stale = open.elementAt(random.nextInt(open.length));
+    final line = stale.lines[random.nextInt(stale.lines.length)];
+    switch (random.nextInt(3)) {
+      case 0:
+        // A returns one unit and syncs; B's stale cancel is rejected.
+        _syncReturn(loc, stale, {line.productId: 1}, today, at);
+        if (!_syncCancel(loc, stale, today, at)) coverage.conflictCancelLost++;
+      case 1:
+        // A cancels and syncs; B's stale return is rejected.
+        _syncCancel(loc, stale, today, at);
+        if (!_syncReturn(loc, stale, {line.productId: 1}, today, at)) {
+          coverage.conflictReturnLost++;
+        }
+      default:
+        // A returns the whole line and syncs; B's stale return of any of
+        // it would take returnedQty over soldQty and is rejected.
+        _syncReturn(loc, stale, {line.productId: line.qty}, today, at);
+        final more = 1 + random.nextInt(line.qty);
+        if (!_syncReturn(loc, stale, {line.productId: more}, today, at)) {
+          coverage.conflictOverReturnLost++;
+        }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // The rules model: 04-PERMISSIONS #5 (a) and (b) and #6, for the fields
+  // this simulation writes.
+  // -------------------------------------------------------------------------
+
+  /// Rule #6 on the fields that matter here: at most 20 lines, one
+  /// `soldQty` key per line with that line's qty, empty `returnedQty`,
+  /// COMPLETED, and `billNo == loc-billId`.
+  static bool serverAcceptsBillCreate(
+    String loc,
+    String billId,
+    Map<String, Object?> doc,
+  ) {
+    final lines = (doc['lines']! as List).cast<Map<String, Object?>>();
+    final sold = (doc['soldQty']! as Map).cast<String, int>();
+    if (lines.length > Limits.maxBillLines) return false;
+    if ((doc['payments']! as List).length > Limits.maxPayments) return false;
+    if (sold.length != lines.length) return false;
+    for (final l in lines) {
+      if (sold[l['productId']] != l['qty']) return false;
+    }
+    return (doc['returnedQty']! as Map).isEmpty &&
+        doc['status'] == BillStatus.completed.wire &&
+        doc['billNo'] == Ids.billNo(loc, billId);
+  }
+
+  /// Rule #5(a): COMPLETED → CANCELLED, no returns yet (D-025, D-029), and
+  /// the cancel's business date equals the bill's.
+  static bool serverAcceptsCancel(
+    Map<String, Object?> before,
+    Map<String, Object?> after,
+  ) {
+    final cancel = after['cancel']! as Map;
+    return before['status'] == BillStatus.completed.wire &&
+        (before['returnedQty']! as Map).isEmpty &&
+        after['status'] == BillStatus.cancelled.wire &&
+        cancel['businessDate'] == before['businessDate'] &&
+        _onlyChanged(before, after, {'status', 'cancel'});
+  }
+
+  /// Rule #5(b): the bill is COMPLETED, `lastReturnId` names a new return,
+  /// and every `returnedQty` value only grows and stays within `soldQty`.
+  static bool serverAcceptsReturn(
+    Map<String, Object?> before,
+    Map<String, Object?> after, {
+    required bool newReturn,
+  }) {
+    if (before['status'] != BillStatus.completed.wire || !newReturn) {
+      return false;
+    }
+    if (after['lastReturnId'] == before['lastReturnId']) return false;
+    final sold = (before['soldQty']! as Map).cast<String, int>();
+    final was = (before['returnedQty']! as Map).cast<String, int>();
+    final now = (after['returnedQty']! as Map).cast<String, int>();
+    for (final e in now.entries) {
+      final cap = sold[e.key];
+      if (cap == null || e.value > cap || e.value < (was[e.key] ?? 0)) {
+        return false;
+      }
+    }
+    return _onlyChanged(before, after, {'returnedQty', 'lastReturnId'});
+  }
+
+  static bool _onlyChanged(
+    Map<String, Object?> before,
+    Map<String, Object?> after,
+    Set<String> allowed,
+  ) {
+    for (final k in {...before.keys, ...after.keys}) {
+      if (allowed.contains(k)) continue;
+      if (before[k].toString() != after[k].toString()) return false;
+    }
+    return true;
   }
 
   /// Splits a whole-rupee [total] into 1..[maxParts] positive amounts with
