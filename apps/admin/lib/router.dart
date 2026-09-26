@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'catalog/catalog_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'data/providers.dart';
+import 'devices/devices_screen.dart';
+import 'locations/locations_screen.dart';
 import 'login/login_screen.dart';
 import 'reports/reports_screen.dart';
 import 'shell/admin_shell.dart';
 import 'shell/destinations.dart';
 import 'shell/permission_guard.dart';
+import 'users/users_screen.dart';
 
 class _SessionChanges extends ChangeNotifier {
   void ping() => notifyListeners();
@@ -39,6 +43,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           _guarded('/dashboard', const DashboardScreen()),
           _guarded('/reports', const ReportsScreen()),
+          _guarded('/catalog', const CatalogScreen()),
+          _guarded('/locations', const LocationsScreen()),
+          _guarded('/users', const UsersScreen()),
+          _guarded('/devices', const DevicesScreen()),
         ],
       ),
     ],

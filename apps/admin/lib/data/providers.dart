@@ -31,6 +31,27 @@ final catalogRepositoryProvider = Provider<CatalogRepository>(
       throw UnimplementedError('catalogRepositoryProvider is not overridden'),
 );
 
+final catalogServiceProvider = Provider<CatalogService>(
+  (ref) => throw UnimplementedError('catalogServiceProvider is not overridden'),
+);
+
+final locationServiceProvider = Provider<LocationService>(
+  (ref) =>
+      throw UnimplementedError('locationServiceProvider is not overridden'),
+);
+
+final userRepositoryProvider = Provider<UserRepository>(
+  (ref) => throw UnimplementedError('userRepositoryProvider is not overridden'),
+);
+
+final userServiceProvider = Provider<UserService>(
+  (ref) => throw UnimplementedError('userServiceProvider is not overridden'),
+);
+
+final deviceServiceProvider = Provider<DeviceService>(
+  (ref) => throw UnimplementedError('deviceServiceProvider is not overridden'),
+);
+
 /// The current instant. Tests override it to pin "today".
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 

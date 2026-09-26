@@ -30,3 +30,18 @@ String paymentModeLabel(PaymentMode mode) => switch (mode) {
   PaymentMode.wallet => 'Wallet',
   PaymentMode.other => 'Other',
 };
+
+/// An instant in IST (D-022), e.g. `26 Sep 2026, 4:30 PM`.
+String formatInstantIst(DateTime instant) => DateFormat(
+  'd MMM yyyy, h:mm a',
+).format(instant.toUtc().add(BusinessDate.istOffset));
+
+/// How long ago [instant] was, relative to [now]: `just now`, `12 min ago`,
+/// `3 h ago`, `2 days ago`.
+String formatAgo(DateTime instant, DateTime now) {
+  final d = now.difference(instant);
+  if (d.inMinutes < 1) return 'just now';
+  if (d.inHours < 1) return '${d.inMinutes} min ago';
+  if (d.inDays < 1) return '${d.inHours} h ago';
+  return d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago';
+}

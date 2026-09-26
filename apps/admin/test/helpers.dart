@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_admin/app.dart';
 import 'package:nexus_admin/data/providers.dart';
 import 'package:nexus_admin/fakes/fake_backend.dart';
+import 'package:nexus_admin/router.dart';
 
 /// Every widget test runs on 2026-09-26 (IST).
 const String testToday = '2026-09-26';
@@ -17,6 +18,8 @@ Future<void> pumpAdmin(
   Size size = const Size(1400, 1000),
   List<Override> overrides = const [],
 }) async {
+  // A tap on something off screen or covered is a test bug, not a warning.
+  WidgetController.hitTestWarningShouldBeFatal = true;
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -42,5 +45,14 @@ Future<void> signIn(
   await tester.enterText(find.byKey(const Key('login-email')), email);
   await tester.enterText(find.byKey(const Key('login-password')), password);
   await tester.tap(find.byKey(const Key('login-submit')));
+  await tester.pumpAndSettle();
+}
+
+/// Navigates the console's router to [path], as typing the URL would.
+Future<void> goTo(WidgetTester tester, String path) async {
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(AdminApp)),
+  );
+  container.read(routerProvider).go(path);
   await tester.pumpAndSettle();
 }

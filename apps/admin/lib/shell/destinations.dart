@@ -29,6 +29,30 @@ const List<Destination> destinations = [
     icon: Icons.bar_chart_outlined,
     anyOf: [Permission.reportOwn, Permission.reportAll],
   ),
+  Destination(
+    path: '/catalog',
+    label: 'Catalog',
+    icon: Icons.cake_outlined,
+    anyOf: [Permission.catalogManage],
+  ),
+  Destination(
+    path: '/locations',
+    label: 'Locations',
+    icon: Icons.storefront_outlined,
+    anyOf: [Permission.locationManage],
+  ),
+  Destination(
+    path: '/users',
+    label: 'Users',
+    icon: Icons.people_outline,
+    anyOf: [Permission.userManage],
+  ),
+  Destination(
+    path: '/devices',
+    label: 'Devices',
+    icon: Icons.phone_android_outlined,
+    anyOf: [Permission.locationManage],
+  ),
 ];
 
 Destination destinationFor(String path) => destinations.firstWhere(

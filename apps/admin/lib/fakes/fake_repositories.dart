@@ -43,17 +43,55 @@ final class FakeAuthService implements AuthService {
   }
 }
 
-final class FakeLocationRepository implements LocationRepository {
-  FakeLocationRepository(this.locations);
+/// A value that tests and fakes can change, with streams that emit the
+/// current value on listen and every change after it.
+final class Watched<T> {
+  Watched(this._value);
 
-  final List<Location> locations;
+  T _value;
+  final _changes = StreamController<T>.broadcast();
+
+  T get value => _value;
+
+  set value(T v) {
+    _value = v;
+    _changes.add(v);
+  }
+
+  Stream<R> watch<R>(R Function(T value) select) => Stream.multi((c) {
+    c.add(select(_value));
+    final sub = _changes.stream.listen((v) => c.add(select(v)));
+    c.onCancel = sub.cancel;
+  });
+}
+
+final class FakeLocationRepository implements LocationRepository {
+  FakeLocationRepository(List<Location> locations)
+    : store = Watched(List.unmodifiable(locations));
+
+  final Watched<List<Location>> store;
+
+  List<Location> get locations => store.value;
+
+  Location? byCode(String code) =>
+      locations.where((l) => l.code == code).firstOrNull;
+
+  /// Replaces the location with the same code, or adds it.
+  void put(Location location) {
+    final next = <Location>[
+      for (final l in locations)
+        if (l.code != location.code) l,
+      location,
+    ]..sort((a, b) => a.code.compareTo(b.code));
+    store.value = List.unmodifiable(next);
+  }
 
   @override
-  Stream<List<Location>> watchLocations() => Stream.value(locations);
+  Stream<List<Location>> watchLocations() => store.watch((v) => v);
 
   @override
   Stream<Location?> watchLocation(String locationId) =>
-      Stream.value(locations.where((l) => l.code == locationId).firstOrNull);
+      store.watch((v) => v.where((l) => l.code == locationId).firstOrNull);
 }
 
 /// Summaries keyed by location, then by `YYYY-MM-DD` or `YYYY-MM`.
@@ -111,26 +149,53 @@ final class FakeStockRepository implements StockRepository {
 }
 
 final class FakeCatalogRepository implements CatalogRepository {
-  FakeCatalogRepository({this.products = const [], this.materials = const []});
+  FakeCatalogRepository({
+    List<Product> products = const [],
+    List<RawMaterial> materials = const [],
+  }) : productStore = Watched(List.unmodifiable(products)),
+       materialStore = Watched(List.unmodifiable(materials));
 
-  final List<Product> products;
-  final List<RawMaterial> materials;
+  final Watched<List<Product>> productStore;
+  final Watched<List<RawMaterial>> materialStore;
+
+  List<Product> get products => productStore.value;
+  List<RawMaterial> get materials => materialStore.value;
+
+  Product? byId(String id) => products.where((p) => p.id == id).firstOrNull;
+
+  /// Replaces the product with the same ID, or adds it.
+  void put(Product product) {
+    final replaced = [
+      for (final p in products) p.id == product.id ? product : p,
+    ];
+    if (byId(product.id) == null) replaced.add(product);
+    productStore.value = List.unmodifiable(replaced);
+  }
+
+  void addMaterial(RawMaterial material) {
+    materialStore.value = List.unmodifiable([...materials, material]);
+  }
 
   @override
-  Stream<List<Product>> watchAll() => Stream.value(products);
+  Stream<List<Product>> watchAll() => productStore.watch((v) => v);
 
   @override
-  Stream<List<Product>> watchPending() => Stream.value([
-    for (final p in products)
-      if (p.status == ProductStatus.pending) p,
-  ]);
+  Stream<List<Product>> watchPending() => productStore.watch(
+    (v) => [
+      for (final p in v)
+        if (p.status == ProductStatus.pending) p,
+    ],
+  );
 
   @override
-  Stream<List<Product>> watchSellable(String locationId) => Stream.value([
-    for (final p in products)
-      if (p.isSellableAt(locationId)) p,
-  ]);
+  Stream<List<Product>> watchSellable(String locationId) => productStore.watch(
+    (v) => [
+      for (final p in v)
+        if (p.isSellableAt(locationId)) p,
+    ]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)),
+  );
 
   @override
-  Stream<List<RawMaterial>> watchRawMaterials() => Stream.value(materials);
+  Stream<List<RawMaterial>> watchRawMaterials() =>
+      materialStore.watch((v) => v);
 }

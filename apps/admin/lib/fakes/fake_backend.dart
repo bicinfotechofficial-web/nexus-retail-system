@@ -6,6 +6,7 @@ import 'package:nexus_data/nexus_data.dart';
 
 import '../data/providers.dart';
 import 'fake_repositories.dart';
+import 'fake_services.dart';
 
 /// In-memory fakes of every `nexus_data` interface the console uses,
 /// selected with `--dart-define=FAKE_DATA=true`.
@@ -16,11 +17,25 @@ final class FakeBackend {
     required this.summaries,
     required this.stock,
     required this.catalog,
-  });
+    FakeUserRepository? users,
+    FakeDeviceService? devices,
+  }) : users = users ?? FakeUserRepository(const []),
+       devices = devices ?? FakeDeviceService(const {}, locations) {
+    catalogService = FakeCatalogService(catalog, auth, audit);
+    locationService = FakeLocationService(locations, audit);
+    userService = FakeUserService(
+      users: this.users,
+      auth: auth,
+      locations: locations,
+      storeManagerRole: storeManagerRole,
+      audit: audit,
+    );
+  }
 
-  /// Two locations (PTB, MNJ), an Admin and a Store Manager at PTB, and
-  /// daily and monthly summaries from the 1st of the month two months
-  /// before [today] up to [today]. Deterministic for a given [seed].
+  /// Two locations (PTB, MNJ), an Admin and Store Managers, a catalog with
+  /// two PENDING suggestions, three devices per location, and daily and
+  /// monthly summaries from the 1st of the month two months before [today]
+  /// up to [today]. Deterministic for a given [seed].
   factory FakeBackend.seeded({required String today, int seed = 42}) {
     final daily = <String, Map<String, Summary>>{};
     final monthly = <String, Map<String, Summary>>{};
@@ -41,6 +56,29 @@ final class FakeBackend {
         for (final e in months.entries) e.key: e.value + _expenses(rng, scale),
       };
     }
+    final locations = FakeLocationRepository(seedLocations);
+    final mnjManager = SessionContext(
+      user: const AppUser(
+        uid: 'sm-MNJ',
+        name: 'Store Manager MNJ',
+        email: 'manager.mnj@caramelcottage.in',
+        roleId: SeedRoles.storeManagerId,
+        locationId: 'MNJ',
+        active: true,
+        createdBy: 'admin-0001',
+      ),
+      role: storeManagerRole,
+      location: seedLocations.last,
+    );
+    const relief = AppUser(
+      uid: 'sm-PTB-relief',
+      name: 'Relief Store Manager PTB',
+      email: 'relief.ptb@caramelcottage.in',
+      roleId: SeedRoles.storeManagerId,
+      locationId: 'PTB',
+      active: false,
+      createdBy: 'admin-0001',
+    );
     return FakeBackend(
       auth: FakeAuthService({
         adminEmail: (password: demoPassword, session: adminSession()),
@@ -48,14 +86,22 @@ final class FakeBackend {
           password: demoPassword,
           session: storeManagerSession('PTB'),
         ),
+        mnjManager.user.email: (password: demoPassword, session: mnjManager),
       }),
-      locations: FakeLocationRepository(seedLocations),
+      locations: locations,
       summaries: FakeSummaryRepository(dailyDocs: daily, monthlyDocs: monthly),
       stock: FakeStockRepository(_seedStock),
       catalog: FakeCatalogRepository(
-        products: seedProducts,
+        products: [...seedProducts, ..._seedCatalogExtras],
         materials: _seedMaterials,
       ),
+      users: FakeUserRepository([
+        adminSession().user,
+        storeManagerSession('PTB').user,
+        mnjManager.user,
+        relief,
+      ]),
+      devices: FakeDeviceService(_seedDevices(today), locations),
     );
   }
 
@@ -68,6 +114,14 @@ final class FakeBackend {
   final FakeSummaryRepository summaries;
   final FakeStockRepository stock;
   final FakeCatalogRepository catalog;
+  final FakeUserRepository users;
+  final FakeDeviceService devices;
+  final FakeAuditTrail audit = FakeAuditTrail();
+  late final FakeCatalogService catalogService;
+  late final FakeLocationService locationService;
+
+  /// Replaceable, so a test can swap in a failing service.
+  late UserService userService;
 
   List<Override> get overrides => [
     authServiceProvider.overrideWithValue(auth),
@@ -75,6 +129,11 @@ final class FakeBackend {
     summaryRepositoryProvider.overrideWithValue(summaries),
     stockRepositoryProvider.overrideWithValue(stock),
     catalogRepositoryProvider.overrideWithValue(catalog),
+    catalogServiceProvider.overrideWithValue(catalogService),
+    locationServiceProvider.overrideWithValue(locationService),
+    userRepositoryProvider.overrideWithValue(users),
+    userServiceProvider.overrideWithValue(userService),
+    deviceServiceProvider.overrideWithValue(devices),
   ];
 
   static const Role adminRole = Role(
@@ -158,6 +217,94 @@ final class FakeBackend {
     product('cupcake6', 'Cupcakes (box of 6)', 'Cupcakes', 240),
     product('brownie', 'Brownie', 'Snacks', 80),
   ];
+
+  /// Two Store Manager suggestions awaiting approval and a retired product.
+  static final List<Product> _seedCatalogExtras = [
+    Product(
+      id: 'sugplum',
+      name: 'Plum Cake 500 g',
+      category: 'Cakes',
+      scope: 'MNJ',
+      status: ProductStatus.pending,
+      sortOrder: 0,
+      createdBy: 'sm-MNJ',
+      proposedPrice: Money.rupees(420),
+    ),
+    Product(
+      id: 'sugpudding',
+      name: 'Tender Coconut Pudding',
+      category: 'Desserts',
+      scope: 'PTB',
+      status: ProductStatus.pending,
+      sortOrder: 0,
+      createdBy: 'sm-PTB',
+      proposedPrice: Money.rupees(110),
+    ),
+    Product(
+      id: 'fruitcake',
+      name: 'Fruit Cake 1 kg',
+      category: 'Cakes',
+      scope: Product.globalScope,
+      status: ProductStatus.inactive,
+      sortOrder: 0,
+      createdBy: 'seed',
+      price: Money.rupees(700),
+    ),
+  ];
+
+  /// D01 to D03 at each location (`nextDeviceNo` is 3), one retired.
+  static Map<String, List<Device>> _seedDevices(String today) {
+    final start = BusinessDate.startOf(today);
+    Device device(
+      String code,
+      String label,
+      String by,
+      int billSeq, {
+      Duration? seenAgo,
+      bool retired = false,
+    }) => Device(
+      code: code,
+      label: label,
+      registeredBy: by,
+      lastBillSeq: billSeq,
+      retired: retired,
+      registeredAt: start.subtract(const Duration(days: 60)),
+      lastSeenAt: seenAgo == null
+          ? null
+          : start.add(const Duration(hours: 11)).subtract(seenAgo),
+    );
+    return {
+      'PTB': [
+        device('D01', 'Counter 1', 'sm-PTB', 1840, seenAgo: Duration.zero),
+        device(
+          'D02',
+          'Counter 2',
+          'sm-PTB',
+          905,
+          seenAgo: const Duration(minutes: 40),
+        ),
+        device(
+          'D03',
+          'Old counter tablet',
+          'sm-PTB',
+          212,
+          seenAgo: const Duration(days: 20),
+          retired: true,
+        ),
+      ],
+      'MNJ': [
+        device('D01', 'Counter 1', 'sm-MNJ', 1322, seenAgo: Duration.zero),
+        device(
+          'D02',
+          'Back office',
+          'sm-MNJ',
+          77,
+          seenAgo: const Duration(days: 3),
+        ),
+        device('D03', 'Spare phone', 'sm-MNJ', 0),
+      ],
+    };
+  }
 
   // Most a location sells of each product per day, at scale 10.
   static const Map<String, int> _dailyMax = {
