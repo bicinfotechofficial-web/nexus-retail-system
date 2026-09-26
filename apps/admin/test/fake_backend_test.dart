@@ -5,18 +5,51 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 void main() {
-  final backend = FakeBackend.seeded(today: '2026-09-26');
+  const testDay = '2026-09-26';
+  final backend = FakeBackend.seeded(today: testDay);
   final daily = backend.summaries.dailyDocs;
   final monthly = backend.summaries.monthlyDocs;
 
-  test('seeds PTB and MNJ from 1 July to today', () {
-    expect(daily.keys, unorderedEquals(['PTB', 'MNJ']));
-    for (final days in daily.values) {
+  test('seeds PTB and MNJ from 1 July to today, KTL until it closed', () {
+    expect(daily.keys, unorderedEquals(['PTB', 'MNJ', 'KTL']));
+    for (final loc in ['PTB', 'MNJ']) {
+      final days = daily[loc]!;
       expect(days.keys.first, '2026-07-01');
       expect(days.keys.last, '2026-09-26');
       expect(days, hasLength(31 + 31 + 26));
     }
     expect(monthly['PTB']!.keys, ['2026-07', '2026-08', '2026-09']);
+    expect(daily['KTL']!.keys.last, '2026-08-14');
+    expect(monthly['KTL']!.keys, ['2026-07', '2026-08']);
+    expect(backend.locations.byCode('KTL')!.active, isFalse);
+  });
+
+  test('monthly expenses are the sum of the expense docs', () {
+    for (final loc in ['PTB', 'MNJ', 'KTL']) {
+      for (final e in monthly[loc]!.entries) {
+        final docs = [
+          for (final x in backend.expenses.expenses)
+            if (x.locationId == loc && BusinessDate.monthOf(x.date) == e.key) x,
+        ];
+        expect(docs, hasLength(4), reason: '$loc ${e.key}');
+        expect(e.value.expenses, docs.fold(Money.zero, (a, b) => a + b.amount));
+        expect(
+          e.value.byExpenseCategory[ExpenseCategory.rent],
+          docs.firstWhere((x) => x.category == ExpenseCategory.rent).amount,
+        );
+      }
+    }
+    // Nothing is dated after today.
+    expect(
+      backend.expenses.expenses.every((x) => x.date.compareTo(testDay) <= 0),
+      isTrue,
+    );
+  });
+
+  test('has audit history of every action', () async {
+    final all = await backend.audit.query(const AuditQuery(limit: 1000));
+    expect(all.map((e) => e.action).toSet(), AuditAction.values.toSet());
+    expect(backend.audit.actions, isEmpty);
   });
 
   test('a month is the sum of its days, plus expenses', () {
@@ -48,13 +81,16 @@ void main() {
     }
   });
 
-  test('is deterministic and has low stock at both locations', () async {
+  test('is deterministic and has low stock at both open locations', () async {
     final again = FakeBackend.seeded(today: '2026-09-26');
     expect(
       again.summaries.dailyDocs['MNJ']!['2026-08-15']!.netSales,
       daily['MNJ']!['2026-08-15']!.netSales,
     );
-    expect(await backend.stock.watchLowStock('PTB').first, hasLength(2));
+    // Flour, eggs, and a negative Chocolate Pastry.
+    final ptb = await backend.stock.watchLowStock('PTB').first;
+    expect(ptb, hasLength(3));
+    expect(ptb.any((s) => s.qty < 0), isTrue);
     expect(await backend.stock.watchLowStock('MNJ').first, hasLength(1));
   });
 

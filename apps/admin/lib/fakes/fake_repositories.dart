@@ -95,11 +95,27 @@ final class FakeLocationRepository implements LocationRepository {
 }
 
 /// Summaries keyed by location, then by `YYYY-MM-DD` or `YYYY-MM`.
+/// The maps are copied, so the fakes can add to them (expense increments).
 final class FakeSummaryRepository implements SummaryRepository {
-  FakeSummaryRepository({required this.dailyDocs, required this.monthlyDocs});
+  FakeSummaryRepository({
+    required Map<String, Map<String, Summary>> dailyDocs,
+    required Map<String, Map<String, Summary>> monthlyDocs,
+  }) : dailyDocs = _copy(dailyDocs),
+       monthlyDocs = _copy(monthlyDocs);
 
   final Map<String, Map<String, Summary>> dailyDocs;
   final Map<String, Map<String, Summary>> monthlyDocs;
+
+  static Map<String, Map<String, Summary>> _copy(
+    Map<String, Map<String, Summary>> docs,
+  ) => {for (final e in docs.entries) e.key: Map.of(e.value)};
+
+  /// Adds [delta] to a monthly doc, as `FieldValue.increment` would; a
+  /// missing doc starts from zero.
+  void incrementMonthly(String locationId, String monthKey, Summary delta) {
+    final docs = monthlyDocs.putIfAbsent(locationId, () => {});
+    docs[monthKey] = (docs[monthKey] ?? const Summary()) + delta;
+  }
 
   @override
   Stream<Summary> watchDaily(String locationId, String businessDate) =>

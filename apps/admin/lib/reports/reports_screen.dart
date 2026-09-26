@@ -154,6 +154,9 @@ class ReportsScreen extends ConsumerWidget {
   }
 }
 
+/// A column header: the code, marked when the location is deactivated.
+String _header(Location l) => l.active ? l.code : '${l.code} (inactive)';
+
 class _ReportBody extends StatelessWidget {
   const _ReportBody({
     required this.report,
@@ -210,11 +213,10 @@ class _ReportBody extends StatelessWidget {
               for (final (col, _) in columns)
                 DataColumn(
                   numeric: true,
-                  label: Text(
-                    col != 'total'
-                        ? col
-                        : (multi ? 'Total' : locations.single.code),
-                  ),
+                  label: Text(switch (col) {
+                    'total' => multi ? 'Total' : _header(locations.single),
+                    _ => _header(locations.firstWhere((l) => l.code == col)),
+                  }),
                 ),
             ],
             rows: [

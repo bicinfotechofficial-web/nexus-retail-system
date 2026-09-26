@@ -25,9 +25,14 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final today = ref.watch(todayProvider);
-    final locations = ref.watch(scopeLocationsProvider);
-    if (locations.isEmpty) {
+    if (ref.watch(scopeLocationsProvider).isEmpty) {
       return const Center(child: CircularProgressIndicator());
+    }
+    // Today's view leaves deactivated locations out of "All" (QA-031);
+    // their history stays in Reports and Financials.
+    final locations = ref.watch(currentLocationsProvider);
+    if (locations.isEmpty) {
+      return const Center(child: Text('No active locations.'));
     }
 
     final summaries = <String, Summary>{};
@@ -118,7 +123,7 @@ class DashboardScreen extends ConsumerWidget {
               for (final l in locations)
                 _row(
                   l.code,
-                  '${l.name} (${l.code})',
+                  locationLabel(l),
                   summaries[l.code]!,
                   lowStock[l.code]!.length,
                 ),

@@ -129,4 +129,21 @@ void main() {
     expect(_text(tester, 'PTB-bills'), '12');
     expect(find.byKey(const Key('MNJ-bills')), findsNothing);
   });
+
+  testWidgets('today leaves a deactivated location out of "All" (QA-031)', (
+    tester,
+  ) async {
+    await pumpAdmin(tester, _backend());
+    await signIn(tester);
+
+    expect(find.byKey(const Key('PTB-net-sales')), findsOneWidget);
+    expect(find.byKey(const Key('KTL-net-sales')), findsNothing);
+
+    // Picked on its own, it still opens (with nothing sold today).
+    await tester.tap(find.byKey(const Key('location-switcher')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kottakkal (KTL) (inactive)').last);
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'KTL-net-sales'), '₹0.00');
+  });
 }

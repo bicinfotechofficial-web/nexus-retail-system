@@ -30,6 +30,24 @@ const List<Destination> destinations = [
     anyOf: [Permission.reportOwn, Permission.reportAll],
   ),
   Destination(
+    path: '/financials',
+    label: 'Financials',
+    icon: Icons.account_balance_outlined,
+    anyOf: [Permission.reportOwn, Permission.reportAll],
+  ),
+  Destination(
+    path: '/stock',
+    label: 'Stock',
+    icon: Icons.inventory_2_outlined,
+    anyOf: [Permission.reportOwn, Permission.reportAll],
+  ),
+  Destination(
+    path: '/expenses',
+    label: 'Expenses',
+    icon: Icons.receipt_long_outlined,
+    anyOf: [Permission.expenseManage],
+  ),
+  Destination(
     path: '/catalog',
     label: 'Catalog',
     icon: Icons.cake_outlined,
@@ -52,6 +70,12 @@ const List<Destination> destinations = [
     label: 'Devices',
     icon: Icons.phone_android_outlined,
     anyOf: [Permission.locationManage],
+  ),
+  Destination(
+    path: '/audit',
+    label: 'Audit log',
+    icon: Icons.history_outlined,
+    anyOf: [Permission.auditView],
   ),
 ];
 

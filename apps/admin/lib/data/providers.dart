@@ -52,6 +52,20 @@ final deviceServiceProvider = Provider<DeviceService>(
   (ref) => throw UnimplementedError('deviceServiceProvider is not overridden'),
 );
 
+final expenseRepositoryProvider = Provider<ExpenseRepository>(
+  (ref) =>
+      throw UnimplementedError('expenseRepositoryProvider is not overridden'),
+);
+
+final expenseServiceProvider = Provider<ExpenseService>(
+  (ref) => throw UnimplementedError('expenseServiceProvider is not overridden'),
+);
+
+final auditRepositoryProvider = Provider<AuditRepository>(
+  (ref) =>
+      throw UnimplementedError('auditRepositoryProvider is not overridden'),
+);
+
 /// The current instant. Tests override it to pin "today".
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
@@ -99,16 +113,17 @@ class SelectedLocationNotifier extends Notifier<String?> {
 bool canSeeAllLocations(SessionContext session) =>
     session.can(Permission.reportAll);
 
-/// The locations the session may report on, in code order.
+/// The locations the session may report on, in code order. Deactivated
+/// locations stay in: a closed store's past days, months and years still
+/// belong in its own reports and in "All locations" (QA-031).
 List<Location> reportableLocations(
   SessionContext session,
   List<Location> locations,
 ) {
   final result = [
     for (final l in locations)
-      if (l.active &&
-          (session.canAt(Permission.reportOwn, l.code) ||
-              session.can(Permission.reportAll)))
+      if (session.canAt(Permission.reportOwn, l.code) ||
+          session.can(Permission.reportAll))
         l,
   ]..sort((a, b) => a.code.compareTo(b.code));
   return result;
@@ -132,6 +147,23 @@ final scopeLocationsProvider = Provider<List<Location>>((ref) {
   // Without report.all the default is the user's own location only.
   return allowed.take(1).toList();
 });
+
+/// The locations a view of *current* state covers (today's dashboard, stock
+/// levels): [scopeLocationsProvider] without deactivated locations, unless
+/// one was picked on its own in the switcher.
+final currentLocationsProvider = Provider<List<Location>>((ref) {
+  final scope = ref.watch(scopeLocationsProvider);
+  if (ref.watch(selectedLocationProvider) != null) return scope;
+  return [
+    for (final l in scope)
+      if (l.active) l,
+  ];
+});
+
+/// A location as the console names it, e.g. `Pattambi (PTB)`, with
+/// ` (inactive)` after a deactivated one.
+String locationLabel(Location l) =>
+    '${l.name} (${l.code})${l.active ? '' : ' (inactive)'}';
 
 /// Product names by ID, for top-product lists. Unknown IDs fall back to the
 /// ID itself.
