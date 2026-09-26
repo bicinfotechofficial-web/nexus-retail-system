@@ -124,23 +124,45 @@ Bill cancelledBill() {
   );
 }
 
-/// [normalBill] with a GST breakup, for when GST is switched on (D-013).
+/// A GST bill, for when GST is switched on (D-013). Built by hand because
+/// the calculator has no GST yet; it follows 02-DATA-MODEL:
+/// `total = taxableValue + Σtax + roundOff`, here
+/// ₹850.00 + ₹21.25 + ₹21.25 + ₹0.50 = ₹893 (QA-036).
 Bill gstBill() {
   final t = BillCalculator.compute([blackForest1kg]);
+  const cgst = Money(2125);
+  const sgst = Money(2125);
+  final beforeRounding = t.taxableValue + cgst + sgst;
+  final total = beforeRounding.roundToRupee();
   return _bill(
-    t,
+    BillTotals(
+      lines: t.lines,
+      subtotal: t.subtotal,
+      discount: t.discount,
+      taxableValue: t.taxableValue,
+      taxLines: [
+        TaxLine(rate: 5, taxable: t.taxableValue, cgst: cgst, sgst: sgst),
+      ],
+      roundOff: total - beforeRounding,
+      total: total,
+    ),
     seq: 125,
-    payments: [Payment(mode: PaymentMode.card, amount: t.total)],
-    taxLines: [
-      TaxLine(
-        rate: 5,
-        taxable: t.taxableValue,
-        cgst: const Money(2125),
-        sgst: const Money(2125),
-      ),
-    ],
+    payments: [Payment(mode: PaymentMode.card, amount: total)],
   );
 }
+
+/// [pilotLocation] once it is GST-registered.
+const Location gstLocation = Location(
+  code: 'PTB',
+  name: 'Caramel Cottage',
+  address: '12 Baker Street, Pattambi, Palakkad 679303',
+  phone: '+91 98470 00000',
+  gstin: '32ABCDE1234F1Z5',
+  overridePinHash: 'c2FsdA==\$aGFzaA==',
+  receiptFooter: 'Thank you! Visit caramelcottage.in',
+  nextDeviceNo: 2,
+  active: true,
+);
 
 /// One Plum Cake and one Red Velvet Jar back from [discountedSplitBill].
 SaleReturn partialReturn(Bill bill) {

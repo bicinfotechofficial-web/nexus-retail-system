@@ -10,7 +10,11 @@ import 'golden_text.dart';
 
 void main() {
   ReceiptDocument doc(Bill bill, {bool reprint = false}) =>
-      ReceiptDocument.fromBill(bill, pilotLocation, reprint: reprint);
+      ReceiptDocument.fromBill(
+        bill,
+        bill.taxLines.isEmpty ? pilotLocation : gstLocation,
+        reprint: reprint,
+      );
 
   ReturnSlipDocument slip() {
     final bill = discountedSplitBill();
@@ -74,6 +78,29 @@ void main() {
     test('no GST block while taxLines is empty (D-013)', () {
       expect(text(normalBill()), isNot(contains('GST')));
       expect(text(gstBill()), contains('CGST 2.5%'));
+    });
+
+    test('the GST block comes before the total and adds up to it (QA-036)', () {
+      final bill = gstBill();
+      final lines = text(bill).split('\n').map((l) => l.trimRight()).toList();
+      int at(String label) => lines.indexWhere((l) => l.startsWith(label));
+      expect(at('Subtotal'), lessThan(at('GSTIN')));
+      expect(at('GSTIN'), lessThan(at('Taxable value')));
+      expect(at('Taxable value'), lessThan(at('CGST')));
+      expect(at('CGST'), lessThan(at('SGST')));
+      expect(at('SGST'), lessThan(at('Round off')));
+      expect(at('Round off'), lessThan(at('TOTAL')));
+
+      // Every amount from Taxable value to Round off adds up to TOTAL.
+      Money amountOn(int i) =>
+          Money.parse(lines[i].split(' ').last.replaceFirst('+', ''));
+      var sum = Money.zero;
+      for (var i = at('Taxable value'); i <= at('Round off'); i++) {
+        sum += amountOn(i);
+      }
+      expect(sum, amountOn(at('TOTAL')));
+      expect(amountOn(at('TOTAL')), const Money.rupees(893));
+      expect(lines[at('Round off')], endsWith('+₹0.50'));
     });
 
     test('REPRINT only when asked; CANCELLED always for a cancelled bill', () {

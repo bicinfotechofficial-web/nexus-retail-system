@@ -52,6 +52,18 @@ final class ReceiptLayout {
           : 'Discount';
       b.row(label, _money(-d.amount));
     }
+    // The GST block sits between the discount and the round-off, so the
+    // lines read top to bottom as the bill is worked out (QA-036):
+    // taxable value + CGST + SGST + round-off = TOTAL.
+    if (doc.gst case final gst?) {
+      if (gst.gstin case final gstin?) b.left('GSTIN: $gstin');
+      b.row('Taxable value', _money(gst.taxableValue));
+      for (final t in gst.lines) {
+        final half = _halfRate(t.rate);
+        b.row('CGST $half%', _money(t.cgst));
+        b.row('SGST $half%', _money(t.sgst));
+      }
+    }
     b.row('Round off', _signed(doc.roundOff));
     b.rule('=');
     b.row('TOTAL', _money(doc.total), bold: true, doubleHeight: true);
@@ -61,17 +73,6 @@ final class ReceiptLayout {
     if (doc.change case final change?) {
       b.row('Cash tendered', _money(doc.cashTendered!));
       b.row('Change', _money(change));
-    }
-
-    if (doc.gst case final gst?) {
-      b.rule();
-      if (gst.gstin case final gstin?) b.left('GSTIN: $gstin');
-      b.row('Taxable value', _money(gst.taxableValue));
-      for (final t in gst.lines) {
-        final half = _halfRate(t.rate);
-        b.row('CGST $half%', _money(t.cgst));
-        b.row('SGST $half%', _money(t.sgst));
-      }
     }
 
     b.rule();
