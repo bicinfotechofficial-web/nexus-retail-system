@@ -169,6 +169,7 @@ class _ProductsTabState extends ConsumerState<ProductsTab> {
           scrollDirection: Axis.horizontal,
           child: DataTable(
             key: const Key('products-table'),
+            columnSpacing: 32,
             columns: const [
               DataColumn(label: Text('Name')),
               DataColumn(label: Text('Category')),

@@ -18,6 +18,8 @@ Future<void> pumpAdmin(
   Size size = const Size(1400, 1000),
   List<Override> overrides = const [],
 }) async {
+  // A tap on something off screen or covered is a test bug, not a warning.
+  WidgetController.hitTestWarningShouldBeFatal = true;
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);

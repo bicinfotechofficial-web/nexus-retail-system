@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'catalog/catalog_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'data/providers.dart';
+import 'locations/locations_screen.dart';
 import 'login/login_screen.dart';
 import 'reports/reports_screen.dart';
 import 'shell/admin_shell.dart';
@@ -41,6 +42,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           _guarded('/dashboard', const DashboardScreen()),
           _guarded('/reports', const ReportsScreen()),
           _guarded('/catalog', const CatalogScreen()),
+          _guarded('/locations', const LocationsScreen()),
         ],
       ),
     ],
