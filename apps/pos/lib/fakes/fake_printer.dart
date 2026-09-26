@@ -19,9 +19,19 @@ final class FakePrinterService implements PrinterService {
   /// Every bill passed to [printBill], in order.
   final List<Bill> printedBills = [];
 
+  /// The `reprint` flag of each [printBill] call, index-aligned with
+  /// [printedBills].
+  final List<bool> reprintFlags = [];
+
+  /// Every return passed to [printReturn], in order.
+  final List<SaleReturn> printedReturns = [];
+
   /// Results to return from the next print calls, in order. When empty,
   /// prints succeed.
   final List<PrintResult> nextResults = [];
+
+  /// When set, the next print call throws it, like a plugin error.
+  Error? throwNext;
 
   PaperWidth _width = PaperWidth.mm80;
 
@@ -46,8 +56,14 @@ final class FakePrinterService implements PrinterService {
     _status.add(_current);
   }
 
-  PrintResult _next() =>
-      nextResults.isEmpty ? const Printed() : nextResults.removeAt(0);
+  PrintResult _next() {
+    final t = throwNext;
+    if (t != null) {
+      throwNext = null;
+      throw t;
+    }
+    return nextResults.isEmpty ? const Printed() : nextResults.removeAt(0);
+  }
 
   @override
   Future<PrintResult> printBill(
@@ -56,6 +72,7 @@ final class FakePrinterService implements PrinterService {
     bool reprint = false,
   }) async {
     printedBills.add(bill);
+    reprintFlags.add(reprint);
     return _next();
   }
 
@@ -64,7 +81,10 @@ final class FakePrinterService implements PrinterService {
     SaleReturn ret,
     Bill bill,
     Location location,
-  ) async => _next();
+  ) async {
+    printedReturns.add(ret);
+    return _next();
+  }
 
   @override
   Future<PrintResult> testPrint() async => _next();
@@ -75,6 +95,7 @@ final class FakePrinterService implements PrinterService {
       ..writeln(location.name)
       ..writeln(bill.billNo);
     if (reprint) b.writeln('REPRINT');
+    if (bill.status == BillStatus.cancelled) b.writeln('*** CANCELLED ***');
     for (final l in bill.lines) {
       b.writeln('${l.name} x${l.qty}  ${l.lineTotal.format()}');
     }
@@ -83,6 +104,15 @@ final class FakePrinterService implements PrinterService {
   }
 
   @override
-  String previewReturn(SaleReturn ret, Bill bill, Location location) =>
-      '${location.name}\nRETURN ${ret.id}\n${ret.refundTotal.format()}';
+  String previewReturn(SaleReturn ret, Bill bill, Location location) {
+    final b = StringBuffer()
+      ..writeln(location.name)
+      ..writeln('RETURN ${ret.id}')
+      ..writeln('Against ${bill.billNo}');
+    for (final l in ret.lines) {
+      b.writeln('${l.name} x${l.qty}  ${l.amount.format()}');
+    }
+    b.writeln('REFUND ${ret.refundTotal.format()}');
+    return b.toString();
+  }
 }
