@@ -30,8 +30,9 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 |---|---|
 | `test/support/fixtures.js` | Roles, locations and the test actors. Roles are parsed from `packages/core/lib/src/permissions.dart`, so they can't drift from the app's permission sets |
 | `test/support/env.js` | `useRulesEnv()`: one test environment per file, and a clean, seeded database before each test. `t.db('<actor>')` gives a client acting as that actor with the rules on; `t.arrange(fn)` writes setup state with the rules off |
-| `test/support/builders.js` | Doc builders (`makeBill`, `makeCancel`, ...) with consistent arithmetic, so a test only spells out the field it tampers with |
-| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6) |
+| `test/support/builders.js` | Doc builders (`makeBill`, `makeReturn`, `makeMovement`, `stockWrite`, ...) with consistent arithmetic, so a test only spells out the field it tampers with |
+| `test/support/batches.js` | Whole business batches (bill, return, stock operation) for the rules tests, until BE-10's plan fixtures replace them |
+| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch) |
 
 ## Actors
 | Key | uid | Role | Location | Active |

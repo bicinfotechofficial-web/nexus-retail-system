@@ -367,6 +367,125 @@ service cloud.firestore {
     }
 
 
+    // ---- #7 returns and movements, #8 stock ------------------------------
+
+    function returnKeys() {
+      return ['billId', 'billNo', 'lines', 'refundTotal', 'refunds', 'reason', 'prevReturnId',
+              'businessDate', 'createdBy', 'deviceId', 'clientCreatedAt', 'serverCreatedAt'];
+    }
+
+    // #7. A return is created together with the bill update that raises
+    // returnedQty (the bill must name it as lastReturnId after the batch;
+    // #5(b) checks the rest) and its audit doc (#10, D-028).
+    function validNewReturn(loc, returnId) {
+      let r = incoming();
+      let keys = returnKeys();
+      return returnId.matches('^D[0-9]{2}-R[0-9]{6}$')
+        && r.keys().hasOnly(keys)
+        && r.keys().size() == keys.size()
+        && r.deviceId == returnId.split('-')[0]
+        && r.billId is string && r.billId.matches('^D[0-9]{2}-[0-9]{6}$')
+        && r.billNo == loc + '-' + r.billId
+        && r.createdBy == request.auth.uid
+        && r.lines is list && r.lines.size() >= 1 && r.lines.size() <= 20
+        && r.refundTotal is int && r.refundTotal >= 0 && r.refundTotal % 100 == 0
+        && paymentsOk(r.refunds, r.refundTotal)
+        && r.reason is string
+        && (r.prevReturnId == null || r.prevReturnId is string)
+        && isBusinessDate(r.businessDate)
+        && r.clientCreatedAt is timestamp
+        && r.serverCreatedAt == request.time
+        && getAfter(billPath(loc, r.billId)).data.lastReturnId == returnId
+        && existsAfter(auditPath(loc + '-' + returnId));
+    }
+
+    function movementKeys() {
+      return ['type', 'lines', 'reason', 'note', 'refId', 'businessDate',
+              'clientCreatedAt', 'serverCreatedAt', 'createdBy', 'deviceId'];
+    }
+    // The permission each movement type needs (#7).
+    function movementPermission(t) {
+      return t == 'SALE' ? 'bill.create'
+        : t == 'CANCEL' ? 'bill.cancel'
+        : t == 'RETURN' ? 'return.create'
+        : t == 'ADJUST' ? 'stock.adjust'
+        : 'stock.move';
+    }
+    // SALE, RETURN and CANCEL movements share their bill's or return's ID
+    // (02-DATA-MODEL); the rest use the device's movement counter.
+    function movementIdPattern(t) {
+      return t == 'SALE' ? '^D[0-9]{2}-[0-9]{6}$'
+        : t == 'CANCEL' ? '^D[0-9]{2}-[0-9]{6}-X$'
+        : t == 'RETURN' ? '^D[0-9]{2}-R[0-9]{6}$'
+        : '^D[0-9]{2}-M[0-9]{6}$';
+    }
+
+    function validNewMovement(loc, id) {
+      let m = incoming();
+      let t = m.type;
+      let keys = movementKeys();
+      return m.keys().hasOnly(keys)
+        && m.keys().size() == keys.size()
+        && t in ['STOCK_IN', 'STOCK_OUT_RAW', 'WASTAGE_RAW', 'PRODUCE', 'WASTAGE_FG',
+                 'ADJUST', 'SALE', 'RETURN', 'CANCEL']
+        && canAt(movementPermission(t), loc)
+        && id.matches(movementIdPattern(t))
+        && m.deviceId is string && m.deviceId.matches('^D[0-9]{2}$')
+        // A cancel can be made on another device than the bill's.
+        && (t == 'CANCEL' || m.deviceId == id.split('-')[0])
+        && (t == 'SALE' || t == 'RETURN' ? m.refId == id
+          : t == 'CANCEL' ? m.refId + '-X' == id
+          : true)
+        && m.createdBy == request.auth.uid
+        && m.lines is list && m.lines.size() >= 1 && m.lines.size() <= 20
+        && (t in ['WASTAGE_RAW', 'WASTAGE_FG', 'ADJUST', 'CANCEL']
+          ? m.reason is string && m.reason.size() > 0
+          : true)
+        // Wastage and adjustments are audited (#10, D-028).
+        && (t in ['WASTAGE_RAW', 'WASTAGE_FG', 'ADJUST']
+          ? existsAfter(auditPath(loc + '-' + id))
+          : true)
+        && isBusinessDate(m.businessDate)
+        && m.clientCreatedAt is timestamp
+        && m.serverCreatedAt == request.time;
+    }
+
+    function stockKeys() {
+      return ['kind', 'refId', 'name', 'unit', 'qty', 'lastMovementId', 'updatedAt', 'lowThreshold'];
+    }
+
+    // #8, for the keys a stock write sets (create) or changes (update):
+    // - qty and lastMovementId only with a movement that is new in this
+    //   batch, so every quantity change has a movement doc behind it;
+    // - lowThreshold only with stock.threshold;
+    // - updatedAt is the server time.
+    function stockChangeOk(loc, ks) {
+      let d = incoming();
+      return (!ks.hasAny(['qty', 'lastMovementId'])
+          || (d.qty is int && d.lastMovementId is string
+            && !exists(movementPath(loc, d.lastMovementId))
+            && existsAfter(movementPath(loc, d.lastMovementId))))
+        && (!ks.hasAny(['lowThreshold'])
+          || (canAt('stock.threshold', loc)
+            && (d.lowThreshold == null || (d.lowThreshold is int && d.lowThreshold >= 0))))
+        && (!ks.hasAny(['updatedAt']) || d.updatedAt == request.time)
+        && (!ks.hasAny(['name']) || d.name is string);
+    }
+
+    // Every batch writes the stock doc with set(merge) and qty as an
+    // increment (D-005), so the first use creates it. The itemKey is
+    // RM_{materialId} or FG_{productId}.
+    function validNewStock(loc, itemKey) {
+      let d = incoming();
+      return d.keys().hasOnly(stockKeys())
+        && d.keys().hasAll(['kind', 'refId', 'name', 'unit', 'updatedAt'])
+        && d.kind in ['RAW', 'FINISHED']
+        && d.unit in ['G', 'ML', 'PCS']
+        && d.refId is string
+        && itemKey == (d.kind == 'RAW' ? 'RM_' : 'FG_') + d.refId
+        && stockChangeOk(loc, d.keys());
+    }
+
     match /locations/{loc} {
       allow read: if activeAt(loc);
 
@@ -394,6 +513,29 @@ service cloud.firestore {
         // The return check goes first: it's the bigger one, and a cancel
         // fails its first clause cheaply.
         allow update: if isReturnUpdate(loc) || isCancel(loc, billId);
+        allow delete: if false;
+      }
+
+      match /returns/{returnId} {
+        allow read: if canAt('report.own', loc) || canAt('bill.create', loc) || canAt('return.create', loc);
+        allow create: if canAt('return.create', loc) && validNewReturn(loc, returnId);
+        allow update, delete: if false;
+      }
+
+      match /movements/{movementId} {
+        allow read: if canAt('stock.move', loc) || canAt('stock.adjust', loc) || canAt('report.own', loc);
+        allow create: if validNewMovement(loc, movementId);
+        allow update, delete: if false;
+      }
+
+      match /stock/{itemKey} {
+        allow read: if canAt('catalog.view', loc);
+        allow create: if activeAt(loc) && validNewStock(loc, itemKey);
+        // kind, refId and unit are create-only; name may change on any write,
+        // so a renamed product keeps selling (QA-023).
+        allow update: if activeAt(loc)
+          && changed().hasOnly(['name', 'qty', 'lastMovementId', 'updatedAt', 'lowThreshold'])
+          && stockChangeOk(loc, changed());
         allow delete: if false;
       }
 

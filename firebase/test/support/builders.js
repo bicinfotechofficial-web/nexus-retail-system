@@ -2,7 +2,7 @@
 // models' toMap(), with consistent arithmetic, so a test only spells out the
 // field it's tampering with.
 
-import { serverTimestamp, Timestamp } from 'firebase/firestore';
+import { increment, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
 
 export const TODAY = '2026-09-26';
@@ -84,4 +84,87 @@ export function makeCancel({ uid = ACTORS.smPtb.uid, businessDate = TODAY, reaso
 /** `n` distinct lines of one piece each, for cap tests. */
 export function manyLines(n, unitPrice = 10000) {
   return Array.from({ length: n }, (_, i) => [`p${String(i + 1).padStart(2, '0')}`, 1, unitPrice]);
+}
+
+/** `D01-R000007` */
+export function returnId(deviceId, seq) {
+  return `${deviceId}-R${String(seq).padStart(6, '0')}`;
+}
+
+/** `D01-M000042` */
+export function movementId(deviceId, seq) {
+  return `${deviceId}-M${String(seq).padStart(6, '0')}`;
+}
+
+/**
+ * A return of `lines` (`[[productId, qty, amountPaise], ...]`) from bill
+ * `billId`. `refunds` defaults to one CASH refund of the rupee-rounded total.
+ */
+export function makeReturn({
+  loc = LOC.PTB,
+  deviceId = 'D01',
+  billId: forBill = billId('D01', 1),
+  lines = [['puff-veg', 1, 2550]],
+  refunds,
+  refundTotal,
+  prevReturnId = null,
+  uid = ACTORS.smPtb.uid,
+  businessDate = TODAY,
+} = {}) {
+  const returnLines = lines.map(([productId, qty, amount]) => ({ productId, name: `Product ${productId}`, qty, amount }));
+  const total = refundTotal ?? roundToRupee(returnLines.reduce((a, l) => a + l.amount, 0));
+  return {
+    billId: forBill,
+    billNo: `${loc}-${forBill}`,
+    lines: returnLines,
+    refundTotal: total,
+    refunds: refunds ?? [{ mode: 'CASH', amount: total }],
+    reason: 'Damaged in transit',
+    prevReturnId,
+    businessDate,
+    createdBy: uid,
+    deviceId,
+    clientCreatedAt: Timestamp.now(),
+    serverCreatedAt: serverTimestamp(),
+  };
+}
+
+/** A movement. `lines` is `[[itemKey, delta], ...]`. */
+export function makeMovement({
+  type = 'STOCK_IN',
+  lines = [['RM_flour', 5000]],
+  reason = null,
+  note = null,
+  refId = null,
+  deviceId = 'D01',
+  uid = ACTORS.smPtb.uid,
+  businessDate = TODAY,
+} = {}) {
+  return {
+    type,
+    lines: lines.map(([itemKey, delta]) => ({ itemKey, delta })),
+    reason,
+    note,
+    refId,
+    businessDate,
+    clientCreatedAt: Timestamp.now(),
+    serverCreatedAt: serverTimestamp(),
+    createdBy: uid,
+    deviceId,
+  };
+}
+
+/** The set(merge) data a batch writes to one stock doc (D-005). */
+export function stockWrite(itemKey, delta, lastMovementId, { name } = {}) {
+  const raw = itemKey.startsWith('RM_');
+  const refId = itemKey.slice(3);
+  return {
+    kind: raw ? 'RAW' : 'FINISHED',
+    refId,
+    name: name ?? `Item ${refId}`,
+    unit: raw ? 'G' : 'PCS',
+    qty: increment(delta),
+    lastMovementId,
+    updatedAt: serverTimestamp(),
+  };
 }
