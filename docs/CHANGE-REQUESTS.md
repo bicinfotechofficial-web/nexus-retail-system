@@ -4,6 +4,7 @@ Build agents add requests here. The central agent decides each one and records t
 
 | ID | Raised by | Contract section | Problem | Options | Decision |
 |---|---|---|---|---|---|
+| AD-CR-1 | Admin | `CatalogService.save` (packages/data api/catalog.dart), 02 products | The contract doesn't say who assigns a **new** product's ID. `Product.id` is required, so the console has to pass one, and the backend may instead expect to allocate it (or read an empty ID as "create"). The same question applies to `createdBy` on create. | (a) The caller assigns the ID; it must pass `Ids.isSafeKey`, and `save` creates the doc when it doesn't exist. The console does this now (`p` + base-36 time + random suffix) and sets `createdBy` to the signed-in uid. (b) `save` allocates the ID when `product.id` is empty and returns the saved product; the console would pass `''`. Recommend (a): it is idempotent on retry and needs no API change, only a doc line. | |
 
 ## Review notes from the central agent
 Answers to questions raised in agent reports.

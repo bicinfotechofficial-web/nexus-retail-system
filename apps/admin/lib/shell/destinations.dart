@@ -29,6 +29,12 @@ const List<Destination> destinations = [
     icon: Icons.bar_chart_outlined,
     anyOf: [Permission.reportOwn, Permission.reportAll],
   ),
+  Destination(
+    path: '/catalog',
+    label: 'Catalog',
+    icon: Icons.cake_outlined,
+    anyOf: [Permission.catalogManage],
+  ),
 ];
 
 Destination destinationFor(String path) => destinations.firstWhere(

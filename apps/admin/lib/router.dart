@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'catalog/catalog_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'data/providers.dart';
 import 'login/login_screen.dart';
@@ -39,6 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           _guarded('/dashboard', const DashboardScreen()),
           _guarded('/reports', const ReportsScreen()),
+          _guarded('/catalog', const CatalogScreen()),
         ],
       ),
     ],

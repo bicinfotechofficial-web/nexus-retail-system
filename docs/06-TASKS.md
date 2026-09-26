@@ -80,7 +80,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | AD-3 | Locations CRUD, including setting the PIN (hashed on the client), offline limit and discount cap | BE-11 | M | Widget test | TODO |
 | AD-4 | Users: create a Store Manager through the secondary Firebase App, assign a location, disable | BE-11 | M | Emulator test that the admin stays signed in | TODO |
 | AD-5 | Devices list: last seen, retire | BE-11 | S | Widget test | TODO |
-| AD-6 | Catalog: products CRUD, price change (audited), approval queue, raw materials | BE-10 | M | Widget tests | TODO |
+| AD-6 | Catalog: products CRUD, price change (audited), approval queue, raw materials | BE-10 | M | Widget tests | REVIEW |
 | AD-7 | Stock view by location, plus a low-stock table across locations | BE-11 | S | Widget test | TODO |
 | AD-8 | Reports: daily, monthly and annual. Gross, discount, net, returns, cancellations, by mode, top products. One location or all combined | BE-11 | L | Aggregation unit tests | DONE |
 | AD-9 | Expenses: create, edit and list by location, category and month | BE-10 | M | Widget test | TODO |
