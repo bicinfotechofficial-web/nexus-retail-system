@@ -71,6 +71,12 @@ const List<Destination> destinations = [
     icon: Icons.phone_android_outlined,
     anyOf: [Permission.locationManage],
   ),
+  Destination(
+    path: '/audit',
+    label: 'Audit log',
+    icon: Icons.history_outlined,
+    anyOf: [Permission.auditView],
+  ),
 ];
 
 Destination destinationFor(String path) => destinations.firstWhere(
