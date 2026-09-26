@@ -4,9 +4,16 @@ rules_version = '2';
 // docs/04-PERMISSIONS.md; rule numbers (#1 ... #13) refer to it. Anything not
 // matched below is denied (#1).
 //
-// Access-call budget: me() and role() cost 2 calls and are counted once per
-// request, however often they're used. Keep every other get()/exists() in a
-// rule to the docs that rule is about.
+// Two budgets apply to every rule evaluation:
+// - Access calls: me() and role() cost 2 and are counted once per request,
+//   however often they're used. Keep every other get()/exists() in a rule to
+//   the docs that rule is about.
+// - Evaluated expressions: at most 1000 per rule evaluation (per document in a
+//   batch). Unrolled per-line checks are what use it up: the largest bill
+//   (20 lines, 4 payments) and the largest return update (20 products) are
+//   the tight spots, and BE-6 tests them. Guard unrolled checks with ?: so
+//   only the entries that exist are evaluated, and keep per-entry checks to
+//   what the contract needs.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -46,8 +53,17 @@ service cloud.firestore {
     function atLoc(loc) {
       return role().allLocations == true || me().locationId == loc;
     }
+    // canAt() binds the user and role docs once: every evaluated expression
+    // counts towards the limit of 1000 per rule, and the big batches need
+    // the headroom.
     function canAt(p, loc) {
-      return can(p) && atLoc(loc);
+      return signedIn() && exists(userPath(request.auth.uid)) && canAtAs(get(userPath(request.auth.uid)).data, p, loc);
+    }
+    function canAtAs(u, p, loc) {
+      return u.active == true && canAtWith(u, get(rolePath(u.roleId)).data, p, loc);
+    }
+    function canAtWith(u, r, p, loc) {
+      return p in r.permissions && (r.allLocations == true || u.locationId == loc);
     }
     function activeAt(loc) {
       return active() && atLoc(loc);
@@ -143,6 +159,205 @@ service cloud.firestore {
         && existsAfter(devicePath(loc, deviceCode(next)));
     }
 
+    // ---- #5-6 bills --------------------------------------------------------
+    // The rules language has no loops, so per-line and per-key checks are
+    // unrolled up to the caps in Limits (D-030): 20 lines, 4 payments.
+
+    function billPath(loc, billId) {
+      return /databases/$(database)/documents/locations/$(loc)/bills/$(billId);
+    }
+    function returnPath(loc, returnId) {
+      return /databases/$(database)/documents/locations/$(loc)/returns/$(returnId);
+    }
+    function movementPath(loc, movementId) {
+      return /databases/$(database)/documents/locations/$(loc)/movements/$(movementId);
+    }
+    function auditPath(auditId) {
+      return /databases/$(database)/documents/auditLog/$(auditId);
+    }
+
+    function isBusinessDate(s) {
+      return s is string && s.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // Line i: well formed, lineTotal = qty x unitPrice, and soldQty carries
+    // exactly this line's qty. soldQty.size() == lines.size() then also rules
+    // out two lines for one product (D-024).
+    // Per-line checks are unrolled up to the cap, but only the lines that
+    // exist are evaluated: each check is followed by `size() == n ? true : ...`
+    // (?: evaluates one branch; || and && evaluate both sides). Every
+    // evaluated expression counts towards Firestore's limit of 1000 per rule
+    // evaluation, so a guard per slot for all 20 slots would not fit.
+
+    // One bill line: soldQty carries exactly its qty for its product.
+    // soldQty.size() == lines.size() then rules out two lines for one
+    // product (D-024). Line arithmetic and positive quantities are the
+    // client's (BillCalculator): with 20 lines there's no budget for them,
+    // and soldQty only has to be right for the return cap (#5b).
+    // (Inlined below as `sold.get(ls[i].productId, -1) == ls[i].qty`.)
+    function billLinesFrom0(ls, sold) {
+      return sold.get(ls[0].productId, -1) == ls[0].qty
+          && (ls.size() == 1 ? true : sold.get(ls[1].productId, -1) == ls[1].qty
+          && (ls.size() == 2 ? true : sold.get(ls[2].productId, -1) == ls[2].qty
+          && (ls.size() == 3 ? true : sold.get(ls[3].productId, -1) == ls[3].qty
+          && (ls.size() == 4 ? true : sold.get(ls[4].productId, -1) == ls[4].qty
+          && (ls.size() == 5 ? true : billLinesFrom5(ls, sold))))));
+    }
+    function billLinesFrom5(ls, sold) {
+      return sold.get(ls[5].productId, -1) == ls[5].qty
+          && (ls.size() == 6 ? true : sold.get(ls[6].productId, -1) == ls[6].qty
+          && (ls.size() == 7 ? true : sold.get(ls[7].productId, -1) == ls[7].qty
+          && (ls.size() == 8 ? true : sold.get(ls[8].productId, -1) == ls[8].qty
+          && (ls.size() == 9 ? true : sold.get(ls[9].productId, -1) == ls[9].qty
+          && (ls.size() == 10 ? true : billLinesFrom10(ls, sold))))));
+    }
+    function billLinesFrom10(ls, sold) {
+      return sold.get(ls[10].productId, -1) == ls[10].qty
+          && (ls.size() == 11 ? true : sold.get(ls[11].productId, -1) == ls[11].qty
+          && (ls.size() == 12 ? true : sold.get(ls[12].productId, -1) == ls[12].qty
+          && (ls.size() == 13 ? true : sold.get(ls[13].productId, -1) == ls[13].qty
+          && (ls.size() == 14 ? true : sold.get(ls[14].productId, -1) == ls[14].qty
+          && (ls.size() == 15 ? true : billLinesFrom15(ls, sold))))));
+    }
+    function billLinesFrom15(ls, sold) {
+      return sold.get(ls[15].productId, -1) == ls[15].qty
+          && (ls.size() == 16 ? true : sold.get(ls[16].productId, -1) == ls[16].qty
+          && (ls.size() == 17 ? true : sold.get(ls[17].productId, -1) == ls[17].qty
+          && (ls.size() == 18 ? true : sold.get(ls[18].productId, -1) == ls[18].qty
+          && (ls.size() == 19 ? true : sold.get(ls[19].productId, -1) == ls[19].qty))));
+    }
+    function billLinesOk(ls, sold) {
+      return ls is list && ls.size() >= 1 && ls.size() <= 20
+        && sold is map && sold.size() == ls.size()
+        && billLinesFrom0(ls, sold);
+    }
+
+    // Payments (and refunds): at most 4, adding up to exactly [total]. An
+    // empty list sums to 0. Modes and positive amounts are the client's.
+    function paymentsOk(ps, total) {
+      return ps is list && ps.size() <= 4
+        && (ps.size() == 0 ? total == 0
+          : ps.size() == 1 ? ps[0].amount == total
+          : ps.size() == 2 ? ps[0].amount + ps[1].amount == total
+          : ps.size() == 3 ? ps[0].amount + ps[1].amount + ps[2].amount == total
+          : ps[0].amount + ps[1].amount + ps[2].amount + ps[3].amount == total);
+    }
+
+    function billKeys() {
+      return ['billNo', 'deviceId', 'seq', 'lines', 'subtotal', 'discount', 'taxableValue',
+              'taxLines', 'roundOff', 'total', 'payments', 'cashTendered', 'status', 'cancel',
+              'returnedQty', 'soldQty', 'lastReturnId', 'servedBy', 'businessDate',
+              'clientCreatedAt', 'serverCreatedAt', 'createdBy'];
+    }
+
+    // #6. billId is `D01-000123` and must agree with deviceId, seq and billNo.
+    function validNewBill(loc, billId) {
+      let b = incoming();
+      let keys = billKeys();
+      return billId.matches('^D[0-9]{2}-[0-9]{6}$')
+        && b.keys().hasOnly(keys)
+        && b.keys().size() == keys.size()
+        && b.billNo == loc + '-' + billId
+        && b.deviceId == billId.split('-')[0]
+        && b.seq is int && b.seq > 0
+        && billId.matches('^D[0-9]{2}-0*' + string(b.seq) + '$')
+        && b.createdBy == request.auth.uid
+        && b.status == 'COMPLETED'
+        && b.cancel == null
+        && b.returnedQty is map && b.returnedQty.size() == 0
+        && b.lastReturnId == null
+        && billLinesOk(b.lines, b.soldQty)
+        && b.subtotal is int
+        && (b.discount == null || b.discount is map)
+        && b.taxableValue is int
+        && b.taxLines is list
+        && b.roundOff is int
+        && (b.cashTendered == null || b.cashTendered is int)
+        && b.servedBy is map
+        && b.total is int && b.total >= 0 && b.total % 100 == 0
+        && paymentsOk(b.payments, b.total)
+        && isBusinessDate(b.businessDate)
+        && b.clientCreatedAt is timestamp
+        && b.serverCreatedAt == request.time;
+    }
+
+    // #5(a). Same-day cancel. D-009's "same day" is client-enforced (D-031);
+    // the rule keeps cancel.businessDate equal to the bill's own.
+    function isCancel(loc, billId) {
+      let c = incoming().cancel;
+      return changed().hasOnly(['status', 'cancel'])
+        && canAt('bill.cancel', loc)
+        && resource.data.status == 'COMPLETED'
+        && incoming().status == 'CANCELLED'
+        && resource.data.returnedQty.size() == 0
+        && c is map
+        && c.keys().hasOnly(['reason', 'by', 'at', 'businessDate'])
+        && c.keys().hasAll(['reason', 'by', 'at', 'businessDate'])
+        && c.reason is string && c.reason.size() > 0
+        && c.by == request.auth.uid
+        && c.at is timestamp
+        && c.businessDate == resource.data.businessDate
+        && existsAfter(movementPath(loc, billId + '-X'))
+        && existsAfter(auditPath(loc + '-' + billId + '-X'));
+    }
+
+    // Product p's new returnedQty: never lower than before, never above what
+    // was sold (a product not on the bill has sold 0).
+    function returnedQtyOk(p, rq, old, sold) {
+      return rq[p] >= old.get(p, 0) && rq[p] <= sold.get(p, 0);
+    }
+    function returnedQtyFrom0(ks, rq, old, sold) {
+      return returnedQtyOk(ks[0], rq, old, sold)
+          && (ks.size() == 1 ? true : returnedQtyOk(ks[1], rq, old, sold)
+          && (ks.size() == 2 ? true : returnedQtyOk(ks[2], rq, old, sold)
+          && (ks.size() == 3 ? true : returnedQtyOk(ks[3], rq, old, sold)
+          && (ks.size() == 4 ? true : returnedQtyOk(ks[4], rq, old, sold)
+          && (ks.size() == 5 ? true : returnedQtyFrom5(ks, rq, old, sold))))));
+    }
+    function returnedQtyFrom5(ks, rq, old, sold) {
+      return returnedQtyOk(ks[5], rq, old, sold)
+          && (ks.size() == 6 ? true : returnedQtyOk(ks[6], rq, old, sold)
+          && (ks.size() == 7 ? true : returnedQtyOk(ks[7], rq, old, sold)
+          && (ks.size() == 8 ? true : returnedQtyOk(ks[8], rq, old, sold)
+          && (ks.size() == 9 ? true : returnedQtyOk(ks[9], rq, old, sold)
+          && (ks.size() == 10 ? true : returnedQtyFrom10(ks, rq, old, sold))))));
+    }
+    function returnedQtyFrom10(ks, rq, old, sold) {
+      return returnedQtyOk(ks[10], rq, old, sold)
+          && (ks.size() == 11 ? true : returnedQtyOk(ks[11], rq, old, sold)
+          && (ks.size() == 12 ? true : returnedQtyOk(ks[12], rq, old, sold)
+          && (ks.size() == 13 ? true : returnedQtyOk(ks[13], rq, old, sold)
+          && (ks.size() == 14 ? true : returnedQtyOk(ks[14], rq, old, sold)
+          && (ks.size() == 15 ? true : returnedQtyFrom15(ks, rq, old, sold))))));
+    }
+    function returnedQtyFrom15(ks, rq, old, sold) {
+      return returnedQtyOk(ks[15], rq, old, sold)
+          && (ks.size() == 16 ? true : returnedQtyOk(ks[16], rq, old, sold)
+          && (ks.size() == 17 ? true : returnedQtyOk(ks[17], rq, old, sold)
+          && (ks.size() == 18 ? true : returnedQtyOk(ks[18], rq, old, sold)
+          && (ks.size() == 19 ? true : returnedQtyOk(ks[19], rq, old, sold)))));
+    }
+
+    // #5(b). A return raises returnedQty, tied to a return doc created in the
+    // same batch (lastReturnId). First to sync wins against a cancel (D-029).
+    function isReturnUpdate(loc) {
+      let rq = incoming().returnedQty;
+      let ks = rq.keys();
+      let r = incoming().lastReturnId;
+      let ch = changed();
+      return ch.hasOnly(['returnedQty', 'lastReturnId'])
+        && ch.hasAll(['returnedQty', 'lastReturnId'])
+        && canAt('return.create', loc)
+        && resource.data.status == 'COMPLETED'
+        && rq is map
+        && ks.hasAll(resource.data.returnedQty.keys())
+        && ks.size() >= 1 && ks.size() <= resource.data.soldQty.size()
+        && returnedQtyFrom0(ks, rq, resource.data.returnedQty, resource.data.soldQty)
+        && r is string && r.matches('^D[0-9]{2}-R[0-9]{6}$')
+        && !exists(returnPath(loc, r))
+        && existsAfter(returnPath(loc, r));
+    }
+
     match /locations/{loc} {
       allow read: if activeAt(loc);
 
@@ -161,6 +376,17 @@ service cloud.firestore {
           && validLocationFields(incoming()));
 
       allow delete: if false;
+
+      match /bills/{billId} {
+        allow read: if canAt('report.own', loc) || canAt('bill.create', loc) || canAt('return.create', loc);
+        // A create on an existing ID is an update, which fails validation, so
+        // a duplicate bill is denied (the !exists of #5).
+        allow create: if canAt('bill.create', loc) && validNewBill(loc, billId);
+        // The return check goes first: it's the bigger one, and a cancel
+        // fails its first clause cheaply.
+        allow update: if isReturnUpdate(loc) || isCancel(loc, billId);
+        allow delete: if false;
+      }
 
       match /devices/{deviceId} {
         allow read: if canAt('device.register', loc) || canAt('location.manage', loc);
