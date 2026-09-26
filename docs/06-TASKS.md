@@ -52,7 +52,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | PR-1 | `ReceiptDocument` model (header, meta, lines, totals, discount, round-off, payments, optional GST block, footer) plus a `ReturnSlipDocument` | 02-DATA-MODEL | S | Reviewed by the central agent | DONE |
 | PR-2 | Text layout engine: 48 or 32 columns, left/right alignment, wrapping of long product names, money formatting ₹1,234.00 | PR-1 | M | Golden text tests pass | DONE |
 | PR-3 | ESC/POS encoder: init, bold, double height for the total, alignment, feed, cut, plus a code-page check for the ₹ glyph with a fallback to "Rs." | PR-2 | M | Byte-level golden tests | DONE |
-| PR-4 | Bluetooth Classic transport: permissions for Android 12+ and older, list paired devices, connect, write in chunks, timeout and reconnect, remember the printer | PR-3 | L | Works against a fake transport in tests. A real device is Bicy's check | DONE |
+| PR-4 | Bluetooth Classic transport: permissions for Android 12+ and older, list paired devices, connect, write in chunks, timeout and reconnect, remember the printer | PR-3 | L | Works against a fake transport in tests. A real device is Bicy's check | WIP |
 | PR-5 | `PrinterService` facade (`print(ReceiptDocument)`, status stream) plus a test-print screen widget | PR-4 | S | Widget test | TODO |
 | PR-6 | Golden set: normal bill, discount + split payment, return slip, cancelled-bill reprint (a "CANCELLED" banner), 58 mm and 80 mm | PR-3 | S | Goldens committed | TODO |
 
@@ -60,17 +60,17 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
 | POS-1 | App shell: Riverpod, go_router, theme (Caramel Cottage colours), app-bar sync chip, permission-aware navigation | C-3 | M | Builds a debug APK | REVIEW |
-| POS-2 | Login plus prefetch of the user, role, location, catalog and raw materials. Handles a disabled user | BE-11 | S | Widget tests | REVIEW |
-| POS-3 | Device setup (first run): register, name the device, pick a printer | BE-9, PR-5 | S | Widget tests | REVIEW |
+| POS-2 | Login plus prefetch of the user, role, location, catalog and raw materials. Handles a disabled user | BE-11 | S | Widget tests | DONE |
+| POS-3 | Device setup (first run): register, name the device, pick a printer | BE-9, PR-5 | S | Widget tests | DONE |
 | POS-4 | Billing screen: product grid, categories, search, cart with qty ± and remove, running total | POS-1 | L | Widget tests | DONE |
 | POS-5 | Payment screen: discount (flat or %, cap check), round-off shown, split payment editor, cash tendered and change, save → print | POS-4, BE-10 | L | Tests: sum mismatch blocks Save, and a double tap saves once | DONE |
 | POS-6 | Receipt preview and print, reprint, print-failure handling (the bill is saved already, so offer a retry) | PR-5, POS-5 | S | Widget test | DONE |
 | POS-7 | Bills list for today and earlier dates, bill detail, same-day cancel with a reason | BE-11 | M | Widget tests | DONE |
 | POS-8 | Return flow: pick a bill, choose lines and qty (capped), refund split, print the return slip | POS-7 | M | Widget tests | DONE |
-| POS-9 | Stock hub: current stock (negatives in red), Stock In, Stock Out/Wastage, Produce (multi-line), Adjust (physical count), threshold editing, low-stock list and badge | BE-10, BE-11 | L | Widget tests for each operation | REVIEW |
-| POS-10 | Suggest a local special | BE-10 | S | Widget test | REVIEW |
+| POS-9 | Stock hub: current stock (negatives in red), Stock In, Stock Out/Wastage, Produce (multi-line), Adjust (physical count), threshold editing, low-stock list and badge | BE-10, BE-11 | L | Widget tests for each operation | DONE |
+| POS-10 | Suggest a local special | BE-10 | S | Widget test | DONE |
 | POS-11 | Day summary: totals, by mode, returns, cancellations | BE-11 | S | Widget test | DONE |
-| POS-12 | Offline banner, billing block screen, PIN override, sync-health screen with sync errors | BE-12, BE-13 | M | Widget tests with a fake clock | REVIEW |
+| POS-12 | Offline banner, billing block screen, PIN override, sync-health screen with sync errors | BE-12, BE-13 | M | Widget tests with a fake clock | DONE |
 
 ## Admin web — `apps/admin/`
 | ID | Task | Needs | Size | Done when | Status |
@@ -81,11 +81,11 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | AD-4 | Users: create a Store Manager through the secondary Firebase App, assign a location, disable | BE-11 | M | Emulator test that the admin stays signed in | REVIEW |
 | AD-5 | Devices list: last seen, retire | BE-11 | S | Widget test | DONE |
 | AD-6 | Catalog: products CRUD, price change (audited), approval queue, raw materials | BE-10 | M | Widget tests | DONE |
-| AD-7 | Stock view by location, plus a low-stock table across locations | BE-11 | S | Widget test | REVIEW |
+| AD-7 | Stock view by location, plus a low-stock table across locations | BE-11 | S | Widget test | DONE |
 | AD-8 | Reports: daily, monthly and annual. Gross, discount, net, returns, cancellations, by mode, top products. One location or all combined | BE-11 | L | Aggregation unit tests | DONE |
-| AD-9 | Expenses: create, edit and list by location, category and month | BE-10 | M | Widget test | REVIEW |
-| AD-10 | Financials: sales − expenses per month and location | AD-8, AD-9 | S | Unit test | REVIEW |
-| AD-11 | Audit log viewer with filters, showing a before/after diff | BE-11 | M | Widget test | REVIEW |
+| AD-9 | Expenses: create, edit and list by location, category and month | BE-10 | M | Widget test | DONE |
+| AD-10 | Financials: sales − expenses per month and location | AD-8, AD-9 | S | Unit test | DONE |
+| AD-11 | Audit log viewer with filters, showing a before/after diff | BE-11 | M | Widget test | DONE |
 
 ## QA — `test/e2e/`
 | ID | Task | Needs | Size | Done when | Status |

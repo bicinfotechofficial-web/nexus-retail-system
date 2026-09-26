@@ -85,3 +85,15 @@ Recorded by the central agent. QA closes a row once the contract and a PLAN.md s
 | QA-029 | Accepted: device-create formula, D99 ceiling, `stock.adjust` for the movement counter, `return.create` for RETURN movements, and the BE-8 wording. | 04 #4, #7, 06-TASKS BE-8 | Closed for the contract: 04 #4 (`get(location)`, ≤ 99, `stock.move` or `stock.adjust`), #7 (RETURN with `return.create`), BE-8 wording; PLAN R-4d, R-7. `firestore.rules:418` still allows `lastMovementSeq` with `stock.move` only (third review note), and QA-034 asks for a test that would catch it |
 | QA-030 | Accepted: fixture PINs are 8+ digits. Assigned to the backend (fixtures, README) and POS (fake). | — | Open: rules fixtures (`firebase/test/support/fixtures.js:108`) and `firebase/README.md:46` use `24681357`, but the POS `FakeOfflineGuard` still defaults to `1234` (`apps/pos/lib/fakes/fake_data.dart:493`) |
 | QA-031 | Accepted: reports include deactivated locations' history. Assigned to the admin agent's next run. | — | Open: `reportableLocations` still keeps only active locations (`apps/admin/lib/data/providers.dart:109`); waits for the admin run |
+
+### Central outcomes, third review
+| ID | Outcome | Where it's fixed |
+|---|---|---|
+| QA-027 | Fixed by the POS merge (`cb63acc`): the cart caps at `Limits.maxBillLines` with a message. QA to re-verify. | apps/pos |
+| QA-030 | POS fake fixed (`cb63acc`). Backend fixtures and README assigned to the backend. | apps/pos; backend next |
+| QA-031 | Fixed by the admin merge (`aa6d302`): reports keep deactivated locations' history. QA to re-verify. | apps/admin |
+| QA-032 | Accepted, P1: assigned to the printer. Send a plain `List<int>`, avoid the plugin's leading line feed mid-job (one write per job, or a raw write), and test the exact bytes at the plugin boundary. PR-4 is reopened until fixed. | printer next |
+| QA-033 | Accepted: the rules must reject duplicate product lines and `soldQty` keys not on the bill. Assigned to the backend. | backend next |
+| QA-034 | Accepted: partial-permission test roles. Assigned to the backend. | backend next |
+| QA-035 | Clarified: create writes `nextDeviceNo: 0`, and edits never write it. | `LocationService.save` doc |
+| QA-036 | Accepted, P3: the GST block must come before the total and add up to it. Assigned to the printer. | printer next |

@@ -22,3 +22,9 @@ Second review (POS-6 to POS-11, AD-3 to AD-6, QA-7, QA-8):
 
 Third review (BE-2, BE-3, PR-2 to PR-4):
 - **Backend:** CR-001 decided (b), so bills and returns are capped at 15 lines: unroll to 15, not 20. BE-2 and BE-3 were built on the first contract revision, so bring them up to date with the second (see "Second review" above): `prevReturnId` in #5(b) (QA-024), `name` on stock updates (QA-023, for BE-4), the device-create formula and counter permissions in #4 (QA-029), and 8-digit fixture PINs (QA-030).
+
+Fourth review (POS-2, 3, 9, 10, 12; AD-7, 9, 10, 11; QA-7 on rules and printer):
+- **Admin:** Financials shows profit, salaries included, so gate it with `expense.manage` rather than `report.own` (Admin only), in the next run. Stock stays read-only in the console, since thresholds are a store-level setting. The audit diff's money-by-field-name guess is acceptable for the pilot. `AuditQuery.to` is **inclusive**, and the backend must match. Future-dated expenses stay blocked.
+- **POS:** the banner countdown on the device clock, the paused payment page while blocked, and sync health open to any signed-in user are all accepted. The fake always handing out `D01` is fine; the real `DeviceService` must not. Delete the unused `PlaceholderScreen` next run.
+- **Printer:** QA-032 (P1) reopens PR-4, and QA-036 needs fixing too. See the QA outcomes.
+- **Backend:** QA-033, QA-034 and the QA-035 clarification, on top of the second and third review notes.

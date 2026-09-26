@@ -8,8 +8,9 @@ abstract interface class LocationRepository {
 abstract interface class LocationService {
   /// Creates or edits a location, with a LOCATION_UPDATE audit entry.
   ///
-  /// Never writes `nextDeviceNo`: a new location starts at 0, and only
-  /// device registration changes it (D-004, QA-006). A non-null [newPin]
+  /// Creating a location writes `nextDeviceNo: 0`; editing one never writes
+  /// `nextDeviceNo`, which only device registration changes (D-004, QA-006,
+  /// QA-035). A non-null [newPin]
   /// must be at least `Limits.minOverridePinDigits` digits, otherwise this
   /// throws `DataFailure(ruleViolation)`; it is hashed on the client
   /// (PBKDF2, 02-DATA-MODEL) and replaces `overridePinHash`. A new location
