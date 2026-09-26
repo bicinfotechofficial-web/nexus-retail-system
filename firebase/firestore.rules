@@ -306,57 +306,66 @@ service cloud.firestore {
     function returnedQtyOk(p, rq, old, sold) {
       return rq[p] >= old.get(p, 0) && rq[p] <= sold.get(p, 0);
     }
-    function returnedQtyFrom0(ks, rq, old, sold) {
+    function returnedQtyFrom0(ks, n, rq, old, sold) {
       return returnedQtyOk(ks[0], rq, old, sold)
-          && (ks.size() == 1 ? true : returnedQtyOk(ks[1], rq, old, sold)
-          && (ks.size() == 2 ? true : returnedQtyOk(ks[2], rq, old, sold)
-          && (ks.size() == 3 ? true : returnedQtyOk(ks[3], rq, old, sold)
-          && (ks.size() == 4 ? true : returnedQtyOk(ks[4], rq, old, sold)
-          && (ks.size() == 5 ? true : returnedQtyFrom5(ks, rq, old, sold))))));
+          && (n == 1 ? true : returnedQtyOk(ks[1], rq, old, sold)
+          && (n == 2 ? true : returnedQtyOk(ks[2], rq, old, sold)
+          && (n == 3 ? true : returnedQtyOk(ks[3], rq, old, sold)
+          && (n == 4 ? true : returnedQtyOk(ks[4], rq, old, sold)
+          && (n == 5 ? true : returnedQtyFrom5(ks, n, rq, old, sold))))));
     }
-    function returnedQtyFrom5(ks, rq, old, sold) {
+    function returnedQtyFrom5(ks, n, rq, old, sold) {
       return returnedQtyOk(ks[5], rq, old, sold)
-          && (ks.size() == 6 ? true : returnedQtyOk(ks[6], rq, old, sold)
-          && (ks.size() == 7 ? true : returnedQtyOk(ks[7], rq, old, sold)
-          && (ks.size() == 8 ? true : returnedQtyOk(ks[8], rq, old, sold)
-          && (ks.size() == 9 ? true : returnedQtyOk(ks[9], rq, old, sold)
-          && (ks.size() == 10 ? true : returnedQtyFrom10(ks, rq, old, sold))))));
+          && (n == 6 ? true : returnedQtyOk(ks[6], rq, old, sold)
+          && (n == 7 ? true : returnedQtyOk(ks[7], rq, old, sold)
+          && (n == 8 ? true : returnedQtyOk(ks[8], rq, old, sold)
+          && (n == 9 ? true : returnedQtyOk(ks[9], rq, old, sold)
+          && (n == 10 ? true : returnedQtyFrom10(ks, n, rq, old, sold))))));
     }
-    function returnedQtyFrom10(ks, rq, old, sold) {
+    function returnedQtyFrom10(ks, n, rq, old, sold) {
       return returnedQtyOk(ks[10], rq, old, sold)
-          && (ks.size() == 11 ? true : returnedQtyOk(ks[11], rq, old, sold)
-          && (ks.size() == 12 ? true : returnedQtyOk(ks[12], rq, old, sold)
-          && (ks.size() == 13 ? true : returnedQtyOk(ks[13], rq, old, sold)
-          && (ks.size() == 14 ? true : returnedQtyOk(ks[14], rq, old, sold)
-          && (ks.size() == 15 ? true : returnedQtyFrom15(ks, rq, old, sold))))));
+          && (n == 11 ? true : returnedQtyOk(ks[11], rq, old, sold)
+          && (n == 12 ? true : returnedQtyOk(ks[12], rq, old, sold)
+          && (n == 13 ? true : returnedQtyOk(ks[13], rq, old, sold)
+          && (n == 14 ? true : returnedQtyOk(ks[14], rq, old, sold)
+          && (n == 15 ? true : returnedQtyFrom15(ks, n, rq, old, sold))))));
     }
-    function returnedQtyFrom15(ks, rq, old, sold) {
+    function returnedQtyFrom15(ks, n, rq, old, sold) {
       return returnedQtyOk(ks[15], rq, old, sold)
-          && (ks.size() == 16 ? true : returnedQtyOk(ks[16], rq, old, sold)
-          && (ks.size() == 17 ? true : returnedQtyOk(ks[17], rq, old, sold)
-          && (ks.size() == 18 ? true : returnedQtyOk(ks[18], rq, old, sold)
-          && (ks.size() == 19 ? true : returnedQtyOk(ks[19], rq, old, sold)))));
+          && (n == 16 ? true : returnedQtyOk(ks[16], rq, old, sold)
+          && (n == 17 ? true : returnedQtyOk(ks[17], rq, old, sold)
+          && (n == 18 ? true : returnedQtyOk(ks[18], rq, old, sold)
+          && (n == 19 ? true : returnedQtyOk(ks[19], rq, old, sold)))));
     }
 
     // #5(b). A return raises returnedQty, tied to a return doc created in the
-    // same batch (lastReturnId). First to sync wins against a cancel (D-029).
+    // same batch (lastReturnId). First to sync wins against a cancel or a
+    // stale return (D-029).
     function isReturnUpdate(loc) {
       let rq = incoming().returnedQty;
       let ks = rq.keys();
       let r = incoming().lastReturnId;
+      // Both fields must change: a return always raises some quantity. No
+      // separate type or format checks on rq and r: a non-map rq, an empty
+      // one or a non-string r makes an expression below fail, which denies.
+      // Every evaluated expression counts, and this is the tightest rule.
       let ch = changed();
       return ch.hasOnly(['returnedQty', 'lastReturnId'])
         && ch.hasAll(['returnedQty', 'lastReturnId'])
         && canAt('return.create', loc)
         && resource.data.status == 'COMPLETED'
-        && rq is map
         && ks.hasAll(resource.data.returnedQty.keys())
-        && ks.size() >= 1 && ks.size() <= resource.data.soldQty.size()
-        && returnedQtyFrom0(ks, rq, resource.data.returnedQty, resource.data.soldQty)
-        && r is string && r.matches('^D[0-9]{2}-R[0-9]{6}$')
+        && ks.size() <= resource.data.soldQty.size()
+        && returnedQtyFrom0(ks, ks.size(), rq, resource.data.returnedQty, resource.data.soldQty)
         && !exists(returnPath(loc, r))
-        && existsAfter(returnPath(loc, r));
+        && existsAfter(returnPath(loc, r))
+        // The return was worked out from the bill as it is now, not from a
+        // stale copy: its prevReturnId is the bill's current lastReturnId
+        // (both null for the first return). Same doc as existsAfter, so no
+        // extra access call (QA-024).
+        && getAfter(returnPath(loc, r)).data.prevReturnId == resource.data.lastReturnId;
     }
+
 
     match /locations/{loc} {
       allow read: if activeAt(loc);
@@ -415,7 +424,7 @@ service cloud.firestore {
             || (can('bill.create') && incoming().lastBillSeq is int
               && incoming().lastBillSeq > resource.data.get('lastBillSeq', 0)))
           && (!changed().hasAny(['lastMovementSeq'])
-            || (can('stock.move') && incoming().lastMovementSeq is int
+            || ((can('stock.move') || can('stock.adjust')) && incoming().lastMovementSeq is int
               && incoming().lastMovementSeq > resource.data.get('lastMovementSeq', 0)))
           && (!changed().hasAny(['lastReturnSeq'])
             || (can('return.create') && incoming().lastReturnSeq is int
