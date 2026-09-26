@@ -96,7 +96,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | QA-4 | Denied paths: next-day cancel, over-return, cross-location, a disabled user's queued writes | BE-6, BE-10 | M | Green | TODO |
 | QA-5 | Reconciliation: for random bills, returns and cancels, the summary equals the sum of the docs, for each day and month | BE-10 | M | Property test green | WIP |
 | QA-6 | Concurrent PRODUCE + SALE + ADJUST stock totals | BE-10 | S | Green | TODO |
-| QA-7 | Review every agent branch before merge, and log findings in `docs/QA-FINDINGS.md` | ongoing | — | No open P1 finding at merge | TODO |
+| QA-7 | Review every agent branch before merge, and log findings in `docs/QA-FINDINGS.md` | ongoing | — | No open P1 finding at merge | WIP |
 | QA-8 | Pilot checklist for B-6 (a device-side manual script) | Phase 2 | S | Checklist committed | TODO |
 
 ---
