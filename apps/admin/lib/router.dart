@@ -7,6 +7,7 @@ import 'dashboard/dashboard_screen.dart';
 import 'data/providers.dart';
 import 'devices/devices_screen.dart';
 import 'expenses/expenses_screen.dart';
+import 'financials/financials_screen.dart';
 import 'locations/locations_screen.dart';
 import 'login/login_screen.dart';
 import 'reports/reports_screen.dart';
@@ -45,6 +46,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           _guarded('/dashboard', const DashboardScreen()),
           _guarded('/reports', const ReportsScreen()),
+          _guarded('/financials', const FinancialsScreen()),
           _guarded('/stock', const StockScreen()),
           _guarded('/expenses', const ExpensesScreen()),
           _guarded('/catalog', const CatalogScreen()),
