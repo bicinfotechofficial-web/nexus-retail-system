@@ -118,7 +118,10 @@ void main() {
       'No cap',
     );
     // nextDeviceNo is never shown.
-    expect(find.textContaining('evice'), findsNothing);
+    expect(
+      find.textContaining(RegExp('next ?device', caseSensitive: false)),
+      findsNothing,
+    );
   });
 
   testWidgets('creates a location; the PIN goes only to save(newPin:)', (
@@ -128,6 +131,13 @@ void main() {
     await tester.tap(find.byKey(const Key('location-add')));
     await tester.pumpAndSettle();
     expect(_field(tester, 'location-offline-hours'), '5');
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining(RegExp('device', caseSensitive: false)),
+      ),
+      findsNothing,
+    );
     expect(_field(tester, 'location-extension-hours'), '2');
 
     await _fillNew(tester, code: 'ktm');

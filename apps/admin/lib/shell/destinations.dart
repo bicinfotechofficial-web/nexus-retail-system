@@ -47,6 +47,12 @@ const List<Destination> destinations = [
     icon: Icons.people_outline,
     anyOf: [Permission.userManage],
   ),
+  Destination(
+    path: '/devices',
+    label: 'Devices',
+    icon: Icons.phone_android_outlined,
+    anyOf: [Permission.locationManage],
+  ),
 ];
 
 Destination destinationFor(String path) => destinations.firstWhere(
