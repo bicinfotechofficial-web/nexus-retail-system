@@ -43,4 +43,22 @@ void main() {
     expect(await guard.override('24681357'), isTrue);
     expect(() => FakeOfflineGuard(pin: '1234'), throwsA(isA<AssertionError>()));
   });
+
+  test(
+    'FAKE_FIRST_RUN: the demo seeds while signed out and unregistered',
+    () async {
+      final b = FakeBackend(
+        signedIn: false,
+        registered: false,
+        now: () => testNow,
+      );
+      await b.seedDemo();
+      expect(b.auth.current, isNull);
+      expect(b.device.deviceId, isNull);
+      expect(
+        await b.bills.watchBills(Seed.locationId, '2026-09-26').first,
+        hasLength(3),
+      );
+    },
+  );
 }

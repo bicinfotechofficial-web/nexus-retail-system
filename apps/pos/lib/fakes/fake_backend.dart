@@ -18,10 +18,13 @@ export 'seed.dart';
 final class FakeBackend {
   FakeBackend({
     SessionContext? session,
+    bool signedIn = true,
     SyncStatus syncStatus = const Online(),
     DateTime Function()? now,
     bool registered = true,
-  }) : auth = FakeAuthService(session),
+  }) : auth = FakeAuthService(
+         session ?? (signedIn ? FakeAuthService.storeManagerSession : null),
+       ),
        device = FakeDeviceService(registered ? Seed.deviceId : null),
        _now = now ?? DateTime.now {
     sync = FakeSyncService(syncStatus, _now)..lastSyncAt = _now();
@@ -32,6 +35,7 @@ final class FakeBackend {
     );
     sync.onSynced = offline.synced;
     device.onRegistered = sync.markSynced;
+    auth.onSignedIn = sync.markSynced;
     sales = FakeSalesService(
       auth: auth,
       bills: bills,
@@ -76,6 +80,17 @@ final class FakeBackend {
   /// so `FAKE_DATA=true` opens on something to look at. Written through the
   /// fake service, so summaries match.
   Future<void> seedDemo() async {
+    // The demo history belongs to the Store Manager, even on a first run.
+    final before = auth.current;
+    auth.current = FakeAuthService.storeManagerSession;
+    try {
+      await _seedBills();
+    } finally {
+      auth.current = before;
+    }
+  }
+
+  Future<void> _seedBills() async {
     final now = _now();
     final today = BusinessDate.of(now);
     final yesterday = BusinessDate.addDays(today, -1);

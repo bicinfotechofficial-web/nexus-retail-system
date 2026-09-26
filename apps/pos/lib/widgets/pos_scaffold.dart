@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../app/destinations.dart';
 import '../app/providers.dart';
 import '../app/router.dart';
+import '../features/billing/cart.dart';
 import 'offline_banner.dart';
 import 'sync_chip.dart';
 
@@ -133,6 +134,20 @@ class PosDrawer extends ConsumerWidget {
                   )
                 : const Icon(Icons.sync),
             label: const Text('Sync health'),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            child: ListTile(
+              key: const Key('sign-out'),
+              leading: const Icon(Icons.logout),
+              title: const Text('Sign out'),
+              onTap: () async {
+                Navigator.of(context).pop();
+                // The next login must not inherit this cart.
+                ref.read(cartProvider.notifier).clear();
+                await ref.read(authServiceProvider).signOut();
+              },
+            ),
           ),
         ],
       ],

@@ -11,18 +11,64 @@ import 'seed.dart';
 /// In-memory implementations of the `nexus_data` interfaces the POS uses.
 /// Same signatures as the real ones, so swapping them is a provider change.
 
+/// A fake login: its password, and the session it opens or the reason it
+/// fails.
+typedef FakeAccount = ({
+  String password,
+  SessionContext? session,
+  FailureReason? failure,
+});
+
 final class FakeAuthService implements AuthService {
-  FakeAuthService([SessionContext? initial])
-    : _session = Latest(
-        initial ??
-            const SessionContext(
-              user: Seed.storeManager,
-              role: Seed.storeManagerRole,
-              location: Seed.location,
-            ),
-      );
+  FakeAuthService([SessionContext? initial]) : _session = Latest(initial);
+
+  /// Restores the Store Manager's saved session, like a returning device.
+  FakeAuthService.signedIn() : this(storeManagerSession);
+
+  static const SessionContext storeManagerSession = SessionContext(
+    user: Seed.storeManager,
+    role: Seed.storeManagerRole,
+    location: Seed.location,
+  );
+
+  /// Demo logins for `FAKE_DATA=true`. Every one uses [demoPassword].
+  static const String demoPassword = 'cottage-demo';
+  static const String disabledEmail = 'disabled.ptb@example.com';
+  static const String noProfileEmail = 'new.user@example.com';
 
   final Latest<SessionContext?> _session;
+
+  /// Logins by lower-case email.
+  final Map<String, FakeAccount> accounts = {
+    Seed.storeManager.email: (
+      password: demoPassword,
+      session: storeManagerSession,
+      failure: null,
+    ),
+    disabledEmail: (
+      password: demoPassword,
+      session: null,
+      failure: FailureReason.userDisabled,
+    ),
+    noProfileEmail: (
+      password: demoPassword,
+      session: null,
+      failure: FailureReason.noProfile,
+    ),
+  };
+
+  /// Whether sign-in can reach the server. A first sign-in needs it.
+  bool online = true;
+
+  /// Called after an interactive online sign-in, which counts as a sync
+  /// (03-SYNC §6).
+  void Function()? onSignedIn;
+
+  /// When set, [signIn] waits for it, e.g. to see the busy state.
+  Completer<void>? gate;
+
+  /// Every [signIn] call's email.
+  final List<String> signInCalls = [];
 
   @override
   Stream<SessionContext?> get session => _session.stream;
@@ -38,12 +84,19 @@ final class FakeAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    const s = SessionContext(
-      user: Seed.storeManager,
-      role: Seed.storeManagerRole,
-      location: Seed.location,
-    );
+    signInCalls.add(email);
+    final g = gate;
+    if (g != null) await g.future;
+    if (!online) throw const DataFailure(FailureReason.offline);
+    final account = accounts[email.trim().toLowerCase()];
+    if (account == null || account.password != password) {
+      throw const DataFailure(FailureReason.invalidCredentials);
+    }
+    final failure = account.failure;
+    if (failure != null) throw DataFailure(failure);
+    final s = account.session!;
     _session.value = s;
+    onSignedIn?.call();
     return s;
   }
 

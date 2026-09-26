@@ -60,7 +60,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
 | POS-1 | App shell: Riverpod, go_router, theme (Caramel Cottage colours), app-bar sync chip, permission-aware navigation | C-3 | M | Builds a debug APK | REVIEW |
-| POS-2 | Login plus prefetch of the user, role, location, catalog and raw materials. Handles a disabled user | BE-11 | S | Widget tests | TODO |
+| POS-2 | Login plus prefetch of the user, role, location, catalog and raw materials. Handles a disabled user | BE-11 | S | Widget tests | REVIEW |
 | POS-3 | Device setup (first run): register, name the device, pick a printer | BE-9, PR-5 | S | Widget tests | REVIEW |
 | POS-4 | Billing screen: product grid, categories, search, cart with qty ± and remove, running total | POS-1 | L | Widget tests | DONE |
 | POS-5 | Payment screen: discount (flat or %, cap check), round-off shown, split payment editor, cash tendered and change, save → print | POS-4, BE-10 | L | Tests: sum mismatch blocks Save, and a double tap saves once | DONE |

@@ -6,6 +6,7 @@ import 'package:nexus_data/nexus_data.dart';
 import '../features/billing/billing_screen.dart';
 import '../features/bills/bill_detail_screen.dart';
 import '../features/bills/bills_screen.dart';
+import '../features/login/login_screen.dart';
 import '../features/offline/sync_health_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
@@ -209,9 +210,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.signedOut,
-        builder: (context, state) => const MessageScreen(
-          message: 'Signed out. Sign-in arrives in POS-2.',
-        ),
+        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: Routes.noAccess,

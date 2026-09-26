@@ -85,11 +85,13 @@ void main() {
       expect(find.textContaining("can't use any POS screens"), findsOneWidget);
     });
 
-    testWidgets('signing out leaves the billing screen', (tester) async {
+    testWidgets('signing out leaves the billing screen for sign-in', (
+      tester,
+    ) async {
       final b = await pumpPos(tester);
       b.auth.current = null;
       await tester.pumpAndSettle();
-      expect(find.textContaining('Signed out'), findsOneWidget);
+      expect(find.byKey(const Key('login-email')), findsOneWidget);
     });
   });
 
