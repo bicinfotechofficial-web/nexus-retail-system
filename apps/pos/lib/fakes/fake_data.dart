@@ -100,33 +100,43 @@ final class FakeCatalogRepository implements CatalogRepository {
   Stream<List<RawMaterial>> watchRawMaterials() => Stream.value(const []);
 }
 
-/// Creates bills in memory with `BillCalculator`, like the real service.
+/// Creates bills, cancellations and returns in memory with the real core
+/// calculators (`BillCalculator`, `cancelBlocker`, `ReturnCalculator`,
+/// `SummaryDeltas`), like the real service.
 final class FakeSalesService implements SalesService {
   FakeSalesService({
     required this.auth,
     required this.bills,
+    required this.summaries,
     DateTime Function()? now,
     this.deviceId = Seed.deviceId,
   }) : _now = now ?? DateTime.now;
 
   final FakeAuthService auth;
   final FakeSalesRepository bills;
+  final FakeSummaryRepository summaries;
   final String deviceId;
   final DateTime Function() _now;
   int _seq = 0;
+  int _returnSeq = 0;
 
   /// Every [createBill] call, including failed ones.
   final List<NewBill> createCalls = [];
 
-  /// When set, the next [createBill] throws it instead of saving.
+  /// Every [cancelBill] call as (billId, reason), including failed ones.
+  final List<(String, String)> cancelCalls = [];
+
+  /// Every [createReturn] call's bill ID, including failed ones.
+  final List<String> returnCalls = [];
+
+  /// When set, the next [createBill], [cancelBill] or [createReturn] throws
+  /// it instead of saving.
   Exception? failNext;
 
-  /// When set, [createBill] waits for it before saving.
+  /// When set, every write waits for it before saving.
   Completer<void>? gate;
 
-  @override
-  Future<Bill> createBill(NewBill input) async {
-    createCalls.add(input);
+  Future<void> _before() async {
     final g = gate;
     if (g != null) await g.future;
     final failure = failNext;
@@ -134,14 +144,31 @@ final class FakeSalesService implements SalesService {
       failNext = null;
       throw failure;
     }
+  }
+
+  (SessionContext, Location) _session(String permission) {
     final session = auth.current;
     final location = session?.location;
     if (session == null || location == null) {
       throw const DataFailure(FailureReason.noProfile);
     }
-    if (!session.canAt(Permission.billCreate, location.code)) {
+    if (!session.canAt(permission, location.code)) {
       throw const DataFailure(FailureReason.notPermitted);
     }
+    return (session, location);
+  }
+
+  @override
+  Future<Bill> createBill(NewBill input) async {
+    createCalls.add(input);
+    await _before();
+    return createBillAt(input, _now());
+  }
+
+  /// [createBill] at a given time, without the call log, gate or failure.
+  /// Seeds earlier days for the demo and the tests.
+  Future<Bill> createBillAt(NewBill input, DateTime at) async {
+    final (session, location) = _session(Permission.billCreate);
     final totals = BillCalculator.compute(
       input.cart,
       discount: input.discount,
@@ -160,7 +187,6 @@ final class FakeSalesService implements SalesService {
     }
     _seq++;
     final id = Ids.billId(deviceId, _seq);
-    final now = _now();
     final bill = Bill(
       id: id,
       billNo: Ids.billNo(location.code, id),
@@ -177,17 +203,55 @@ final class FakeSalesService implements SalesService {
       cashTendered: input.cashTendered,
       status: BillStatus.completed,
       servedBy: ServedBy(uid: session.user.uid, name: session.user.name),
-      businessDate: BusinessDate.of(now),
-      clientCreatedAt: now,
+      businessDate: BusinessDate.of(at),
+      clientCreatedAt: at,
       createdBy: session.user.uid,
     );
-    bills.add(location.code, bill);
+    bills.put(location.code, bill);
+    summaries.apply(
+      location.code,
+      bill.businessDate,
+      SummaryDeltas.forBill(bill),
+    );
     return bill;
   }
 
   @override
-  Future<Bill> cancelBill({required String billId, required String reason}) =>
-      throw const DataFailure(FailureReason.unknown, 'not in the fake yet');
+  Future<Bill> cancelBill({
+    required String billId,
+    required String reason,
+  }) async {
+    cancelCalls.add((billId, reason));
+    await _before();
+    final (session, location) = _session(Permission.billCancel);
+    final bill = await bills.getBill(location.code, billId);
+    if (bill == null) throw DataFailure(FailureReason.notFound, billId);
+    if (reason.trim().isEmpty) {
+      throw const DataFailure(FailureReason.ruleViolation, 'reason');
+    }
+    final now = _now();
+    final blocker = cancelBlocker(bill, BusinessDate.of(now));
+    if (blocker != null) {
+      throw DataFailure(FailureReason.ruleViolation, blocker.name);
+    }
+    final cancelled = _copy(
+      bill,
+      status: BillStatus.cancelled,
+      cancel: BillCancel(
+        reason: reason.trim(),
+        by: session.user.uid,
+        at: now,
+        businessDate: bill.businessDate,
+      ),
+    );
+    bills.put(location.code, cancelled);
+    summaries.apply(
+      location.code,
+      bill.businessDate,
+      SummaryDeltas.forCancel(bill),
+    );
+    return cancelled;
+  }
 
   @override
   Future<SaleReturn> createReturn({
@@ -195,23 +259,119 @@ final class FakeSalesService implements SalesService {
     required Map<String, int> qtyByProduct,
     required List<Payment> refunds,
     required String reason,
-  }) => throw const DataFailure(FailureReason.unknown, 'not in the fake yet');
+  }) async {
+    returnCalls.add(billId);
+    await _before();
+    final (session, location) = _session(Permission.returnCreate);
+    final bill = await bills.getBill(location.code, billId);
+    if (bill == null) throw DataFailure(FailureReason.notFound, billId);
+    final totals = ReturnCalculator.compute(bill, qtyByProduct);
+    final refundErrors = ReturnCalculator.checkRefunds(
+      totals.refundTotal,
+      refunds,
+    );
+    if (refundErrors.isNotEmpty) {
+      throw DataFailure(
+        FailureReason.ruleViolation,
+        refundErrors.map((e) => e.name).join(','),
+      );
+    }
+    if (reason.trim().isEmpty) {
+      throw const DataFailure(FailureReason.ruleViolation, 'reason');
+    }
+    _returnSeq++;
+    final now = _now();
+    final ret = SaleReturn(
+      id: Ids.returnId(deviceId, _returnSeq),
+      billId: bill.id,
+      billNo: bill.billNo,
+      lines: totals.lines,
+      refundTotal: totals.refundTotal,
+      refunds: refunds,
+      reason: reason.trim(),
+      businessDate: BusinessDate.of(now),
+      createdBy: session.user.uid,
+      deviceId: deviceId,
+      clientCreatedAt: now,
+    );
+    final returned = {...bill.returnedQty};
+    for (final l in ret.lines) {
+      returned[l.productId] = (returned[l.productId] ?? 0) + l.qty;
+    }
+    bills
+      ..addReturn(location.code, ret)
+      ..put(
+        location.code,
+        _copy(bill, returnedQty: returned, lastReturnId: ret.id),
+      );
+    summaries.apply(
+      location.code,
+      ret.businessDate,
+      SummaryDeltas.forReturn(ret),
+    );
+    return ret;
+  }
+
+  static Bill _copy(
+    Bill b, {
+    BillStatus? status,
+    BillCancel? cancel,
+    Map<String, int>? returnedQty,
+    String? lastReturnId,
+  }) => Bill(
+    id: b.id,
+    billNo: b.billNo,
+    deviceId: b.deviceId,
+    seq: b.seq,
+    lines: b.lines,
+    subtotal: b.subtotal,
+    discount: b.discount,
+    taxableValue: b.taxableValue,
+    taxLines: b.taxLines,
+    roundOff: b.roundOff,
+    total: b.total,
+    payments: b.payments,
+    cashTendered: b.cashTendered,
+    status: status ?? b.status,
+    cancel: cancel ?? b.cancel,
+    returnedQty: returnedQty ?? b.returnedQty,
+    lastReturnId: lastReturnId ?? b.lastReturnId,
+    servedBy: b.servedBy,
+    businessDate: b.businessDate,
+    clientCreatedAt: b.clientCreatedAt,
+    serverCreatedAt: b.serverCreatedAt,
+    createdBy: b.createdBy,
+  );
 }
 
 final class FakeSalesRepository implements SalesRepository {
-  final Map<String, List<Bill>> _byLocation = {};
+  final Map<String, Map<String, Bill>> _byLocation = {};
+  final Map<String, List<SaleReturn>> _returns = {};
   final StreamController<void> _changes = StreamController<void>.broadcast();
 
   List<Bill> all(String locationId) =>
-      List.unmodifiable(_byLocation[locationId] ?? const <Bill>[]);
+      List.unmodifiable(_byLocation[locationId]?.values ?? const <Bill>[]);
 
-  void add(String locationId, Bill bill) {
-    (_byLocation[locationId] ??= []).add(bill);
+  /// Adds [bill], or replaces the one with its ID (a cancel or a return).
+  void put(String locationId, Bill bill) {
+    (_byLocation[locationId] ??= {})[bill.id] = bill;
+    _changes.add(null);
+  }
+
+  void addReturn(String locationId, SaleReturn ret) {
+    (_returns[locationId] ??= []).add(ret);
     _changes.add(null);
   }
 
   List<Bill> _day(String locationId, String businessDate) =>
       all(locationId).where((b) => b.businessDate == businessDate).toList()
+        ..sort((a, b) => b.clientCreatedAt.compareTo(a.clientCreatedAt));
+
+  List<SaleReturn> _returnsWhere(
+    String locationId,
+    bool Function(SaleReturn) test,
+  ) =>
+      (_returns[locationId] ?? const <SaleReturn>[]).where(test).toList()
         ..sort((a, b) => b.clientCreatedAt.compareTo(a.clientCreatedAt));
 
   @override
@@ -221,17 +381,13 @@ final class FakeSalesRepository implements SalesRepository {
   }
 
   @override
-  Future<Bill?> getBill(String locationId, String billId) async {
-    for (final b in all(locationId)) {
-      if (b.id == billId) return b;
-    }
-    return null;
-  }
+  Future<Bill?> getBill(String locationId, String billId) async =>
+      _byLocation[locationId]?[billId];
 
   @override
   Future<Bill?> findByBillNo(String billNo) async {
-    for (final list in _byLocation.values) {
-      for (final b in list) {
+    for (final bills in _byLocation.values) {
+      for (final b in bills.values) {
         if (b.billNo == billNo) return b;
       }
     }
@@ -242,13 +398,68 @@ final class FakeSalesRepository implements SalesRepository {
   Stream<List<SaleReturn>> watchReturns(
     String locationId,
     String businessDate,
-  ) => Stream.value(const []);
+  ) async* {
+    bool today(SaleReturn r) => r.businessDate == businessDate;
+    yield _returnsWhere(locationId, today);
+    yield* _changes.stream.map((_) => _returnsWhere(locationId, today));
+  }
 
   @override
   Future<List<SaleReturn>> returnsForBill(
     String locationId,
     String billId,
-  ) async => const [];
+  ) async => _returnsWhere(locationId, (r) => r.billId == billId);
+}
+
+/// Daily summaries kept by adding `SummaryDeltas`, as the real batches do
+/// with increments. A day with no activity reads as an empty summary.
+final class FakeSummaryRepository implements SummaryRepository {
+  final Map<(String, String), Summary> _daily = {};
+  final StreamController<void> _changes = StreamController<void>.broadcast();
+
+  void apply(String locationId, String businessDate, Summary delta) {
+    final k = (locationId, businessDate);
+    _daily[k] = (_daily[k] ?? const Summary()) + delta;
+    _changes.add(null);
+  }
+
+  Summary _day(String locationId, String businessDate) =>
+      _daily[(locationId, businessDate)] ?? const Summary();
+
+  @override
+  Stream<Summary> watchDaily(String locationId, String businessDate) async* {
+    yield _day(locationId, businessDate);
+    yield* _changes.stream.map((_) => _day(locationId, businessDate));
+  }
+
+  @override
+  Future<Map<String, Summary>> daily(
+    String locationId,
+    String from,
+    String to,
+  ) async => {
+    for (final e in _daily.entries)
+      if (e.key.$1 == locationId &&
+          e.key.$2.compareTo(from) >= 0 &&
+          e.key.$2.compareTo(to) <= 0)
+        e.key.$2: e.value,
+  };
+
+  @override
+  Future<Map<String, Summary>> monthly(
+    String locationId,
+    String fromMonth,
+    String toMonth,
+  ) async {
+    final out = <String, Summary>{};
+    for (final e in _daily.entries) {
+      if (e.key.$1 != locationId) continue;
+      final m = BusinessDate.monthOf(e.key.$2);
+      if (m.compareTo(fromMonth) < 0 || m.compareTo(toMonth) > 0) continue;
+      out[m] = (out[m] ?? const Summary()) + e.value;
+    }
+    return out;
+  }
 }
 
 final class FakeSyncService implements SyncService {

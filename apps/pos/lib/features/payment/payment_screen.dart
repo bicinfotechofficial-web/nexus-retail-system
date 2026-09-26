@@ -8,6 +8,7 @@ import '../../app/messages.dart';
 import '../../app/providers.dart';
 import '../../app/router.dart';
 import '../../widgets/pos_scaffold.dart';
+import '../../widgets/section_card.dart';
 import '../../widgets/total_row.dart';
 import '../billing/cart.dart';
 
@@ -299,7 +300,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Section(
+            SectionCard(
               title: 'Bill',
               children: [
                 for (final l in totals.lines)
@@ -325,7 +326,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
               ],
             ),
-            _Section(
+            SectionCard(
               title: 'Discount',
               children: [
                 SegmentedButton<_DiscountKind>(
@@ -373,7 +374,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ],
               ],
             ),
-            _Section(
+            SectionCard(
               title: 'Payment',
               children: [
                 for (var i = 0; i < _rows.length; i++)
@@ -468,7 +469,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ],
             ),
             if (hasCash)
-              _Section(
+              SectionCard(
                 title: 'Cash',
                 children: [
                   TextField(
@@ -532,29 +533,4 @@ final class _Form {
       discountError == null &&
       tenderedError == null &&
       (check?.isValid ?? false);
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
 }

@@ -73,3 +73,54 @@ bool isEnabled(WidgetTester tester, String key) {
   final w = tester.widget<ButtonStyleButton>(find.byKey(Key(key)));
   return w.onPressed != null;
 }
+
+/// Saves a bill of [items] (productId → qty from the seed catalog) through
+/// the fake service, paid in full with [mode], at [at] (default: now).
+Future<Bill> addBill(
+  FakeBackend b,
+  Map<String, int> items, {
+  DateTime? at,
+  PaymentMode mode = PaymentMode.cash,
+  DiscountInput? discount,
+}) {
+  final cart = [
+    for (final e in items.entries)
+      () {
+        final p = Seed.products.firstWhere((p) => p.id == e.key);
+        return CartLine(
+          productId: p.id,
+          name: p.name,
+          qty: e.value,
+          unitPrice: p.price!,
+        );
+      }(),
+  ];
+  final total = BillCalculator.compute(
+    cart,
+    discount: discount,
+    maxDiscountPct: Seed.location.maxDiscountPct,
+  ).total;
+  return b.sales.createBillAt(
+    NewBill(
+      cart: cart,
+      discount: discount,
+      payments: [Payment(mode: mode, amount: total)],
+    ),
+    at ?? testNow,
+  );
+}
+
+/// Opens a drawer destination by its label.
+Future<void> openNav(WidgetTester tester, String label) async {
+  await tester.tap(find.byTooltip('Open navigation menu'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key('nav-$label')));
+  await tester.pumpAndSettle();
+}
+
+/// Pumps the app, opens Bills and then the bill [billId].
+Future<void> openBill(WidgetTester tester, FakeBackend b, String billId) async {
+  await pumpPos(tester, backend: b);
+  await openNav(tester, 'Bills');
+  await tapKey(tester, 'bill-$billId');
+}

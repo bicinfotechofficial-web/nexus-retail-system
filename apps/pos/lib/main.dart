@@ -14,7 +14,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final List<Override> overrides;
   if (useFakeData) {
-    overrides = FakeBackend().overrides;
+    final fake = FakeBackend();
+    await fake.seedDemo();
+    overrides = fake.overrides;
   } else {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
