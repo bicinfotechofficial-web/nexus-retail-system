@@ -293,7 +293,9 @@ describe('#5(b) bills: returnedQty', () => {
 
   it.todo('lets a return raise returnedQty with a new return doc (BE-4, once returns can be created)');
   it.todo('denies a return on a cancelled bill (BE-4)');
-  it.todo('denies returnedQty above soldQty, or lowered, or 0 (BE-4)');
+  it.todo('denies returnedQty above soldQty, or lowered (BE-4)');
+  it.todo('denies a stale return: prevReturnId is not the bill\'s lastReturnId (QA-024, BE-4)');
+  it.todo('accepts the second return when its prevReturnId is the first return (BE-4)');
 
   it('denies raising returnedQty without a new return doc', async () => {
     await arrangeBill();

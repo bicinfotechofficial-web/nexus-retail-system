@@ -412,6 +412,26 @@ describe('#4 devices: update', () => {
     await assertSucceeds(updateDoc(ref, { lastReturnSeq: 2 }));
   });
 
+  it('lets a role with stock.adjust but not stock.move raise lastMovementSeq (QA-029)', async () => {
+    await withDeviceD01({ lastMovementSeq: 4 });
+    await t.arrange(async (db) => {
+      await setDoc(doc(db, 'roles/COUNTER'), { name: 'Counter', permissions: ['stock.adjust'], allLocations: false });
+      await updateDoc(doc(db, 'users', ACTORS.smPtb.uid), { roleId: 'COUNTER' });
+    });
+    await assertSucceeds(updateDoc(doc(t.db('smPtb'), devicePath()), { lastMovementSeq: 5 }));
+    await assertFails(updateDoc(doc(t.db('smPtb'), devicePath()), { lastBillSeq: 1 }));
+  });
+
+  it('denies lastMovementSeq to a role with neither stock.move nor stock.adjust', async () => {
+    await withDeviceD01({ lastMovementSeq: 4 });
+    await t.arrange(async (db) => {
+      await setDoc(doc(db, 'roles/CASHIER'), { name: 'Cashier', permissions: ['bill.create'], allLocations: false });
+      await updateDoc(doc(db, 'users', ACTORS.smPtb.uid), { roleId: 'CASHIER' });
+    });
+    await assertFails(updateDoc(doc(t.db('smPtb'), devicePath()), { lastMovementSeq: 5 }));
+    await assertSucceeds(updateDoc(doc(t.db('smPtb'), devicePath()), { lastBillSeq: 1 }));
+  });
+
   it('accepts the merge the bill batch writes', async () => {
     await withDeviceD01({ lastBillSeq: 10 });
     await assertSucceeds(setDoc(doc(t.db('smPtb'), devicePath()), { lastBillSeq: 11 }, { merge: true }));
