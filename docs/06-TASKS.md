@@ -54,7 +54,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | PR-3 | ESC/POS encoder: init, bold, double height for the total, alignment, feed, cut, plus a code-page check for the ₹ glyph with a fallback to "Rs." | PR-2 | M | Byte-level golden tests | DONE |
 | PR-4 | Bluetooth Classic transport: permissions for Android 12+ and older, list paired devices, connect, write in chunks, timeout and reconnect, remember the printer | PR-3 | L | Works against a fake transport in tests. A real device is Bicy's check | REVIEW |
 | PR-5 | `PrinterService` facade (`print(ReceiptDocument)`, status stream) plus a test-print screen widget | PR-4 | S | Widget test | REVIEW |
-| PR-6 | Golden set: normal bill, discount + split payment, return slip, cancelled-bill reprint (a "CANCELLED" banner), 58 mm and 80 mm | PR-3 | S | Goldens committed | TODO |
+| PR-6 | Golden set: normal bill, discount + split payment, return slip, cancelled-bill reprint (a "CANCELLED" banner), 58 mm and 80 mm | PR-3 | S | Goldens committed | REVIEW |
 
 ## POS app — `apps/pos/`
 | ID | Task | Needs | Size | Done when | Status |
