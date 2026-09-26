@@ -10,6 +10,7 @@ import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/placeholder_screen.dart';
 import '../features/returns/return_screen.dart';
+import '../features/summary/day_summary_screen.dart';
 import 'destinations.dart';
 import 'providers.dart';
 
@@ -110,8 +111,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Destinations.summary.path,
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Day summary', task: 'POS-11'),
+        builder: (context, state) => const DaySummaryScreen(),
       ),
       GoRoute(
         path: Routes.starting,
