@@ -31,4 +31,16 @@ void main() {
     expect(textOf(tester, 'summary-sales'), s.netRevenue.format());
     expect(s.cancelCount, 1);
   });
+
+  test('the fake override PIN meets the 8-digit minimum (QA-030)', () async {
+    expect(
+      FakeOfflineGuard.defaultPin.length,
+      greaterThanOrEqualTo(Limits.minOverridePinDigits),
+    );
+    final guard = FakeOfflineGuard(pin: '24681357');
+    expect(await guard.override('2468'), isFalse);
+    expect(await guard.override('24681350'), isFalse);
+    expect(await guard.override('24681357'), isTrue);
+    expect(() => FakeOfflineGuard(pin: '1234'), throwsA(isA<AssertionError>()));
+  });
 }

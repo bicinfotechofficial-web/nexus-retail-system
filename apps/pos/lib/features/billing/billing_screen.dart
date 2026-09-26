@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexus_core/nexus_core.dart';
 
+import '../../app/messages.dart';
 import '../../app/providers.dart';
 import '../../app/theme.dart';
 import '../../widgets/pos_scaffold.dart';
@@ -154,7 +155,18 @@ class _ProductTile extends ConsumerWidget {
       key: Key('product-${product.id}'),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => ref.read(cartProvider.notifier).add(product),
+        onTap: () {
+          final error = ref.read(cartProvider.notifier).add(product);
+          if (error == null) return;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                key: const Key('cart-limit'),
+                content: Text(Messages.billError(error)),
+              ),
+            );
+        },
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Column(
@@ -197,9 +209,15 @@ class CartPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartProvider);
-    final totals = ref.watch(cartTotalsProvider);
+    final result = ref.watch(cartTotalsProvider);
+    final totals = result?.totals;
+    final error = result?.error;
     final notifier = ref.read(cartProvider.notifier);
     final theme = Theme.of(context);
+    Money? lineTotal(String productId) => totals?.lines
+        .where((l) => l.productId == productId)
+        .firstOrNull
+        ?.lineTotal;
     return Material(
       elevation: 8,
       color: Colors.white,
@@ -209,7 +227,7 @@ class CartPanel extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (totals == null)
+            if (cart.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
@@ -224,9 +242,12 @@ class CartPanel extends ConsumerWidget {
                   key: const Key('cart'),
                   shrinkWrap: true,
                   children: [
-                    for (final line in totals.lines)
+                    // Rows come from the cart itself, so they stay usable
+                    // even when the calculator refuses it (QA-027).
+                    for (final line in cart)
                       _CartRow(
                         line: line,
+                        lineTotal: lineTotal(line.productId),
                         onRemove: () => notifier.remove(line.productId),
                         onMinus: () => notifier.decrement(line.productId),
                         onPlus: () => notifier.increment(line.productId),
@@ -235,19 +256,27 @@ class CartPanel extends ConsumerWidget {
                 ),
               ),
               const Divider(height: 8),
-              if (!totals.roundOff.isZero)
-                TotalRow('Round-off', totals.roundOff.format()),
-              TotalRow(
-                'Total',
-                totals.total.format(),
-                key: const Key('cart-total'),
-                style: theme.textTheme.titleLarge,
-              ),
+              if (error != null)
+                Text(
+                  Messages.billError(error),
+                  key: const Key('cart-error'),
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              if (totals != null) ...[
+                if (!totals.roundOff.isZero)
+                  TotalRow('Round-off', totals.roundOff.format()),
+                TotalRow(
+                  'Total',
+                  totals.total.format(),
+                  key: const Key('cart-total'),
+                  style: theme.textTheme.titleLarge,
+                ),
+              ],
             ],
             const SizedBox(height: 8),
             FilledButton.icon(
               key: const Key('charge'),
-              onPressed: cart.isEmpty ? null : () => context.push('/payment'),
+              onPressed: totals == null ? null : () => context.push('/payment'),
               icon: const Icon(Icons.payments),
               label: Text(
                 totals == null ? 'Charge' : 'Charge ${totals.total.format()}',
@@ -263,12 +292,16 @@ class CartPanel extends ConsumerWidget {
 class _CartRow extends StatelessWidget {
   const _CartRow({
     required this.line,
+    required this.lineTotal,
     required this.onRemove,
     required this.onMinus,
     required this.onPlus,
   });
 
-  final BillLine line;
+  final CartLine line;
+
+  /// From `BillCalculator`; null when the cart can't be computed.
+  final Money? lineTotal;
   final VoidCallback onRemove;
   final VoidCallback onMinus;
   final VoidCallback onPlus;
@@ -321,7 +354,7 @@ class _CartRow extends StatelessWidget {
         SizedBox(
           width: 88,
           child: Text(
-            line.lineTotal.format(),
+            lineTotal?.format() ?? '',
             key: Key('line-total-$id'),
             textAlign: TextAlign.right,
           ),

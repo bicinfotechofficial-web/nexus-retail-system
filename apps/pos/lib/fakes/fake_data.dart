@@ -490,7 +490,11 @@ final class FakeSyncService implements SyncService {
 }
 
 final class FakeOfflineGuard implements OfflineGuard {
-  FakeOfflineGuard({this.pin = '1234'});
+  FakeOfflineGuard({this.pin = defaultPin})
+    : assert(pin.length >= Limits.minOverridePinDigits);
+
+  /// 8 digits, the minimum a location may use (D-031, QA-030).
+  static const String defaultPin = '24681357';
 
   final String pin;
   final _Latest<OfflineState> _state = _Latest(const WithinLimit());
@@ -503,7 +507,9 @@ final class FakeOfflineGuard implements OfflineGuard {
 
   @core.override
   Future<bool> override(String pin) async {
-    if (pin != this.pin) return false;
+    if (pin.length < Limits.minOverridePinDigits || pin != this.pin) {
+      return false;
+    }
     _state.value = const WithinLimit();
     return true;
   }

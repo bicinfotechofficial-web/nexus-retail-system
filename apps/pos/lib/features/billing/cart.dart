@@ -16,13 +16,17 @@ class CartNotifier extends Notifier<List<CartLine>> {
   }
 
   /// Adds one of [product], or one more if it's already in the cart.
-  void add(Product product) {
+  /// Returns [BillError.tooManyLines], and leaves the cart as it is, when the
+  /// product is new and the cart already has `Limits.maxBillLines` lines
+  /// (D-030, QA-027). Returns null otherwise.
+  BillError? add(Product product) {
     final price = product.price;
-    if (price == null) return;
+    if (price == null) return null;
     if (qtyOf(product.id) > 0) {
       increment(product.id);
-      return;
+      return null;
     }
+    if (state.length >= Limits.maxBillLines) return BillError.tooManyLines;
     state = [
       ...state,
       CartLine(
@@ -32,6 +36,7 @@ class CartNotifier extends Notifier<List<CartLine>> {
         unitPrice: price,
       ),
     ];
+    return null;
   }
 
   void increment(String productId) => _setQty(productId, qtyOf(productId) + 1);
@@ -68,9 +73,24 @@ final cartProvider = NotifierProvider<CartNotifier, List<CartLine>>(
   CartNotifier.new,
 );
 
-/// Totals of the cart without a discount, or null when it's empty.
-final cartTotalsProvider = Provider<BillTotals?>((ref) {
+/// The cart's totals without a discount, or why they can't be computed.
+final class CartTotals {
+  const CartTotals.ok(BillTotals this.totals) : error = null;
+  const CartTotals.invalid(BillError this.error) : totals = null;
+
+  final BillTotals? totals;
+  final BillError? error;
+}
+
+/// Totals of the cart, or null when it's empty. Never throws: a cart the
+/// calculator refuses comes back as [CartTotals.invalid], so the panel can
+/// still show its lines and their remove buttons (QA-027).
+final cartTotalsProvider = Provider<CartTotals?>((ref) {
   final cart = ref.watch(cartProvider);
   if (cart.isEmpty) return null;
-  return BillCalculator.compute(cart);
+  try {
+    return CartTotals.ok(BillCalculator.compute(cart));
+  } on BillValidationException catch (e) {
+    return CartTotals.invalid(e.error);
+  }
 });
