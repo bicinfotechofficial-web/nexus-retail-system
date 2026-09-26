@@ -1,6 +1,6 @@
 # End-to-end scenarios
 
-Owner: QA. Scenario tests are written from the contracts in `docs/`, not from the implementation. The scenario list, with layers and dependencies, is in [PLAN.md](PLAN.md); open contract issues are in `docs/QA-FINDINGS.md`.
+Owner: QA. Scenario tests are written from the contracts in `docs/`, not from the implementation. The scenario list, with layers and dependencies, is in [PLAN.md](PLAN.md); the manual script for the device pilot is [PILOT-CHECKLIST.md](PILOT-CHECKLIST.md); open contract issues are in `docs/QA-FINDINGS.md`.
 
 This package is pure Dart and depends only on `nexus_core`.
 
