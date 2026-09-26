@@ -2,7 +2,7 @@
 /// D-012, D-014, D-024), for every day and month at every location and for
 /// all locations combined.
 ///
-/// A fixed-seed property test over random bills (up to the 20-line cap,
+/// A fixed-seed property test over random bills (up to the 15-line cap,
 /// D-030), same-day cancellations, partial or full returns, and conflicting
 /// offline cancels and returns resolved first-to-sync-wins (D-029), across
 /// several days, a month boundary and two locations. The summaries are built only from `SummaryDeltas` (as the
@@ -75,11 +75,12 @@ void main() {
       'over-return refused': c.deniedOverReturns,
       'return on cancelled bill refused': c.deniedReturnOnCancelled,
       'bills over 10 lines': c.wideBills,
-      'bills at the 20-line cap': c.maxLineBills,
-      '21-line cart refused': c.deniedTooManyLines,
+      'bills at the 15-line cap': c.maxLineBills,
+      '16-line cart refused': c.deniedTooManyLines,
       'stale cancel lost to a return': c.conflictCancelLost,
       'stale return lost to a cancel': c.conflictReturnLost,
       'stale return over soldQty lost': c.conflictOverReturnLost,
+      'stale return within soldQty lost': c.conflictStaleReturnLost,
     };
     for (final e in reached.entries) {
       expect(e.value, greaterThanOrEqualTo(5), reason: e.key);
@@ -125,7 +126,8 @@ void main() {
           sim.syncErrors.length,
           c.conflictCancelLost +
               c.conflictReturnLost +
-              c.conflictOverReturnLost,
+              c.conflictOverReturnLost +
+              c.conflictStaleReturnLost,
         );
         for (final loc in locations) {
           final returnIds = {for (final r in sim.returnsAt(loc)) r.id};
@@ -410,7 +412,7 @@ void checkReturn(SaleReturn r) {
   }
 }
 
-/// D-030 and 04-PERMISSIONS #6: at most 20 lines and 4 payments, and a
+/// D-030 and 04-PERMISSIONS #6: at most 15 lines and 4 payments, and a
 /// stored `soldQty` with one key per line holding that line's qty.
 void checkLimitsAndSoldQty(String billId, Map<String, Object?> doc) {
   final lines = (doc['lines']! as List).cast<Map<String, Object?>>();
@@ -431,7 +433,8 @@ void checkLimitsAndSoldQty(String billId, Map<String, Object?> doc) {
 
 /// D-025, D-029: cumulative `returnedQty` stays within `soldQty` and never
 /// holds a 0; a cancelled bill has an empty `returnedQty`; `lastReturnId`
-/// names the bill's latest return.
+/// names the bill's latest return; and the returns form one chain through
+/// `prevReturnId`, the first with null (D-029, QA-024).
 void checkReturnState(
   String billId,
   Map<String, Object?> doc,
@@ -463,6 +466,18 @@ void checkReturnState(
       returns[last]!.clientCreatedAt,
       mine.map((r) => r.clientCreatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
       reason: '$billId lastReturnId is the latest return',
+    );
+    // Walk back from lastReturnId: every return of the bill, once each.
+    final chain = <String>[];
+    for (String? id = last; id != null; id = returns[id]!.prevReturnId) {
+      expect(returns[id]?.billId, billId, reason: '$billId chain $chain');
+      expect(chain, isNot(contains(id)), reason: '$billId chain loops');
+      chain.add(id);
+    }
+    expect(
+      chain.toSet(),
+      mine.map((r) => r.id).toSet(),
+      reason: '$billId prevReturnId chains all its returns',
     );
   }
 }

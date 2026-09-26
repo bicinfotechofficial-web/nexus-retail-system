@@ -3,9 +3,10 @@
 /// what that does to the money (D-024 d).
 ///
 /// The last group is QA-024: two stale returns that both stay within
-/// `soldQty` are both accepted, and their cumulative rounding was worked
-/// out from the same `returnedQty`, so the bill can be refunded more than
-/// its total. It is skipped until the contract closes that case.
+/// `soldQty` would each work out their cumulative rounding from the same
+/// `returnedQty` and refund the bill more than its total. Rule #5(b) now
+/// requires the return's `prevReturnId` to equal the bill's `lastReturnId`
+/// (D-029), so the second is rejected and redone from the fresh bill.
 library;
 
 import 'package:nexus_core/nexus_core.dart';
@@ -83,7 +84,12 @@ void main() {
     test('return syncs first: the stale cancel is rejected', () {
       final afterReturn = returned(created, 1, 'D02-R000001');
       expect(
-        ShopSim.serverAcceptsReturn(created, afterReturn, newReturn: true),
+        ShopSim.serverAcceptsReturn(
+          created,
+          afterReturn,
+          newReturn: true,
+          prevReturnId: null,
+        ),
         isTrue,
       );
       expect(
@@ -100,6 +106,7 @@ void main() {
           afterCancel,
           returned(afterCancel, 1, 'D02-R000001'),
           newReturn: true,
+          prevReturnId: null,
         ),
         isFalse,
       );
@@ -112,6 +119,7 @@ void main() {
           first,
           returned(first, 1, 'D02-R000001'),
           newReturn: true,
+          prevReturnId: 'D02-R000001',
         ),
         isFalse,
       );
@@ -119,10 +127,15 @@ void main() {
   });
 
   group('stale returns and soldQty (D-029)', () {
-    test('a stale return past soldQty is rejected', () {
+    test('a return past soldQty is rejected, even when it is not stale', () {
       final all = returned(created, 3, 'D01-R000001');
       expect(
-        ShopSim.serverAcceptsReturn(created, all, newReturn: true),
+        ShopSim.serverAcceptsReturn(
+          created,
+          all,
+          newReturn: true,
+          prevReturnId: null,
+        ),
         isTrue,
       );
       expect(
@@ -130,40 +143,100 @@ void main() {
           all,
           returned(all, 1, 'D02-R000001'),
           newReturn: true,
+          prevReturnId: 'D01-R000001',
         ),
         isFalse,
       );
     });
 
-    test('two stale returns within soldQty are both accepted', () {
+    test('a second return worked out from the current bill is accepted', () {
       final a = returned(created, 1, 'D01-R000001');
-      final b = returned(a, 1, 'D02-R000001');
-      expect(ShopSim.serverAcceptsReturn(created, a, newReturn: true), isTrue);
-      expect(ShopSim.serverAcceptsReturn(a, b, newReturn: true), isTrue);
-    });
-  });
-
-  group('QA-024: refunds of stale returns within soldQty', () {
-    // Devices A and B both saw returnedQty {} and each returned 1 unit;
-    // both sync. A third return of the last unit is then made online.
-    final a = ReturnCalculator.compute(bill, {'P_PUFF': 1});
-    final b = ReturnCalculator.compute(bill, {'P_PUFF': 1});
-    final merged = Bill.fromMap(bill.id, returned(created, 2, 'D02-R000001'));
-    final c = ReturnCalculator.compute(merged, {'P_PUFF': 1});
-    final refunded = a.refundTotal + b.refundTotal + c.refundTotal;
-
-    test('what happens today: ₹2 + ₹2 + ₹2 on a ₹5 bill', () {
       expect(
-        [a.refundTotal, b.refundTotal, c.refundTotal],
-        [Money(200), Money(200), Money(200)],
+        ShopSim.serverAcceptsReturn(
+          created,
+          a,
+          newReturn: true,
+          prevReturnId: null,
+        ),
+        isTrue,
       );
-      expect(refunded, Money(600));
+      expect(
+        ShopSim.serverAcceptsReturn(
+          a,
+          returned(a, 1, 'D02-R000001'),
+          newReturn: true,
+          prevReturnId: 'D01-R000001',
+        ),
+        isTrue,
+      );
     });
 
     test(
-      'a bill is never refunded more than its total (D-024 d)',
-      () => expect(refunded <= bill.total, isTrue),
-      skip: 'QA-024: stale returns within soldQty over-refund',
+      'a stale return within soldQty is rejected (prevReturnId, QA-024)',
+      () {
+        final a = returned(created, 1, 'D01-R000001');
+        // B saw the bill before A's return: its prevReturnId is null.
+        expect(
+          ShopSim.serverAcceptsReturn(
+            a,
+            returned(a, 1, 'D02-R000001'),
+            newReturn: true,
+            prevReturnId: null,
+          ),
+          isFalse,
+        );
+      },
     );
+  });
+
+  group('QA-024: refunds of two offline returns within soldQty', () {
+    // Devices A and B both saw returnedQty {} and each returned 1 unit
+    // offline. A syncs first; B's return is rejected (stale prevReturnId),
+    // and B redoes it from the bill as the server now holds it. The last
+    // unit is then returned online.
+    final a = ReturnCalculator.compute(bill, {'P_PUFF': 1});
+    final staleB = ReturnCalculator.compute(bill, {'P_PUFF': 1});
+    final afterA = returned(created, 1, 'D01-R000001');
+    final b = ReturnCalculator.compute(Bill.fromMap(bill.id, afterA), {
+      'P_PUFF': 1,
+    });
+    final afterB = returned(afterA, 1, 'D02-R000002');
+    final c = ReturnCalculator.compute(Bill.fromMap(bill.id, afterB), {
+      'P_PUFF': 1,
+    });
+
+    test('without the prevReturnId rule it would be ₹2 + ₹2 + ₹2', () {
+      expect(a.refundTotal, Money(200));
+      expect(staleB.refundTotal, Money(200));
+    });
+
+    test('the stale return is rejected, the redone one is accepted', () {
+      expect(
+        ShopSim.serverAcceptsReturn(
+          afterA,
+          returned(afterA, 1, 'D02-R000001'),
+          newReturn: true,
+          prevReturnId: null,
+        ),
+        isFalse,
+      );
+      expect(
+        ShopSim.serverAcceptsReturn(
+          afterA,
+          afterB,
+          newReturn: true,
+          prevReturnId: 'D01-R000001',
+        ),
+        isTrue,
+      );
+    });
+
+    test('a bill is never refunded more than its total (D-024 d)', () {
+      expect(
+        [a.refundTotal, b.refundTotal, c.refundTotal],
+        [Money(200), Money(100), Money(200)],
+      );
+      expect(a.refundTotal + b.refundTotal + c.refundTotal, bill.total);
+    });
   });
 }

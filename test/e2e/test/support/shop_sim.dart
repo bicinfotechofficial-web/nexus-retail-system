@@ -11,8 +11,9 @@
 ///
 /// The oracle in the test recomputes each summary from the documents alone.
 ///
-/// Every batch passes through [ShopSim.serverAccepts], a model of the
-/// update rules in 04-PERMISSIONS #5–6 as revised for D-029 and D-030. The
+/// Every batch passes through the `serverAccepts*` checks, a model of the
+/// rules in 04-PERMISSIONS #5–6 as revised for D-029 (`prevReturnId`) and
+/// D-030 (15 lines per bill). The
 /// simulation also plays conflicting offline writes: a device builds a
 /// cancel or a return from a stale copy of a bill while another device has
 /// already synced a return or a cancel of it. The rules model decides which
@@ -42,7 +43,7 @@ const List<SimProduct> simCatalog = [
 ];
 
 /// [simCatalog] plus enough extra items to build bills at and past the
-/// 20-line limit (D-030).
+/// 15-line limit (D-030).
 final List<SimProduct> simWideCatalog = [
   ...simCatalog,
   for (var i = 1; i <= 20; i++)
@@ -75,11 +76,11 @@ final class Coverage {
   int deniedOverReturns = 0;
   int deniedReturnOnCancelled = 0;
 
-  /// Bills with more than 10 lines, and bills at exactly the 20-line cap.
+  /// Bills with more than 10 lines, and bills at exactly the 15-line cap.
   int wideBills = 0;
   int maxLineBills = 0;
 
-  /// 21-line carts refused by `BillCalculator` (D-030).
+  /// 16-line carts refused by `BillCalculator` (D-030).
   int deniedTooManyLines = 0;
 
   /// Stale offline cancels rejected because a return synced first (D-029).
@@ -90,6 +91,11 @@ final class Coverage {
 
   /// Stale offline returns rejected by `returnedQty <= soldQty` (D-029).
   int conflictOverReturnLost = 0;
+
+  /// Stale offline returns within `soldQty` rejected because another return
+  /// synced first (`prevReturnId`, D-029, QA-024), then redone from the
+  /// fresh bill.
+  int conflictStaleReturnLost = 0;
 
   void add(Coverage o) {
     bills += o.bills;
@@ -116,6 +122,7 @@ final class Coverage {
     conflictCancelLost += o.conflictCancelLost;
     conflictReturnLost += o.conflictReturnLost;
     conflictOverReturnLost += o.conflictOverReturnLost;
+    conflictStaleReturnLost += o.conflictStaleReturnLost;
   }
 }
 
@@ -204,7 +211,7 @@ final class ShopSim {
   }
 
   void _createBill(String loc, String today, DateTime at) {
-    // Now and then a wide bill, up to the 20-line cap (D-030).
+    // Now and then a wide bill, up to the 15-line cap (D-030).
     final wide = random.nextInt(100) < 6;
     final picked = [...(wide ? simWideCatalog : simCatalog)]..shuffle(random);
     final n = wide
@@ -460,6 +467,8 @@ final class ShopSim {
       refundTotal: totals.refundTotal,
       refunds: refunds,
       reason: 'Damaged in transit',
+      // The bill's lastReturnId as this device saw it (D-029).
+      prevReturnId: seen.lastReturnId,
       businessDate: today,
       createdBy: 'uid-sm-$loc',
       deviceId: device,
@@ -484,7 +493,12 @@ final class ShopSim {
       'returnedQty': returnedQty,
       'lastReturnId': ret.id,
     };
-    if (!serverAcceptsReturn(before, after, newReturn: true)) {
+    if (!serverAcceptsReturn(
+      before,
+      after,
+      newReturn: true,
+      prevReturnId: ret.prevReturnId,
+    )) {
       syncErrors.add(retPath);
       return false;
     }
@@ -516,9 +530,9 @@ final class ShopSim {
   /// sync lands and the second is rejected by the rules (D-029). The second
   /// device built its batch from the bill as it was before the first one.
   ///
-  /// Only conflicts the rules can decide are played here. Two stale returns
-  /// that both stay within `soldQty` are both accepted and can over-refund
-  /// by up to ₹1 each; that case is QA-024 (see concurrent_returns_test).
+  /// Two stale returns that both stay within `soldQty` are decided by
+  /// `prevReturnId` (QA-024): the second is rejected, and the device redoes
+  /// it from the bill as the server now holds it.
   void _conflictOne(String loc, String today, DateTime at) {
     final open = billsAt(
       loc,
@@ -526,7 +540,7 @@ final class ShopSim {
     if (open.isEmpty) return;
     final stale = open.elementAt(random.nextInt(open.length));
     final line = stale.lines[random.nextInt(stale.lines.length)];
-    switch (random.nextInt(3)) {
+    switch (random.nextInt(4)) {
       case 0:
         // A returns one unit and syncs; B's stale cancel is rejected.
         _syncReturn(loc, stale, {line.productId: 1}, today, at);
@@ -537,13 +551,33 @@ final class ShopSim {
         if (!_syncReturn(loc, stale, {line.productId: 1}, today, at)) {
           coverage.conflictReturnLost++;
         }
-      default:
+      case 2:
         // A returns the whole line and syncs; B's stale return of any of
         // it would take returnedQty over soldQty and is rejected.
         _syncReturn(loc, stale, {line.productId: line.qty}, today, at);
         final more = 1 + random.nextInt(line.qty);
         if (!_syncReturn(loc, stale, {line.productId: more}, today, at)) {
           coverage.conflictOverReturnLost++;
+        }
+      default:
+        // A and B each return one unit of a line with at least 2, both
+        // offline from the same copy. A syncs first; B's return stays
+        // within soldQty but names a stale prevReturnId, so it is rejected
+        // (QA-024). B then redoes it from the fresh bill, and the refunds
+        // still add up cumulatively (D-024 d).
+        final multi = [
+          for (final l in stale.lines)
+            if (l.qty >= 2) l,
+        ];
+        if (multi.isEmpty) return;
+        final l = multi[random.nextInt(multi.length)];
+        _syncReturn(loc, stale, {l.productId: 1}, today, at);
+        if (!_syncReturn(loc, stale, {l.productId: 1}, today, at)) {
+          coverage.conflictStaleReturnLost++;
+          final fresh = _bill(loc, stale.id);
+          if (!_syncReturn(loc, fresh, {l.productId: 1}, today, at)) {
+            throw StateError('a return from the fresh ${stale.id} was lost');
+          }
         }
     }
   }
@@ -553,7 +587,7 @@ final class ShopSim {
   // this simulation writes.
   // -------------------------------------------------------------------------
 
-  /// Rule #6 on the fields that matter here: at most 20 lines, one
+  /// Rule #6 on the fields that matter here: at most 15 lines, one
   /// `soldQty` key per line with that line's qty, empty `returnedQty`,
   /// COMPLETED, and `billNo == loc-billId`.
   static bool serverAcceptsBillCreate(
@@ -588,16 +622,20 @@ final class ShopSim {
         _onlyChanged(before, after, {'status', 'cancel'});
   }
 
-  /// Rule #5(b): the bill is COMPLETED, `lastReturnId` names a new return,
-  /// and every `returnedQty` value only grows and stays within `soldQty`.
+  /// Rule #5(b): the bill is COMPLETED, `lastReturnId` names a new return
+  /// whose `prevReturnId` is the bill's current `lastReturnId` (both null
+  /// for the first return, D-029), and every `returnedQty` value only grows
+  /// and stays within `soldQty`.
   static bool serverAcceptsReturn(
     Map<String, Object?> before,
     Map<String, Object?> after, {
     required bool newReturn,
+    required String? prevReturnId,
   }) {
     if (before['status'] != BillStatus.completed.wire || !newReturn) {
       return false;
     }
+    if (prevReturnId != before['lastReturnId']) return false;
     if (after['lastReturnId'] == before['lastReturnId']) return false;
     final sold = (before['soldQty']! as Map).cast<String, int>();
     final was = (before['returnedQty']! as Map).cast<String, int>();
