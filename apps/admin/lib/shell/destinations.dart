@@ -30,6 +30,12 @@ const List<Destination> destinations = [
     anyOf: [Permission.reportOwn, Permission.reportAll],
   ),
   Destination(
+    path: '/stock',
+    label: 'Stock',
+    icon: Icons.inventory_2_outlined,
+    anyOf: [Permission.reportOwn, Permission.reportAll],
+  ),
+  Destination(
     path: '/catalog',
     label: 'Catalog',
     icon: Icons.cake_outlined,

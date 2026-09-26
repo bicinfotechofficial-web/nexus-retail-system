@@ -12,6 +12,7 @@ import 'reports/reports_screen.dart';
 import 'shell/admin_shell.dart';
 import 'shell/destinations.dart';
 import 'shell/permission_guard.dart';
+import 'stock/stock_screen.dart';
 import 'users/users_screen.dart';
 
 class _SessionChanges extends ChangeNotifier {
@@ -43,6 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           _guarded('/dashboard', const DashboardScreen()),
           _guarded('/reports', const ReportsScreen()),
+          _guarded('/stock', const StockScreen()),
           _guarded('/catalog', const CatalogScreen()),
           _guarded('/locations', const LocationsScreen()),
           _guarded('/users', const UsersScreen()),
