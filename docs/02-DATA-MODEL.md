@@ -77,7 +77,7 @@ Seed data: `ADMIN`, `STORE_MANAGER`. Only the seeding script writes these. There
 |---|---|---|
 | kind | `RAW` \| `FINISHED` | |
 | refId | string | materialId or productId |
-| name | string | Copied from the product or material. Refreshed on the next write if it was renamed |
+| name | string | Copied from the product or material. Refreshed on every write, so a rename shows up on the next sale or movement |
 | unit | `G` \| `ML` \| `PCS` | |
 | qty | int | **Written only with `increment()`**, never a literal value |
 | lowThreshold | int \| null | Set by the SM |
@@ -131,6 +131,7 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | refundTotal | int | Whole rupees, rounded cumulatively so a bill's refunds add up to its total (D-024) |
 | refunds | `[{mode, amount}]` | Σ == refundTotal. Any mix of modes |
 | reason | string | |
+| prevReturnId | string \| null | The bill's `lastReturnId` when this return was worked out; null for the first. The rules reject a stale one (D-029) |
 | businessDate, createdBy, deviceId, clientCreatedAt, serverCreatedAt | | |
 
 Before creating a return, the client checks that `bill.returnedQty[p] + qty ≤ sold qty`. `ReturnCalculator` in `packages/core` does this and all the return arithmetic.

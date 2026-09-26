@@ -46,7 +46,8 @@ The local ledger (Hive box `pending`) holds `{path, createdAt}` for every bill, 
   1. `await firestore.waitForPendingWrites()` (timeout 30 s).
   2. For each ledger entry, run `get(GetOptions(source: Source.server))`. If the doc exists, remove it from the ledger.
   3. If a doc is **missing** after the pending writes flushed, the server rejected it: show it as a **Sync error** on the sync-health screen with the bill details so the SM can re-enter it. This should never happen, and each one is treated as a bug.
-  4. When `waitForPendingWrites` finished and every ledger entry was resolved (confirmed, or moved to sync errors), set `lastSyncAt = now` (local) and update `devices/{id}.lastSeenAt` (at most every 5 minutes). A sync error does not hold `lastSyncAt` back. It is first set at sign-in or device registration.
+  4. When `waitForPendingWrites` finished and every ledger entry was resolved (confirmed, or moved to sync errors), set `lastSyncAt = now` (local) and update `devices/{id}.lastSeenAt` (at most every 5 minutes). A sync error does not hold `lastSyncAt` back. It is first set by an interactive, online sign-in or by device registration. Restoring a saved session when the app starts does **not** set it.
+- `lastSyncAt` and any active override end time are stored in the device's local store (Hive) and survive app restarts and reboots (QA-025).
 - UI: a status chip in the app bar showing ● Online / ◐ Syncing (n pending) / ○ Offline since HH:MM.
 
 ## 7. Offline limit (D-016)
@@ -54,7 +55,7 @@ The local ledger (Hive box `pending`) holds `{path, createdAt}` for every bill, 
 - `elapsed ≥ 0.8 × limit`: a persistent amber banner, "Connect to internet — billing will stop in X min".
 - `elapsed ≥ limit`: **billing is blocked**. Stock operations and viewing still work. The block screen offers:
   - **Retry sync**
-  - **Admin PIN override**: the entered PIN is verified locally against the cached `overridePinHash` (PBKDF2). On success, billing is allowed until `now + overrideExtensionHours`, however long the device has been offline, and an `OFFLINE_OVERRIDE` audit doc is queued (ID `Ids.overrideAuditId`).
+  - **Admin PIN override**: the entered PIN is verified locally against the cached `overridePinHash` (PBKDF2). On success, billing is allowed until `now + overrideExtensionHours`, however long the device has been offline, and an `OFFLINE_OVERRIDE` audit doc is queued (ID `Ids.overrideAuditId`). During an override the amber banner shows the time left until the override ends, and at the end billing blocks again unless a sync has happened.
 - Known limitations, accepted for the pilot (D-031): someone can move the device clock back to get around the block, and anyone at the location can read the PIN hash and try to guess it offline. Reports can flag bills where `clientCreatedAt` and `serverCreatedAt` differ by more than the limit, and PINs are at least 8 digits.
 
 ## 8. Auth while offline

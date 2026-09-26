@@ -38,7 +38,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | TODO |
 | BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | TODO |
 | BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Deploys to the emulator | TODO |
-| BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | TODO |
+| BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq`, `lastMovementSeq` and `lastReturnSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | TODO |
 | BE-9 | `DeviceRegistrationService`: a transaction on `nextDeviceNo` that creates the device doc | BE-8 | S | Emulator test: two concurrent registrations get D01 and D02 | TODO |
 | BE-10 | Batch builders: `createBill`, `cancelBill`, `createReturn`, `recordMovement` (IN, OUT, WASTAGE, PRODUCE), `adjustStock`, `upsertExpense`, `setThreshold`, `suggestProduct`, `approveProduct` | C-3, BE-8 | L | Emulator tests: every batch is accepted by the rules and every summary field is exact | TODO |
 | BE-11 | Read repositories: catalog, stock (with a low-stock stream), bills (paged by date), returns, summaries (day, month, year), audit (filtered), users, devices, expenses | C-3 | M | Emulator tests | TODO |
@@ -64,12 +64,12 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | POS-3 | Device setup (first run): register, name the device, pick a printer | BE-9, PR-5 | S | Widget tests | TODO |
 | POS-4 | Billing screen: product grid, categories, search, cart with qty ± and remove, running total | POS-1 | L | Widget tests | DONE |
 | POS-5 | Payment screen: discount (flat or %, cap check), round-off shown, split payment editor, cash tendered and change, save → print | POS-4, BE-10 | L | Tests: sum mismatch blocks Save, and a double tap saves once | DONE |
-| POS-6 | Receipt preview and print, reprint, print-failure handling (the bill is saved already, so offer a retry) | PR-5, POS-5 | S | Widget test | REVIEW |
-| POS-7 | Bills list for today and earlier dates, bill detail, same-day cancel with a reason | BE-11 | M | Widget tests | REVIEW |
-| POS-8 | Return flow: pick a bill, choose lines and qty (capped), refund split, print the return slip | POS-7 | M | Widget tests | REVIEW |
+| POS-6 | Receipt preview and print, reprint, print-failure handling (the bill is saved already, so offer a retry) | PR-5, POS-5 | S | Widget test | DONE |
+| POS-7 | Bills list for today and earlier dates, bill detail, same-day cancel with a reason | BE-11 | M | Widget tests | DONE |
+| POS-8 | Return flow: pick a bill, choose lines and qty (capped), refund split, print the return slip | POS-7 | M | Widget tests | DONE |
 | POS-9 | Stock hub: current stock (negatives in red), Stock In, Stock Out/Wastage, Produce (multi-line), Adjust (physical count), threshold editing, low-stock list and badge | BE-10, BE-11 | L | Widget tests for each operation | TODO |
 | POS-10 | Suggest a local special | BE-10 | S | Widget test | TODO |
-| POS-11 | Day summary: totals, by mode, returns, cancellations | BE-11 | S | Widget test | REVIEW |
+| POS-11 | Day summary: totals, by mode, returns, cancellations | BE-11 | S | Widget test | DONE |
 | POS-12 | Offline banner, billing block screen, PIN override, sync-health screen with sync errors | BE-12, BE-13 | M | Widget tests with a fake clock | TODO |
 
 ## Admin web — `apps/admin/`
@@ -77,10 +77,10 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 |---|---|---|---|---|---|
 | AD-1 | Shell: login, responsive side nav, location switcher (All or a single location), permission guard | C-3 | M | `flutter build web` succeeds | DONE |
 | AD-2 | Dashboard: today's sales per location and in total, bill count, returns, low-stock count per location | BE-11 | M | Widget test | DONE |
-| AD-3 | Locations CRUD, including setting the PIN (hashed on the client), offline limit and discount cap | BE-11 | M | Widget test | REVIEW |
+| AD-3 | Locations CRUD, including setting the PIN (hashed on the client), offline limit and discount cap | BE-11 | M | Widget test | DONE |
 | AD-4 | Users: create a Store Manager through the secondary Firebase App, assign a location, disable | BE-11 | M | Emulator test that the admin stays signed in | REVIEW |
-| AD-5 | Devices list: last seen, retire | BE-11 | S | Widget test | REVIEW |
-| AD-6 | Catalog: products CRUD, price change (audited), approval queue, raw materials | BE-10 | M | Widget tests | REVIEW |
+| AD-5 | Devices list: last seen, retire | BE-11 | S | Widget test | DONE |
+| AD-6 | Catalog: products CRUD, price change (audited), approval queue, raw materials | BE-10 | M | Widget tests | DONE |
 | AD-7 | Stock view by location, plus a low-stock table across locations | BE-11 | S | Widget test | TODO |
 | AD-8 | Reports: daily, monthly and annual. Gross, discount, net, returns, cancellations, by mode, top products. One location or all combined | BE-11 | L | Aggregation unit tests | DONE |
 | AD-9 | Expenses: create, edit and list by location, category and month | BE-10 | M | Widget test | TODO |
@@ -97,7 +97,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | QA-5 | Reconciliation: for random bills, returns and cancels, the summary equals the sum of the docs, for each day and month | BE-10 | M | Property test green | WIP |
 | QA-6 | Concurrent PRODUCE + SALE + ADJUST stock totals | BE-10 | S | Green | TODO |
 | QA-7 | Review every agent branch before merge, and log findings in `docs/QA-FINDINGS.md` | ongoing | — | No open P1 finding at merge | WIP |
-| QA-8 | Pilot checklist for B-6 (a device-side manual script) | Phase 2 | S | Checklist committed | REVIEW |
+| QA-8 | Pilot checklist for B-6 (a device-side manual script) | Phase 2 | S | Checklist committed | DONE |
 
 ---
 

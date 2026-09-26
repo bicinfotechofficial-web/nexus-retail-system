@@ -314,6 +314,7 @@ final class SaleReturn {
     required this.createdBy,
     required this.deviceId,
     required this.clientCreatedAt,
+    this.prevReturnId,
     this.serverCreatedAt,
   });
 
@@ -331,6 +332,7 @@ final class SaleReturn {
       createdBy: r.string('createdBy'),
       deviceId: r.string('deviceId'),
       clientCreatedAt: r.dateTime('clientCreatedAt'),
+      prevReturnId: r.stringOrNull('prevReturnId'),
       serverCreatedAt: r.dateTimeOrNull('serverCreatedAt'),
     );
   }
@@ -347,6 +349,12 @@ final class SaleReturn {
   final List<Payment> refunds;
   final String reason;
 
+  /// The bill's `lastReturnId` when this return was worked out, or null for
+  /// the first return. The rules reject the return if the bill has had
+  /// another return since, because its refund was computed from an out of
+  /// date `returnedQty` (D-029, QA-024).
+  final String? prevReturnId;
+
   /// The day the return is processed (D-012).
   final String businessDate;
   final String createdBy;
@@ -361,6 +369,7 @@ final class SaleReturn {
     'refundTotal': refundTotal.paise,
     'refunds': refunds.map((p) => p.toMap()).toList(),
     'reason': reason,
+    'prevReturnId': prevReturnId,
     'businessDate': businessDate,
     'createdBy': createdBy,
     'deviceId': deviceId,

@@ -23,7 +23,10 @@ abstract interface class CatalogService {
   });
 
   /// Creates or edits a product (`catalog.manage`). A price change writes a
-  /// PRICE_CHANGE audit entry in the same batch.
+  /// PRICE_CHANGE audit entry in the same batch. For a new product the
+  /// caller assigns `product.id` (it must pass `Ids.isSafeKey`) and sets
+  /// `createdBy` to the signed-in uid; `save` creates the doc when it doesn't
+  /// exist, so a retry is idempotent (AD-CR-1).
   Future<Product> save(Product product);
 
   /// Sets the price and makes a PENDING product ACTIVE, with a

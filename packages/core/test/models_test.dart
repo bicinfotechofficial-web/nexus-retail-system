@@ -222,6 +222,7 @@ void main() {
           {'mode': 'CASH', 'amount': 40500},
         ],
         'reason': 'damaged',
+        'prevReturnId': 'D02-R000003',
         'businessDate': '2026-09-26',
         'createdBy': 'u1',
         'deviceId': 'D01',

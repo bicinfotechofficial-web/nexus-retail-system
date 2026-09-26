@@ -34,9 +34,9 @@ abstract interface class SyncService {
 
   /// The end of the last sync pass in which `waitForPendingWrites` finished
   /// and every ledger entry was resolved, either confirmed or moved to
-  /// [errors]. A sync error does not hold it back. It is first set at
-  /// sign-in or device registration, so it is never null on a registered
-  /// device (03-SYNC §6).
+  /// [errors]. A sync error does not hold it back. It is first set by an
+  /// interactive online sign-in or device registration (not by restoring a
+  /// saved session), and it is persisted across restarts (03-SYNC §6).
   DateTime? get lastSyncAt;
 
   /// Runs a sync pass now (the Retry button).
@@ -52,7 +52,8 @@ final class WithinLimit extends OfflineState {
   const WithinLimit();
 }
 
-/// At 80% of the limit: show the amber banner.
+/// At 80% of the limit, or during a PIN override: show the amber banner.
+/// [billingStopsIn] counts down to the limit or to the override's end.
 final class NearLimit extends OfflineState {
   const NearLimit(this.billingStopsIn);
   final Duration billingStopsIn;

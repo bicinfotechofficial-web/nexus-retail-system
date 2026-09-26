@@ -67,3 +67,16 @@ Recorded by the central agent. QA closes a row once the contract and a PLAN.md s
 | QA-020 | Accepted: `Movement.note`. | 02 movements, `Movement` | Closed: PLAN S2-4 |
 | QA-021 | Accepted: `Ids.overrideAuditId`, with `entityPath` = the device doc. | 02 auditLog, `Ids` | Closed: PLAN A6-4, A6-6 |
 | QA-022 | Accepted as client-enforced (D-031). | D-031 | Closed: client-only, PLAN C-1 |
+
+### Central outcomes, second review
+| ID | Outcome | Where it's fixed |
+|---|---|---|
+| QA-023 | Accepted. `name` may change on any stock write. | 04 #8, 02 stock |
+| QA-024 | Accepted as proposed: `SaleReturn.prevReturnId`, and rule #5(b) checks it against the bill's `lastReturnId` (one extra `getAfter`). | D-029, 04 #5(b), 02 returns, `SaleReturn.prevReturnId` |
+| QA-025 | Accepted. `lastSyncAt` and the override end time persist across restarts. Only an interactive online sign-in or a registration sets `lastSyncAt`, and the banner counts down during an override. | 03 §6–7, `SyncService`/`NearLimit` docs |
+| QA-026 | Accepted. `integration_test` is added to `apps/pos` (merge seam). The fixture location and format are in the backend brief, and the run command is in the QA brief. | agents/BACKEND, agents/QA, apps/pos/pubspec.yaml |
+| QA-027 | Accepted: a POS bug, assigned to the POS agent's next run. | — |
+| QA-028 | Already fixed on the merged Admin branch (`28c10b2`): the headline "Sales" is net revenue. QA to re-verify. | apps/admin |
+| QA-029 | Accepted: device-create formula, D99 ceiling, `stock.adjust` for the movement counter, `return.create` for RETURN movements, and the BE-8 wording. | 04 #4, #7, 06-TASKS BE-8 |
+| QA-030 | Accepted: fixture PINs are 8+ digits. Assigned to the backend (fixtures, README) and POS (fake). | — |
+| QA-031 | Accepted: reports include deactivated locations' history. Assigned to the admin agent's next run. | — |
