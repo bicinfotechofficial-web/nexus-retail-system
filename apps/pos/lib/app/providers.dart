@@ -37,6 +37,15 @@ final deviceServiceProvider = Provider<DeviceService>(
 final printerServiceProvider = Provider<PrinterService>(
   (ref) => _notConfigured('PrinterService'),
 );
+final catalogServiceProvider = Provider<CatalogService>(
+  (ref) => _notConfigured('CatalogService'),
+);
+final stockRepositoryProvider = Provider<StockRepository>(
+  (ref) => _notConfigured('StockRepository'),
+);
+final stockServiceProvider = Provider<StockService>(
+  (ref) => _notConfigured('StockService'),
+);
 
 /// The device clock. Tests override it.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
@@ -99,4 +108,82 @@ final dailySummaryProvider = StreamProvider.autoDispose.family<Summary, String>(
     if (loc == null) return Stream.value(const Summary());
     return ref.watch(summaryRepositoryProvider).watchDaily(loc, businessDate);
   },
+);
+
+/// Every stock doc at the session's location. Quantities may be negative.
+final stockProvider = StreamProvider<List<StockItem>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref.watch(stockRepositoryProvider).watchStock(loc);
+});
+
+/// Items at or below their threshold at the session's location (D-015).
+final lowStockProvider = StreamProvider<List<StockItem>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref.watch(stockRepositoryProvider).watchLowStock(loc);
+});
+
+final rawMaterialsProvider = StreamProvider<List<RawMaterial>>(
+  (ref) => ref.watch(catalogRepositoryProvider).watchRawMaterials(),
+);
+
+final offlineStateProvider = StreamProvider<OfflineState>(
+  (ref) => ref.watch(offlineGuardProvider).state,
+);
+
+final syncErrorsProvider = StreamProvider<List<SyncError>>(
+  (ref) => ref.watch(syncServiceProvider).errors,
+);
+
+/// The offline state, with a [NearLimit] countdown pinned to a deadline on
+/// the device clock when it arrives, so the banner keeps counting down
+/// between emissions and every screen shows the same time.
+final class OfflineView {
+  const OfflineView(this.state, this.deadline);
+
+  final OfflineState state;
+
+  /// When billing stops, for [NearLimit]; null otherwise.
+  final DateTime? deadline;
+
+  bool get blocked => state is BillingBlocked;
+}
+
+final offlineViewProvider = Provider<OfflineView>((ref) {
+  final state = ref.watch(offlineStateProvider).value ?? const WithinLimit();
+  final deadline = state is NearLimit
+      ? ref.read(clockProvider)().add(state.billingStopsIn)
+      : null;
+  return OfflineView(state, deadline);
+});
+
+/// PENDING suggestions from the session's location, awaiting approval.
+final pendingSuggestionsProvider = StreamProvider<List<Product>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref
+      .watch(catalogRepositoryProvider)
+      .watchPending()
+      .map((all) => all.where((p) => p.scope == loc).toList());
+});
+
+/// This install's device code, or null before registration (D-004). The
+/// setup screen reports a new registration here so the router moves on.
+class DeviceIdNotifier extends Notifier<String?> {
+  @override
+  String? build() {
+    try {
+      return ref.watch(deviceServiceProvider).deviceId;
+    } on UnimplementedError {
+      // No data layer configured: startup reports that via the session.
+      return null;
+    }
+  }
+
+  void registered(String code) => state = code;
+}
+
+final deviceIdProvider = NotifierProvider<DeviceIdNotifier, String?>(
+  DeviceIdNotifier.new,
 );

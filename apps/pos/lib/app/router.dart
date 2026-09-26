@@ -6,10 +6,16 @@ import 'package:nexus_data/nexus_data.dart';
 import '../features/billing/billing_screen.dart';
 import '../features/bills/bill_detail_screen.dart';
 import '../features/bills/bills_screen.dart';
+import '../features/login/login_screen.dart';
+import '../features/offline/sync_health_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/placeholder_screen.dart';
 import '../features/returns/return_screen.dart';
+import '../features/setup/device_setup_screen.dart';
+import '../features/stock/movement_screens.dart';
+import '../features/stock/stock_screen.dart';
+import '../features/suggest/suggest_screen.dart';
 import '../features/summary/day_summary_screen.dart';
 import 'destinations.dart';
 import 'providers.dart';
@@ -21,6 +27,20 @@ abstract final class Routes {
   static const String payment = '/payment';
   static const String billSaved = '/bill-saved';
 
+  /// Any signed-in user with a POS screen may open it.
+  static const String syncHealth = '/sync';
+
+  /// First-run device setup (POS-3): register, then choose a printer.
+  static const String setup = '/setup';
+  static const String stockIn = '/stock/in';
+  static const String stockOut = '/stock/out';
+  static const String stockWastage = '/stock/wastage';
+  static const String stockProduce = '/stock/produce';
+  static const String stockAdjust = '/stock/adjust';
+
+  /// `/stock/threshold/RM_flour`.
+  static String stockThreshold(String itemKey) => '/stock/threshold/$itemKey';
+
   /// `/bills/D01-000123`: one bill, with reprint, cancel and return.
   static String bill(String billId) => '${Destinations.bills.path}/$billId';
 
@@ -29,19 +49,30 @@ abstract final class Routes {
 
   static final RegExp _billPath = RegExp(r'^/bills/[^/]+$');
   static final RegExp _returnPath = RegExp(r'^/bills/[^/]+/return$');
+  static final RegExp _thresholdPath = RegExp(r'^/stock/threshold/[^/]+$');
 
   /// Pages that aren't drawer destinations, with the permissions that open
   /// them (any one of).
   static const Map<String, List<String>> _extra = {
     payment: [Permission.billCreate],
     billSaved: [Permission.billCreate],
+    stockIn: [Permission.stockMove],
+    stockOut: [Permission.stockMove],
+    stockWastage: [Permission.stockMove],
+    stockProduce: [Permission.stockMove],
+    stockAdjust: [Permission.stockAdjust],
   };
 
   static const Set<String> _open = {starting, signedOut, noAccess};
 
   /// Where [session] may go instead of [path], or null to stay. Pure, so
-  /// the permission rules are tested without a widget tree.
-  static String? redirect(AsyncValue<SessionContext?> session, String path) {
+  /// the permission rules are tested without a widget tree. An install
+  /// that isn't registered yet goes to [setup] first (D-004).
+  static String? redirect(
+    AsyncValue<SessionContext?> session,
+    String path, {
+    bool deviceRegistered = true,
+  }) {
     if (!session.hasValue) {
       return path == starting ? null : starting;
     }
@@ -49,12 +80,18 @@ abstract final class Routes {
     if (s == null) return path == signedOut ? null : signedOut;
 
     final allowed = Destinations.allowedFor(s);
+    if (allowed.isNotEmpty && !deviceRegistered) {
+      return path == setup ? null : setup;
+    }
     final home = allowed.isEmpty ? noAccess : allowed.first.path;
     if (_open.contains(path)) return path == home ? null : home;
 
     final needs =
         _extra[path] ??
         (_returnPath.hasMatch(path) ? const [Permission.returnCreate] : null) ??
+        (_thresholdPath.hasMatch(path)
+            ? const [Permission.stockThreshold]
+            : null) ??
         (_billPath.hasMatch(path) ? Destinations.bills.anyOf : null) ??
         Destinations.all
             .where((d) => d.path == path)
@@ -68,8 +105,16 @@ abstract final class Routes {
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     initialLocation: Destinations.billing.path,
-    redirect: (context, state) =>
-        Routes.redirect(ref.read(sessionProvider), state.uri.path),
+    redirect: (context, state) {
+      final session = ref.read(sessionProvider);
+      return Routes.redirect(
+        session,
+        state.uri.path,
+        // Read only once signed in: before that there may be no service.
+        deviceRegistered:
+            session.value == null || ref.read(deviceIdProvider) != null,
+      );
+    },
     routes: [
       GoRoute(
         path: Destinations.billing.path,
@@ -106,8 +151,47 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Destinations.stock.path,
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Stock', task: 'POS-9'),
+        builder: (context, state) => const StockScreen(),
+        routes: [
+          GoRoute(
+            path: 'in',
+            builder: (context, state) => const StockInScreen(),
+          ),
+          GoRoute(
+            path: 'out',
+            builder: (context, state) => const StockOutScreen(),
+          ),
+          GoRoute(
+            path: 'wastage',
+            builder: (context, state) => const WastageScreen(),
+          ),
+          GoRoute(
+            path: 'produce',
+            builder: (context, state) => const ProduceScreen(),
+          ),
+          GoRoute(
+            path: 'adjust',
+            builder: (context, state) =>
+                AdjustScreen(itemKey: state.uri.queryParameters['item']),
+          ),
+          GoRoute(
+            path: 'threshold/:itemKey',
+            builder: (context, state) =>
+                ThresholdScreen(itemKey: state.pathParameters['itemKey']!),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: Destinations.suggest.path,
+        builder: (context, state) => const SuggestScreen(),
+      ),
+      GoRoute(
+        path: Routes.setup,
+        builder: (context, state) => const DeviceSetupScreen(),
+      ),
+      GoRoute(
+        path: Routes.syncHealth,
+        builder: (context, state) => const SyncHealthScreen(),
       ),
       GoRoute(
         path: Destinations.summary.path,
@@ -126,9 +210,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.signedOut,
-        builder: (context, state) => const MessageScreen(
-          message: 'Signed out. Sign-in arrives in POS-2.',
-        ),
+        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: Routes.noAccess,
@@ -140,7 +222,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
-  ref.listen(sessionProvider, (_, _) => router.refresh());
+  ref
+    ..listen(sessionProvider, (_, _) => router.refresh())
+    ..listen(deviceIdProvider, (_, _) => router.refresh());
   ref.onDispose(router.dispose);
   return router;
 });

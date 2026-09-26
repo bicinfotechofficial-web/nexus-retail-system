@@ -50,7 +50,20 @@ abstract final class Destinations {
     anyOf: [Permission.reportOwn],
   );
 
-  static const List<Destination> all = [billing, bills, stock, summary];
+  static const Destination suggest = Destination(
+    path: '/suggest',
+    label: 'Suggest special',
+    icon: Icons.cake_outlined,
+    anyOf: [Permission.catalogSuggest],
+  );
+
+  static const List<Destination> all = [
+    billing,
+    bills,
+    stock,
+    summary,
+    suggest,
+  ];
 
   static List<Destination> allowedFor(SessionContext session) =>
       all.where((d) => d.allowedFor(session)).toList();

@@ -5,45 +5,70 @@ import 'dart:core';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
+import 'latest.dart';
 import 'seed.dart';
 
 /// In-memory implementations of the `nexus_data` interfaces the POS uses.
 /// Same signatures as the real ones, so swapping them is a provider change.
 
-/// A stream that replays its latest value to every new listener.
-final class _Latest<T> {
-  _Latest(this._value);
-
-  T _value;
-  final StreamController<T> _changes = StreamController<T>.broadcast();
-
-  T get value => _value;
-
-  set value(T v) {
-    _value = v;
-    _changes.add(v);
-  }
-
-  Stream<T> get stream async* {
-    yield _value;
-    yield* _changes.stream;
-  }
-
-  Future<void> close() => _changes.close();
-}
+/// A fake login: its password, and the session it opens or the reason it
+/// fails.
+typedef FakeAccount = ({
+  String password,
+  SessionContext? session,
+  FailureReason? failure,
+});
 
 final class FakeAuthService implements AuthService {
-  FakeAuthService([SessionContext? initial])
-    : _session = _Latest(
-        initial ??
-            const SessionContext(
-              user: Seed.storeManager,
-              role: Seed.storeManagerRole,
-              location: Seed.location,
-            ),
-      );
+  FakeAuthService([SessionContext? initial]) : _session = Latest(initial);
 
-  final _Latest<SessionContext?> _session;
+  /// Restores the Store Manager's saved session, like a returning device.
+  FakeAuthService.signedIn() : this(storeManagerSession);
+
+  static const SessionContext storeManagerSession = SessionContext(
+    user: Seed.storeManager,
+    role: Seed.storeManagerRole,
+    location: Seed.location,
+  );
+
+  /// Demo logins for `FAKE_DATA=true`. Every one uses [demoPassword].
+  static const String demoPassword = 'cottage-demo';
+  static const String disabledEmail = 'disabled.ptb@example.com';
+  static const String noProfileEmail = 'new.user@example.com';
+
+  final Latest<SessionContext?> _session;
+
+  /// Logins by lower-case email.
+  final Map<String, FakeAccount> accounts = {
+    Seed.storeManager.email: (
+      password: demoPassword,
+      session: storeManagerSession,
+      failure: null,
+    ),
+    disabledEmail: (
+      password: demoPassword,
+      session: null,
+      failure: FailureReason.userDisabled,
+    ),
+    noProfileEmail: (
+      password: demoPassword,
+      session: null,
+      failure: FailureReason.noProfile,
+    ),
+  };
+
+  /// Whether sign-in can reach the server. A first sign-in needs it.
+  bool online = true;
+
+  /// Called after an interactive online sign-in, which counts as a sync
+  /// (03-SYNC §6).
+  void Function()? onSignedIn;
+
+  /// When set, [signIn] waits for it, e.g. to see the busy state.
+  Completer<void>? gate;
+
+  /// Every [signIn] call's email.
+  final List<String> signInCalls = [];
 
   @override
   Stream<SessionContext?> get session => _session.stream;
@@ -59,12 +84,19 @@ final class FakeAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    const s = SessionContext(
-      user: Seed.storeManager,
-      role: Seed.storeManagerRole,
-      location: Seed.location,
-    );
+    signInCalls.add(email);
+    final g = gate;
+    if (g != null) await g.future;
+    if (!online) throw const DataFailure(FailureReason.offline);
+    final account = accounts[email.trim().toLowerCase()];
+    if (account == null || account.password != password) {
+      throw const DataFailure(FailureReason.invalidCredentials);
+    }
+    final failure = account.failure;
+    if (failure != null) throw DataFailure(failure);
+    final s = account.session!;
     _session.value = s;
+    onSignedIn?.call();
     return s;
   }
 
@@ -74,11 +106,16 @@ final class FakeAuthService implements AuthService {
 
 final class FakeCatalogRepository implements CatalogRepository {
   FakeCatalogRepository([List<Product>? products])
-    : _products = _Latest(products ?? Seed.products);
+    : _products = Latest(products ?? Seed.products);
 
-  final _Latest<List<Product>> _products;
+  final Latest<List<Product>> _products;
+  final Latest<List<RawMaterial>> _materials = Latest(Seed.rawMaterials);
 
+  List<Product> get products => _products.value;
   set products(List<Product> value) => _products.value = value;
+
+  List<RawMaterial> get rawMaterials => _materials.value;
+  set rawMaterials(List<RawMaterial> value) => _materials.value = value;
 
   @override
   Stream<List<Product>> watchSellable(String locationId) =>
@@ -97,7 +134,121 @@ final class FakeCatalogRepository implements CatalogRepository {
   );
 
   @override
-  Stream<List<RawMaterial>> watchRawMaterials() => Stream.value(const []);
+  Stream<List<RawMaterial>> watchRawMaterials() => _materials.stream;
+}
+
+/// Catalog writes in memory. Only [suggest] is used by the POS; the rest
+/// keep the interface complete.
+final class FakeCatalogService implements CatalogService {
+  FakeCatalogService({required this.auth, required this.catalog});
+
+  final FakeAuthService auth;
+  final FakeCatalogRepository catalog;
+  int _n = 0;
+
+  /// Every [suggest] call's name, including failed ones.
+  final List<String> suggestCalls = [];
+
+  /// When set, the next call throws it instead of saving.
+  Exception? failNext;
+
+  SessionContext _check(String permission) {
+    final session = auth.current;
+    if (session == null) throw const DataFailure(FailureReason.noProfile);
+    if (!session.can(permission)) {
+      throw const DataFailure(FailureReason.notPermitted);
+    }
+    final failure = failNext;
+    if (failure != null) {
+      failNext = null;
+      throw failure;
+    }
+    return session;
+  }
+
+  @override
+  Future<Product> suggest({
+    required String name,
+    required String category,
+    required Money proposedPrice,
+  }) async {
+    suggestCalls.add(name);
+    final session = _check(Permission.catalogSuggest);
+    final location = session.location;
+    if (location == null) throw const DataFailure(FailureReason.noProfile);
+    if (name.trim().isEmpty || category.trim().isEmpty) {
+      throw const DataFailure(FailureReason.ruleViolation, 'name, category');
+    }
+    if (!proposedPrice.isPositive) {
+      throw const DataFailure(FailureReason.ruleViolation, 'proposedPrice');
+    }
+    _n++;
+    final product = Product(
+      id: 'local-${location.code}-$_n',
+      name: name.trim(),
+      category: category.trim(),
+      scope: location.code,
+      status: ProductStatus.pending,
+      sortOrder: 1000 + _n,
+      createdBy: session.user.uid,
+      proposedPrice: proposedPrice,
+    );
+    catalog.products = [...catalog.products, product];
+    return product;
+  }
+
+  @override
+  Future<Product> save(Product product) async {
+    _check(Permission.catalogManage);
+    catalog.products = [
+      ...catalog.products.where((p) => p.id != product.id),
+      product,
+    ];
+    return product;
+  }
+
+  @override
+  Future<Product> approve({
+    required String productId,
+    required Money price,
+  }) async {
+    _check(Permission.catalogManage);
+    final p = catalog.products.where((p) => p.id == productId).firstOrNull;
+    if (p == null) throw DataFailure(FailureReason.notFound, productId);
+    final approved = Product(
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      price: price,
+      proposedPrice: p.proposedPrice,
+      unit: p.unit,
+      gstRate: p.gstRate,
+      scope: p.scope,
+      status: ProductStatus.active,
+      recipe: p.recipe,
+      sortOrder: p.sortOrder,
+      createdBy: p.createdBy,
+    );
+    return save(approved);
+  }
+
+  @override
+  Future<RawMaterial> addRawMaterial({
+    required String name,
+    required StockUnit unit,
+  }) async {
+    final session = _check(Permission.rawMaterialCreate);
+    _n++;
+    final m = RawMaterial(
+      id: 'rm-$_n',
+      name: name.trim(),
+      unit: unit,
+      active: true,
+      createdBy: session.user.uid,
+    );
+    catalog.rawMaterials = [...catalog.rawMaterials, m];
+    return m;
+  }
 }
 
 /// Creates bills, cancellations and returns in memory with the real core
@@ -463,39 +614,131 @@ final class FakeSummaryRepository implements SummaryRepository {
 }
 
 final class FakeSyncService implements SyncService {
-  FakeSyncService([SyncStatus initial = const Online()])
-    : _status = _Latest(initial);
+  FakeSyncService([
+    SyncStatus initial = const Online(),
+    DateTime Function()? now,
+  ]) : _status = Latest(initial),
+       _now = now ?? DateTime.now;
 
-  final _Latest<SyncStatus> _status;
+  final Latest<SyncStatus> _status;
+  final Latest<List<SyncError>> _errors = Latest(const []);
+  final DateTime Function() _now;
+
+  /// Whether a sync pass can reach the server. When false, [syncNow] leaves
+  /// [lastSyncAt] where it was.
+  bool online = true;
+
+  /// Called after every sync pass that completed, e.g. to re-check the
+  /// offline limit.
+  void Function()? onSynced;
 
   /// Emits a new status to the app-bar chip.
   void emit(SyncStatus value) => _status.value = value;
+
+  /// A write the server rejected (03-SYNC §6.3).
+  void addError(SyncError error) => _errors.value = [..._errors.value, error];
 
   @override
   Stream<SyncStatus> get status => _status.stream;
 
   @override
-  Stream<List<SyncError>> get errors => Stream.value(const []);
+  Stream<List<SyncError>> get errors => _errors.stream;
 
   @override
   DateTime? lastSyncAt;
 
   int syncNowCalls = 0;
 
+  /// Marks a completed sync pass now: an interactive online sign-in and a
+  /// registration do this too (03-SYNC §6).
+  void markSynced() {
+    lastSyncAt = _now();
+    onSynced?.call();
+  }
+
   @override
   Future<void> syncNow() async {
     syncNowCalls++;
-    lastSyncAt = DateTime.now();
+    if (!online) return;
+    emit(const Online());
+    markSynced();
   }
 }
 
+/// The offline limit (03-SYNC §7) computed from [FakeSyncService.lastSyncAt]
+/// and the injected clock, like the real guard. [evaluate] re-checks it;
+/// tests call it after moving the clock.
 final class FakeOfflineGuard implements OfflineGuard {
-  FakeOfflineGuard({this.pin = '1234'});
+  FakeOfflineGuard({
+    this.pin = defaultPin,
+    DateTime Function()? now,
+    DateTime? Function()? lastSyncAt,
+    Location? Function()? location,
+    this.deviceId = Seed.deviceId,
+  }) : assert(pin.length >= Limits.minOverridePinDigits),
+       _now = now ?? DateTime.now,
+       _lastSyncAt = lastSyncAt ?? (() => null),
+       _location = location ?? (() => Seed.location);
+
+  /// 8 digits, the minimum a location may use (D-031, QA-030).
+  static const String defaultPin = '24681357';
 
   final String pin;
-  final _Latest<OfflineState> _state = _Latest(const WithinLimit());
+  final String deviceId;
+  final DateTime Function() _now;
+  final DateTime? Function() _lastSyncAt;
+  final Location? Function() _location;
+  final Latest<OfflineState> _state = Latest(const WithinLimit());
 
+  /// The end of the current PIN override, if any. Persisted by the real
+  /// guard (QA-025).
+  DateTime? overrideUntil;
+
+  /// Every [override] call's PIN, right or wrong.
+  final List<String> overrideCalls = [];
+
+  /// The OFFLINE_OVERRIDE audit IDs queued by successful overrides.
+  final List<String> auditIds = [];
+
+  /// Emits [value] as is, bypassing the clock.
   void emit(OfflineState value) => _state.value = value;
+
+  OfflineState get current => _state.value;
+
+  /// Recomputes the state from the clock, the last sync and any override,
+  /// and emits it.
+  OfflineState evaluate() {
+    final now = _now();
+    final until = overrideUntil;
+    final location = _location();
+    final limit = Duration(
+      hours: location?.offlineLimitHours ?? Location.defaultOfflineLimitHours,
+    );
+    final last = _lastSyncAt();
+    final OfflineState next;
+    if (until != null && now.isBefore(until)) {
+      next = NearLimit(until.difference(now));
+    } else if (last == null) {
+      next = const WithinLimit();
+    } else {
+      final elapsed = now.difference(last);
+      if (elapsed >= limit) {
+        next = const BillingBlocked();
+      } else if (elapsed * 5 >= limit * 4) {
+        next = NearLimit(limit - elapsed);
+      } else {
+        next = const WithinLimit();
+      }
+    }
+    _state.value = next;
+    return next;
+  }
+
+  /// A sync pass completed: an override is no longer needed.
+  void synced() {
+    overrideUntil = null;
+    evaluate();
+  }
 
   // `@override` would name the `override` method below, so use dart:core's.
   @core.override
@@ -503,8 +746,23 @@ final class FakeOfflineGuard implements OfflineGuard {
 
   @core.override
   Future<bool> override(String pin) async {
-    if (pin != this.pin) return false;
-    _state.value = const WithinLimit();
+    overrideCalls.add(pin);
+    if (pin.length < Limits.minOverridePinDigits || pin != this.pin) {
+      return false;
+    }
+    final now = _now();
+    final location = _location();
+    overrideUntil = now.add(
+      Duration(
+        hours:
+            location?.overrideExtensionHours ??
+            Location.defaultOverrideExtensionHours,
+      ),
+    );
+    auditIds.add(
+      Ids.overrideAuditId(location?.code ?? Seed.locationId, deviceId, now),
+    );
+    evaluate();
     return true;
   }
 }
@@ -515,15 +773,31 @@ final class FakeDeviceService implements DeviceService {
   @override
   String? deviceId;
 
+  /// Whether registration can reach the server (it is online only).
+  bool online = true;
+
+  /// Called after a registration, which counts as a sync (03-SYNC §6).
+  void Function()? onRegistered;
+
+  /// Every [register] call as (locationId, label), including failed ones.
+  final List<(String, String)> registerCalls = [];
+
   @override
   Future<Device> register({
     required String locationId,
     required String label,
   }) async {
+    registerCalls.add((locationId, label));
+    if (!online) throw const DataFailure(FailureReason.offline);
+    if (label.trim().isEmpty) {
+      throw const DataFailure(FailureReason.ruleViolation, 'label');
+    }
+    // The fake sales service bills as Seed.deviceId, so hand out that code.
     deviceId = Seed.deviceId;
+    onRegistered?.call();
     return Device(
       code: Seed.deviceId,
-      label: label,
+      label: label.trim(),
       registeredBy: Seed.userId,
       lastBillSeq: 0,
       retired: false,

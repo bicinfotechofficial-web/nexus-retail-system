@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 import '../app/providers.dart';
+import '../app/router.dart';
 
 /// ● Online / ◐ Syncing (n) / ○ Offline since HH:MM (03-SYNC §6).
 class SyncChip extends ConsumerWidget {
@@ -28,16 +30,23 @@ class SyncChip extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Center(
-        child: Container(
-          key: const Key('sync-chip'),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: bg,
+        child: Tooltip(
+          message: 'Sync health',
+          child: InkWell(
             borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            label(status),
-            style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+            onTap: () => context.push(Routes.syncHealth),
+            child: Container(
+              key: const Key('sync-chip'),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                label(status),
+                style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+              ),
+            ),
           ),
         ),
       ),

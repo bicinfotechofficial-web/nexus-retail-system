@@ -11,6 +11,7 @@ import '../../widgets/pos_scaffold.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_row.dart';
 import '../billing/cart.dart';
+import '../offline/billing_blocked.dart';
 
 enum _DiscountKind { none, flat, percent }
 
@@ -114,6 +115,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     BillTotals? totals;
+    String? cartError;
     if (_cart.isNotEmpty) {
       try {
         totals = BillCalculator.compute(
@@ -122,9 +124,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           maxDiscountPct: cap,
         );
       } on BillValidationException catch (e) {
-        discountError = Messages.billError(e.error, maxDiscountPct: cap);
         discount = null;
-        totals = BillCalculator.compute(_cart, maxDiscountPct: cap);
+        // Without the discount: if the cart itself is refused (e.g. too many
+        // lines), say so instead of throwing from build (QA-027).
+        try {
+          totals = BillCalculator.compute(_cart, maxDiscountPct: cap);
+          discountError = Messages.billError(e.error, maxDiscountPct: cap);
+        } on BillValidationException catch (cartFailure) {
+          cartError = Messages.billError(cartFailure.error);
+        }
       }
     }
     if (discountError != null) discount = null;
@@ -147,6 +155,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             cashTendered: tendered,
           );
     return _Form(
+      cartError: cartError,
       discount: discount,
       discountError: discountError,
       totals: totals,
@@ -246,15 +255,33 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A block mid-payment swaps the page, keeping what was entered for
+    // after a sync or override (03-SYNC §7).
+    if (ref.watch(offlineViewProvider.select((v) => v.blocked)) && !_saving) {
+      return const PosScaffold(
+        title: 'Payment',
+        showDrawer: false,
+        body: BillingBlockedView(),
+      );
+    }
     final form = _form();
     final totals = form.totals;
     final location = _location;
     final theme = Theme.of(context);
     if (totals == null || location == null) {
-      return const PosScaffold(
+      return PosScaffold(
         title: 'Payment',
         showDrawer: false,
-        body: Center(child: Text('The cart is empty.')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              form.cartError ?? 'The cart is empty.',
+              key: const Key('payment-cart-error'),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
       );
     }
     final check = form.check!;
@@ -511,6 +538,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
 final class _Form {
   const _Form({
+    required this.cartError,
     required this.discount,
     required this.discountError,
     required this.totals,
@@ -520,6 +548,8 @@ final class _Form {
     required this.check,
   });
 
+  /// Why the cart itself can't be billed, e.g. too many lines.
+  final String? cartError;
   final DiscountInput? discount;
   final String? discountError;
   final BillTotals? totals;

@@ -5,10 +5,12 @@ import 'package:nexus_data/nexus_data.dart';
 import '../app/providers.dart';
 import 'fake_data.dart';
 import 'fake_printer.dart';
+import 'fake_stock.dart';
 import 'seed.dart';
 
 export 'fake_data.dart';
 export 'fake_printer.dart';
+export 'fake_stock.dart';
 export 'seed.dart';
 
 /// Every fake, wired together, plus the provider overrides that install
@@ -16,17 +18,33 @@ export 'seed.dart';
 final class FakeBackend {
   FakeBackend({
     SessionContext? session,
+    bool signedIn = true,
     SyncStatus syncStatus = const Online(),
     DateTime Function()? now,
-  }) : auth = FakeAuthService(session),
-       sync = FakeSyncService(syncStatus),
+    bool registered = true,
+  }) : auth = FakeAuthService(
+         session ?? (signedIn ? FakeAuthService.storeManagerSession : null),
+       ),
+       device = FakeDeviceService(registered ? Seed.deviceId : null),
        _now = now ?? DateTime.now {
+    sync = FakeSyncService(syncStatus, _now)..lastSyncAt = _now();
+    offline = FakeOfflineGuard(
+      now: _now,
+      lastSyncAt: () => sync.lastSyncAt,
+      location: () => auth.current?.location,
+    );
+    sync.onSynced = offline.synced;
+    device.onRegistered = sync.markSynced;
+    auth.onSignedIn = sync.markSynced;
     sales = FakeSalesService(
       auth: auth,
       bills: bills,
       summaries: summaries,
       now: _now,
     );
+    catalogService = FakeCatalogService(auth: auth, catalog: catalog);
+    stock = FakeStock(auth: auth, catalog: catalog, now: _now)
+      ..seed(Seed.locationId, Seed.stock);
   }
 
   final DateTime Function() _now;
@@ -35,9 +53,11 @@ final class FakeBackend {
   final FakeSalesRepository bills = FakeSalesRepository();
   final FakeSummaryRepository summaries = FakeSummaryRepository();
   late final FakeSalesService sales;
-  final FakeSyncService sync;
-  final FakeOfflineGuard offline = FakeOfflineGuard();
-  final FakeDeviceService device = FakeDeviceService();
+  late final FakeStock stock;
+  late final FakeCatalogService catalogService;
+  late final FakeSyncService sync;
+  late final FakeOfflineGuard offline;
+  final FakeDeviceService device;
   final FakePrinterService printer = FakePrinterService();
 
   List<Override> get overrides => [
@@ -50,6 +70,9 @@ final class FakeBackend {
     offlineGuardProvider.overrideWithValue(offline),
     deviceServiceProvider.overrideWithValue(device),
     printerServiceProvider.overrideWithValue(printer),
+    catalogServiceProvider.overrideWithValue(catalogService),
+    stockRepositoryProvider.overrideWithValue(stock),
+    stockServiceProvider.overrideWithValue(stock),
     clockProvider.overrideWithValue(_now),
   ];
 
@@ -57,6 +80,17 @@ final class FakeBackend {
   /// so `FAKE_DATA=true` opens on something to look at. Written through the
   /// fake service, so summaries match.
   Future<void> seedDemo() async {
+    // The demo history belongs to the Store Manager, even on a first run.
+    final before = auth.current;
+    auth.current = FakeAuthService.storeManagerSession;
+    try {
+      await _seedBills();
+    } finally {
+      auth.current = before;
+    }
+  }
+
+  Future<void> _seedBills() async {
     final now = _now();
     final today = BusinessDate.of(now);
     final yesterday = BusinessDate.addDays(today, -1);

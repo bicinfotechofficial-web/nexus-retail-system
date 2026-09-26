@@ -10,11 +10,19 @@ import 'firebase_options.dart';
 /// `--dart-define=FAKE_DATA=true` runs on in-memory fakes, without Firebase.
 const bool useFakeData = bool.fromEnvironment('FAKE_DATA');
 
+/// With FAKE_DATA, `--dart-define=FAKE_FIRST_RUN=true` starts signed out on
+/// an unregistered install, to walk through sign-in and device setup. The
+/// demo login is `sm.ptb@example.com` / `cottage-demo` (FakeAuthService).
+const bool fakeFirstRun = bool.fromEnvironment('FAKE_FIRST_RUN');
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final List<Override> overrides;
   if (useFakeData) {
-    final fake = FakeBackend();
+    final fake = FakeBackend(
+      signedIn: !fakeFirstRun,
+      registered: !fakeFirstRun,
+    );
     await fake.seedDemo();
     overrides = fake.overrides;
   } else {

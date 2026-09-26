@@ -31,4 +31,34 @@ void main() {
     expect(textOf(tester, 'summary-sales'), s.netRevenue.format());
     expect(s.cancelCount, 1);
   });
+
+  test('the fake override PIN meets the 8-digit minimum (QA-030)', () async {
+    expect(
+      FakeOfflineGuard.defaultPin.length,
+      greaterThanOrEqualTo(Limits.minOverridePinDigits),
+    );
+    final guard = FakeOfflineGuard(pin: '24681357');
+    expect(await guard.override('2468'), isFalse);
+    expect(await guard.override('24681350'), isFalse);
+    expect(await guard.override('24681357'), isTrue);
+    expect(() => FakeOfflineGuard(pin: '1234'), throwsA(isA<AssertionError>()));
+  });
+
+  test(
+    'FAKE_FIRST_RUN: the demo seeds while signed out and unregistered',
+    () async {
+      final b = FakeBackend(
+        signedIn: false,
+        registered: false,
+        now: () => testNow,
+      );
+      await b.seedDemo();
+      expect(b.auth.current, isNull);
+      expect(b.device.deviceId, isNull);
+      expect(
+        await b.bills.watchBills(Seed.locationId, '2026-09-26').first,
+        hasLength(3),
+      );
+    },
+  );
 }

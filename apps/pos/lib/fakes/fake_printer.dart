@@ -16,6 +16,17 @@ final class FakePrinterService implements PrinterService {
       StreamController<PrinterStatus>.broadcast();
   PrinterStatus _current = const Ready(counterPrinter);
 
+  static const PairedPrinter kitchenPrinter = PairedPrinter(
+    name: 'Kitchen Printer',
+    address: '66:77:88:99:AA:BB',
+  );
+
+  /// What [pairedPrinters] returns.
+  List<PairedPrinter> paired = const [counterPrinter, kitchenPrinter];
+
+  /// The printer chosen with [select], if any.
+  PairedPrinter? selected;
+
   /// Every bill passed to [printBill], in order.
   final List<Bill> printedBills = [];
 
@@ -48,10 +59,11 @@ final class FakePrinterService implements PrinterService {
   Future<void> setPaperWidth(PaperWidth width) async => _width = width;
 
   @override
-  Future<List<PairedPrinter>> pairedPrinters() async => const [counterPrinter];
+  Future<List<PairedPrinter>> pairedPrinters() async => paired;
 
   @override
   Future<void> select(PairedPrinter printer) async {
+    selected = printer;
     _current = Ready(printer);
     _status.add(_current);
   }
