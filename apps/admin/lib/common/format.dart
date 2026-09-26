@@ -45,3 +45,31 @@ String formatAgo(DateTime instant, DateTime now) {
   if (d.inDays < 1) return '${d.inHours} h ago';
   return d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago';
 }
+
+String expenseCategoryLabel(ExpenseCategory c) => switch (c) {
+  ExpenseCategory.rent => 'Rent',
+  ExpenseCategory.salary => 'Salaries',
+  ExpenseCategory.utilities => 'Utilities',
+  ExpenseCategory.other => 'Other',
+};
+
+/// A business date as a date-only [DateTime] for the date pickers. The
+/// picker only uses its year, month and day, so there is no time zone to
+/// convert: the key is already the IST date (D-022).
+DateTime pickerDate(String businessDate) {
+  final p = businessDate.split('-').map(int.parse).toList();
+  return DateTime(p[0], p[1], p[2]);
+}
+
+/// The `YYYY-MM-DD` key of a date picked with [pickerDate].
+String businessDateOfPicked(DateTime picked) =>
+    '${picked.year.toString().padLeft(4, '0')}-'
+    '${picked.month.toString().padLeft(2, '0')}-'
+    '${picked.day.toString().padLeft(2, '0')}';
+
+/// `2026-09` moved by [steps] months (negative for earlier).
+String addMonths(String monthKey, int steps) {
+  final p = monthKey.split('-').map(int.parse).toList();
+  final index = p[0] * 12 + (p[1] - 1) + steps;
+  return '${index ~/ 12}-${(index % 12 + 1).toString().padLeft(2, '0')}';
+}

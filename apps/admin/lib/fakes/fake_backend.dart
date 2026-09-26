@@ -32,6 +32,7 @@ final class FakeBackend {
       auth: auth,
     );
     expenses.forEach(this.expenses.seed);
+    expenseService = this.expenses;
     catalogService = FakeCatalogService(catalog, auth, this.audit);
     locationService = FakeLocationService(locations, this.audit);
     userService = FakeUserService(
@@ -151,6 +152,9 @@ final class FakeBackend {
   /// Replaceable, so a test can swap in a failing service.
   late UserService userService;
 
+  /// Replaceable, so a test can swap in a failing service.
+  late ExpenseService expenseService;
+
   List<Override> get overrides => [
     authServiceProvider.overrideWithValue(auth),
     locationRepositoryProvider.overrideWithValue(locations),
@@ -163,7 +167,7 @@ final class FakeBackend {
     userServiceProvider.overrideWithValue(userService),
     deviceServiceProvider.overrideWithValue(devices),
     expenseRepositoryProvider.overrideWithValue(expenses),
-    expenseServiceProvider.overrideWithValue(expenses),
+    expenseServiceProvider.overrideWithValue(expenseService),
     auditRepositoryProvider.overrideWithValue(audit),
   ];
 

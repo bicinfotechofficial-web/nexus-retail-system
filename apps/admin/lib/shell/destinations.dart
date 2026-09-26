@@ -36,6 +36,12 @@ const List<Destination> destinations = [
     anyOf: [Permission.reportOwn, Permission.reportAll],
   ),
   Destination(
+    path: '/expenses',
+    label: 'Expenses',
+    icon: Icons.receipt_long_outlined,
+    anyOf: [Permission.expenseManage],
+  ),
+  Destination(
     path: '/catalog',
     label: 'Catalog',
     icon: Icons.cake_outlined,
