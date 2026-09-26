@@ -9,6 +9,7 @@ import '../features/bills/bills_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/placeholder_screen.dart';
+import '../features/returns/return_screen.dart';
 import 'destinations.dart';
 import 'providers.dart';
 
@@ -96,7 +97,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'return',
                 builder: (context, state) =>
-                    const PlaceholderScreen(title: 'Return', task: 'POS-8'),
+                    ReturnScreen(billId: state.pathParameters['billId']!),
               ),
             ],
           ),
