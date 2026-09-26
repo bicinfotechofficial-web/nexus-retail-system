@@ -1,11 +1,205 @@
 rules_version = '2';
 
-// Placeholder from C-4: deny everything. BE-2 to BE-5 replace this with the
-// rules contract in docs/04-PERMISSIONS.md. Never deploy a looser version.
+// Security rules for the Caramel Cottage retail system. The contract is
+// docs/04-PERMISSIONS.md; rule numbers (#1 ... #13) refer to it. Anything not
+// matched below is denied (#1).
+//
+// Access-call budget: me() and role() cost 2 calls and are counted once per
+// request, however often they're used. Keep every other get()/exists() in a
+// rule to the docs that rule is about.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    // ---- Paths ---------------------------------------------------------
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+    function rolePath(roleId) {
+      return /databases/$(database)/documents/roles/$(roleId);
+    }
+    function locationPath(loc) {
+      return /databases/$(database)/documents/locations/$(loc);
+    }
+    function devicePath(loc, deviceId) {
+      return /databases/$(database)/documents/locations/$(loc)/devices/$(deviceId);
+    }
+
+    // ---- Who is asking (04-PERMISSIONS helper functions) ----------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function me() {
+      return get(userPath(request.auth.uid)).data;
+    }
+    function role() {
+      return get(rolePath(me().roleId)).data;
+    }
+    // exists() and get() on the same doc count as one access call.
+    function active() {
+      return signedIn() && exists(userPath(request.auth.uid)) && me().active == true;
+    }
+    function can(p) {
+      return active() && p in role().permissions;
+    }
+    function atLoc(loc) {
+      return role().allLocations == true || me().locationId == loc;
+    }
+    function canAt(p, loc) {
+      return can(p) && atLoc(loc);
+    }
+    function activeAt(loc) {
+      return active() && atLoc(loc);
+    }
+
+    // ---- Write helpers -------------------------------------------------
+
+    function incoming() {
+      return request.resource.data;
+    }
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+    function isLocationCode(s) {
+      return s is string && s.matches('^[A-Z]{2,4}$');
+    }
+    // `D01` for device number 1 (Ids.deviceCode).
+    function deviceCode(n) {
+      return n < 10 ? 'D0' + string(n) : 'D' + string(n);
+    }
+
+    // ---- #2 roles: any signed-in user, active or not. No client writes ----
+
+    match /roles/{roleId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // ---- #3 users --------------------------------------------------------
+
+    function validUserFields(d) {
+      return d.name is string && d.name.size() > 0
+        && d.email is string
+        && d.roleId is string && exists(rolePath(d.roleId))
+        && d.active is bool
+        && (d.locationId == null || (isLocationCode(d.locationId) && exists(locationPath(d.locationId))));
+    }
+
+    match /users/{uid} {
+      // A signed-in user can always read their own doc, even when inactive,
+      // so sign-in can tell userDisabled from noProfile.
+      allow get: if (signedIn() && request.auth.uid == uid) || can('user.manage');
+      allow list: if can('user.manage');
+
+      allow create: if can('user.manage')
+        && incoming().keys().hasOnly(['name', 'email', 'roleId', 'locationId', 'active', 'createdAt', 'createdBy'])
+        && incoming().keys().hasAll(['name', 'email', 'roleId', 'locationId', 'active', 'createdAt', 'createdBy'])
+        && validUserFields(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      // Nobody changes their own roleId, locationId or active, managers
+      // included, so an Admin can't lock themselves out by mistake.
+      allow update: if can('user.manage')
+        && changed().hasOnly(['name', 'email', 'roleId', 'locationId', 'active'])
+        && validUserFields(incoming())
+        && (request.auth.uid != uid || !changed().hasAny(['roleId', 'locationId', 'active']));
+
+      // Users are disabled (active: false), never deleted.
+      allow delete: if false;
+    }
+
+    // ---- #4 locations and devices ---------------------------------------
+
+    function validLocationFields(d) {
+      return d.name is string && d.name.size() > 0
+        && d.address is string
+        && d.phone is string
+        && (d.gstin == null || d.gstin is string)
+        && d.offlineLimitHours is int && d.offlineLimitHours > 0
+        && d.overridePinHash is string
+        && d.overrideExtensionHours is int && d.overrideExtensionHours > 0
+        && (d.maxDiscountPct == null || (d.maxDiscountPct is int && d.maxDiscountPct >= 0 && d.maxDiscountPct <= 100))
+        && d.receiptFooter is string
+        && d.active is bool;
+    }
+
+    function locationKeys() {
+      return ['code', 'name', 'address', 'phone', 'gstin', 'offlineLimitHours',
+              'overridePinHash', 'overrideExtensionHours', 'maxDiscountPct',
+              'receiptFooter', 'nextDeviceNo', 'active'];
+    }
+
+    // Device registration: nextDeviceNo goes up by exactly 1, and the
+    // transaction creates devices/D{new value}, which didn't exist before.
+    function isRegistration(loc) {
+      let next = incoming().nextDeviceNo;
+      return canAt('device.register', loc)
+        && changed().hasOnly(['nextDeviceNo'])
+        && next == resource.data.nextDeviceNo + 1
+        && next <= 99
+        && !exists(devicePath(loc, deviceCode(next)))
+        && existsAfter(devicePath(loc, deviceCode(next)));
+    }
+
+    match /locations/{loc} {
+      allow read: if activeAt(loc);
+
+      allow create: if can('location.manage')
+        && isLocationCode(loc)
+        && incoming().keys().hasOnly(locationKeys())
+        && incoming().keys().hasAll(locationKeys())
+        && incoming().code == loc
+        && incoming().nextDeviceNo == 0
+        && validLocationFields(incoming());
+
+      allow update: if isRegistration(loc)
+        || (canAt('location.manage', loc)
+          && !changed().hasAny(['code', 'nextDeviceNo'])
+          && incoming().keys().hasOnly(locationKeys())
+          && validLocationFields(incoming()));
+
+      allow delete: if false;
+
+      match /devices/{deviceId} {
+        allow read: if canAt('device.register', loc) || canAt('location.manage', loc);
+
+        // Only as the other half of isRegistration(): the ID is the location's
+        // new nextDeviceNo, and the device starts clean.
+        allow create: if canAt('device.register', loc)
+          && getAfter(locationPath(loc)).data.nextDeviceNo == get(locationPath(loc)).data.nextDeviceNo + 1
+          && deviceId == deviceCode(getAfter(locationPath(loc)).data.nextDeviceNo)
+          && incoming().keys().hasOnly(['code', 'label', 'registeredBy', 'registeredAt', 'lastSeenAt',
+                                        'lastBillSeq', 'lastMovementSeq', 'lastReturnSeq', 'retired'])
+          && incoming().code == deviceId
+          && incoming().label is string
+          && incoming().registeredBy == request.auth.uid
+          && incoming().registeredAt == request.time
+          && incoming().get('lastSeenAt', request.time) == request.time
+          && incoming().get('lastBillSeq', 0) == 0
+          && incoming().get('lastMovementSeq', 0) == 0
+          && incoming().get('lastReturnSeq', 0) == 0
+          && incoming().retired == false;
+
+        // Each field has its own writer. The sequence fields only go up.
+        allow update: if activeAt(loc)
+          && changed().hasOnly(['lastBillSeq', 'lastMovementSeq', 'lastReturnSeq', 'lastSeenAt', 'label', 'retired'])
+          && (!changed().hasAny(['lastBillSeq'])
+            || (can('bill.create') && incoming().lastBillSeq is int
+              && incoming().lastBillSeq > resource.data.get('lastBillSeq', 0)))
+          && (!changed().hasAny(['lastMovementSeq'])
+            || (can('stock.move') && incoming().lastMovementSeq is int
+              && incoming().lastMovementSeq > resource.data.get('lastMovementSeq', 0)))
+          && (!changed().hasAny(['lastReturnSeq'])
+            || (can('return.create') && incoming().lastReturnSeq is int
+              && incoming().lastReturnSeq > resource.data.get('lastReturnSeq', 0)))
+          && (!changed().hasAny(['lastSeenAt']) || incoming().lastSeenAt == request.time)
+          && (!changed().hasAny(['label', 'retired'])
+            || (can('location.manage') && incoming().label is string && incoming().retired is bool));
+
+        allow delete: if false;
+      }
     }
   }
 }
