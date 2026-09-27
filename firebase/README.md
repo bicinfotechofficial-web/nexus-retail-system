@@ -59,7 +59,8 @@ Both fixture locations start with `nextDeviceNo: 0` and use the offline override
 Firestore stops a rule evaluation after **1000 evaluated expressions** per document, and allows **10 access calls** (`get`, `exists`, `getAfter`, `existsAfter`) per document and 20 per batch. The list caps (D-030) keep every batch inside both, and `test/budget.test.js` holds the line:
 
 - the largest batches are accepted as complete batches: a 15-line bill with 4 payments, a return that brings all 15 products into `returnedQty` with 4 refunds (as a first return, and as a second one over 15 products already returned), and a 20-line PRODUCE creating its 20 stock docs; a 16-line bill is denied;
-- each of them still passes with **200 more expressions and 2 more access calls** appended to its tightest rules, so a rules change that eats into the headroom fails CI before it fails at a counter.
+- each of them still passes with **200 more expressions and 2 more access calls** appended to its tightest rules, so a rules change that eats into the headroom fails CI before it fails at a counter;
+- the probes bite: the largest return's bill update is denied with 400 more expressions, or with 11 more access calls (one over the per-document limit on their own, because the emulator's per-document count depends on the order it evaluates a batch in; see below).
 
 Neither count is visible from outside, so the probes measure headroom directly: they load a copy of the rules with padding appended to one rule (`&& <n comparisons>`, or `&& <k exists() calls>`), and search for the most padding with which the batch is still accepted. A calibration run on an empty rule gives how many comparisons make up 1000 expressions. To print the numbers, with an emulator running:
 
@@ -67,17 +68,17 @@ Neither count is visible from outside, so the probes measure headroom directly: 
 npm run budget
 ```
 
-Measured on the emulator (BE-6):
+Measured on the emulator (BE-6, re-measured after QA-038 to QA-040):
 
 | Case | Rule | Expressions used | Headroom |
 |---|---|---|---|
 | Bill, 15 lines, 4 payments | bill create | ~653 / 1000 | ~35% |
 | Return of all 15 products, 4 refunds (first or second return) | bill update (#5(b)) | ~719 / 1000 | ~28% |
-| The same | return create | ~347 / 1000 | ~65% |
-| PRODUCE, 20 lines, 20 new stock docs | movement create | ~316 / 1000 | ~68% |
+| The same | return create | ~362 / 1000 (first), ~367 (second) | ~63% |
+| PRODUCE, 20 lines, 20 new stock docs | movement create | ~342 / 1000 | ~66% |
 | The same | stock create | ~260 / 1000 | ~74% |
 
-Access calls per document are at most 4 (the user and role docs, plus the doc a rule checks before and after the batch: the return, movement, audit or bill) and at most 8 distinct per batch (the complete return batch), against 10 and 20. The emulator doesn't count a call already made for an earlier document in the same batch, so the spare calls `npm run budget` reports depend on the order it evaluates documents in; the lowest it reports is 6 (a PRODUCE stock doc).
+Access calls per document are at most 4 (the user and role docs, plus the doc a rule checks before and after the batch: the return, movement, audit or bill; a SALE, RETURN or CANCEL movement checks its bill or return) and at most 8 distinct per batch (the complete return batch), against 10 and 20. The emulator doesn't count a call already made for an earlier document in the same batch, so the spare calls `npm run budget` reports depend on the order it evaluates documents in; the lowest it reports is 6 (a PRODUCE stock doc). Which order an emulator uses changes from one start to the next, so a test must never depend on a document's calls being counted: with the summaries evaluated before it, the return's bill update counts none of its own.
 
 Production is assumed to count like the emulator; nobody guarantees it (CR-001).
 

@@ -34,9 +34,9 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | BE-1 | Rules test harness (Node, `@firebase/rules-unit-testing`, emulator) with fixtures for Admin, SM@PTB, SM@MNJ, a disabled user and an anonymous user | C-4 | S | An example test runs green | DONE |
 | BE-2 | Rules: helper functions, default deny, `roles`, `users`, `locations`, `devices` (04-PERMISSIONS #1–4) | BE-1 | M | Allow and deny tests for each rule | DONE |
 | BE-3 | Rules: `bills` create, validation, cancel, returnedQty (#5–6) | BE-2 | L | Tests include a duplicate create (denied), a next-day cancel (denied) and a bad payment sum (denied) | DONE |
-| BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | DONE |
-| BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | DONE |
-| BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | DONE |
+| BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | REVIEW |
+| BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | REVIEW |
+| BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | REVIEW |
 | BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Passes the Firebase CLI's deploy validation and every indexed query runs under the rules on the emulator (the emulator doesn't read index files) | DONE |
 | BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq`, `lastMovementSeq` and `lastReturnSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | DONE |
 | BE-9 | `DeviceRegistrationService`: a transaction on `nextDeviceNo` that creates the device doc | BE-8 | S | Emulator test: two concurrent registrations get D01 and D02 | DONE |
