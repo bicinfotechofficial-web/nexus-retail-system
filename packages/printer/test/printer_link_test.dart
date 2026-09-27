@@ -14,17 +14,12 @@ void main() {
 
   setUp(() {
     transport = FakeTransport();
-    link = PrinterLink(transport, chunkSize: 500);
+    link = PrinterLink(transport);
   });
 
-  test('connects once and writes in chunks', () async {
+  test('connects once and sends the whole job in one write (QA-032)', () async {
     expect(await link.send(mac, job), isA<Printed>());
-    expect(transport.calls, [
-      'connect $mac',
-      'write 500',
-      'write 500',
-      'write 200',
-    ]);
+    expect(transport.calls, ['connect $mac', 'write 1200']);
     expect(transport.printed, job);
     expect(link.isConnectedTo(mac), isTrue);
   });
@@ -69,17 +64,15 @@ void main() {
     expect(link.isConnectedTo(mac), isFalse);
   });
 
-  test('a failed write reconnects once and resends from that chunk', () async {
-    transport.writeOutcomes.addAll([WriteOutcome.ok, WriteOutcome.fail]);
+  test('a failed write reconnects once and resends the whole job', () async {
+    transport.writeOutcomes.add(WriteOutcome.fail);
     expect(await link.send(mac, job), isA<Printed>());
     expect(transport.calls, [
       'connect $mac',
-      'write 500',
-      'write 500',
+      'write 1200',
       'disconnect',
       'connect $mac',
-      'write 500',
-      'write 200',
+      'write 1200',
     ]);
     expect(transport.printed, job);
   });
@@ -111,11 +104,11 @@ void main() {
   test('a write that hangs times out, then reconnects', () {
     fakeAsync((clock) {
       // Built inside the fake zone, so its job queue runs on the fake clock.
-      final link = PrinterLink(transport, chunkSize: 500);
+      final link = PrinterLink(transport);
       transport.writeOutcomes.add(WriteOutcome.hang);
       PrintResult? result;
       link.send(mac, job).then((r) => result = r).ignore();
-      clock.elapse(const Duration(seconds: 4));
+      clock.elapse(const Duration(seconds: 14));
       expect(result, isNull);
       clock.elapse(const Duration(seconds: 2));
       expect(result, isA<Printed>());
@@ -136,6 +129,7 @@ void main() {
     final a = link.send(mac, List.filled(1000, 1));
     final b = link.send(mac, List.filled(1000, 2));
     await Future.wait([a, b]);
+    expect(transport.calls, ['connect $mac', 'write 1000', 'write 1000']);
     expect(transport.printed, [
       ...List.filled(1000, 1),
       ...List.filled(1000, 2),

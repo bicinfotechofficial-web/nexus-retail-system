@@ -4,8 +4,13 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../api.dart';
 import 'printer_transport.dart';
 
-/// [PrinterTransport] on `print_bluetooth_thermal`, which opens an RFCOMM
-/// socket with the standard SPP UUID and writes on an IO thread.
+/// [PrinterTransport] on `print_bluetooth_thermal` 1.2.4, which opens an
+/// RFCOMM socket with the standard SPP UUID.
+///
+/// Two quirks of its `writeBytes` (QA-032): the Android side reads the
+/// argument `as? List<Int>`, which is null for a `Uint8List` (sent as a
+/// Java `byte[]`), so [write] always passes a plain list; and it adds a
+/// `'\n'` in front of every call, so [PrinterLink] makes one call per job.
 ///
 /// We never call the plugin's `connectionStatus`: it probes by writing a
 /// space to the printer. [PrinterLink] tracks the socket itself and
@@ -28,7 +33,7 @@ final class ThermalPluginTransport implements PrinterTransport {
 
   @override
   Future<bool> write(List<int> bytes) =>
-      PrintBluetoothThermal.writeBytes(bytes);
+      PrintBluetoothThermal.writeBytes(List<int>.of(bytes, growable: false));
 
   @override
   Future<void> disconnect() async {

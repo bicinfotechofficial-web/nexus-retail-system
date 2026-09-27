@@ -1,0 +1,17 @@
+           TEST PRINT           
+--------------------------------
+Printer: BT-80 Counter          
+Paper: 58 mm, 32 columns        
+Character set: PC437            
+Rupee sign: not on this printer,
+using Rs.                       
+--------------------------------
+12345678901234567890123456789012
+<                              >
+Amount            Rs.1,23,456.78
+Bold text                       
+TOTAL             Rs.1,23,456.78
+--------------------------------
+ Both < and > must show on one  
+ line. If not, change the paper 
+             width.             

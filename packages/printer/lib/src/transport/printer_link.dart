@@ -1,28 +1,30 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import '../api.dart';
 import 'printer_transport.dart';
 
 /// Sends one print job at a time over a [PrinterTransport]: connects when
-/// needed, writes in chunks with a timeout, and makes one reconnect attempt
-/// per job. Never throws; every failure is a [PrintFailed] (the bill is
-/// already saved, POS-6 offers a retry).
+/// needed, writes the whole job with a timeout, and makes one reconnect
+/// attempt per job. Never throws; every failure is a [PrintFailed] (the
+/// bill is already saved, POS-6 offers a retry).
+///
+/// **One write per job (QA-032).** The plugin puts a line feed in front of
+/// every write call. Split into chunks, those line feeds landed mid-slip,
+/// even between `ESC` and its parameters. As one call, the only extra byte
+/// is a single line feed before `ESC @`, which just feeds one blank line.
+/// The plugin itself writes to the socket in 16 KB pieces with a flush, and
+/// the largest slip (15 lines) is a few KB.
 final class PrinterLink {
   PrinterLink(
     this._transport, {
-    this.chunkSize = 512,
     this.connectTimeout = const Duration(seconds: 10),
-    this.writeTimeout = const Duration(seconds: 5),
-  }) : assert(chunkSize > 0, 'chunkSize: $chunkSize');
+    this.writeTimeout = const Duration(seconds: 15),
+  });
 
   final PrinterTransport _transport;
-
-  /// Bytes per write. Small enough for cheap printers' input buffers.
-  final int chunkSize;
   final Duration connectTimeout;
 
-  /// Per chunk.
+  /// For the whole job.
   final Duration writeTimeout;
 
   /// The address of the open socket, or null.
@@ -43,11 +45,12 @@ final class PrinterLink {
     return await _connect(address) || await _reconnect(address);
   });
 
-  /// Prints [bytes] on the printer at [address].
+  /// Prints [bytes] on the printer at [address], in a single write.
   ///
-  /// When a write fails or times out, the link reconnects once and resends
-  /// from the chunk that failed, so a slip is never cut short silently; at
-  /// worst a few lines print twice.
+  /// When the write fails or times out, the link reconnects once and sends
+  /// the whole job again. A write that failed part-way may already have
+  /// printed the top of the slip, so the retry can leave a partial copy
+  /// above the full one; that beats a slip silently cut short.
   Future<PrintResult> send(String address, List<int> bytes) =>
       _serial(() async {
         if (!await _guard(_transport.isBluetoothOn(), connectTimeout)) {
@@ -61,14 +64,7 @@ final class PrinterLink {
             return const PrintFailed(cannotConnect);
           }
         }
-        var offset = 0;
-        while (offset < bytes.length) {
-          final end = math.min(offset + chunkSize, bytes.length);
-          final chunk = bytes.sublist(offset, end);
-          if (await _guard(_transport.write(chunk), writeTimeout)) {
-            offset = end;
-            continue;
-          }
+        while (!await _guard(_transport.write(bytes), writeTimeout)) {
           if (retried || !await _reconnect(address)) {
             await _drop();
             return const PrintFailed(stoppedResponding);
