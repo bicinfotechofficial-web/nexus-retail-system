@@ -383,6 +383,10 @@ service cloud.firestore {
         && r.clientCreatedAt is timestamp
         && r.serverCreatedAt == request.time
         && getAfter(billPath(loc, r.billId)).data.lastReturnId == returnId
+        // No refund above the bill's total (QA-040, D-024). A bill's total
+        // never changes after create, so this reads the same doc as the
+        // line above and costs no extra access call.
+        && r.refundTotal <= getAfter(billPath(loc, r.billId)).data.total
         && existsAfter(auditPath(loc + '-' + returnId));
     }
 

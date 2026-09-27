@@ -165,6 +165,27 @@ describe('#7 returns: the return doc', () => {
     await assertFails(firstReturn('smPtb', { refundTotal: 2550, refunds: [{ mode: 'CASH', amount: 2550 }] }).commit());
   });
 
+  it("accepts a refund of the bill's whole total, and denies one rupee more (QA-040)", async () => {
+    await arrangeBill();
+    await assertSucceeds(firstReturn('smPtb', { refundTotal: bill.total }).commit());
+  });
+
+  it("denies a refund above the bill's total (QA-040)", async () => {
+    await arrangeBill();
+    await assertFails(firstReturn('smPtb', { refundTotal: bill.total + 100 }).commit());
+    // The finding: ₹1,00,000 back on a ₹701 bill.
+    await assertFails(firstReturn('smPtb', { refundTotal: 10000000 }).commit());
+  });
+
+  it("denies a second return's refund above the bill's total (QA-040)", async () => {
+    await arrangeBill({ returnedQty: { 'puff-veg': 1 }, lastReturnId: R1 });
+    await arrangeDevice(t, LOC.PTB, { lastReturnSeq: 1 });
+    const attempt = (refundTotal) =>
+      returnBatch(t.db('smPtb'), { rid: R2, ret: makeReturn({ prevReturnId: R1, refundTotal }), returnedQty: { 'puff-veg': 2 }, seq: 2 });
+    await assertFails(attempt(bill.total + 100).commit());
+    await assertSucceeds(attempt(2600).commit());
+  });
+
   it('denies a billNo from another location, and createdBy other than the caller', async () => {
     await arrangeBill();
     const db = t.db('smPtb');
