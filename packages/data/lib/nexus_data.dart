@@ -17,6 +17,7 @@ export 'src/api/stock.dart';
 export 'src/api/sync.dart';
 export 'src/convert/firestore_values.dart';
 export 'src/firestore/failure_mapping.dart';
+export 'src/firestore/firebase_auth_service.dart';
 export 'src/firestore/firestore_admin_repositories.dart';
 export 'src/firestore/firestore_audit_repository.dart';
 export 'src/firestore/firestore_catalog_repository.dart';
