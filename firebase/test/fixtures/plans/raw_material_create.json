@@ -1,0 +1,17 @@
+{
+  "description": "A Store Manager adds a raw material",
+  "uid": "sm-ptb",
+  "arrange": [],
+  "ops": [
+    {
+      "path": "rawMaterials/cocoa",
+      "kind": "create",
+      "data": {
+        "name": "Cocoa",
+        "unit": "G",
+        "active": true,
+        "createdBy": "sm-ptb"
+      }
+    }
+  ]
+}

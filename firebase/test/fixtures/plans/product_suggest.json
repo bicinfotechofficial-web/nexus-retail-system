@@ -1,0 +1,30 @@
+{
+  "description": "A Store Manager's local special: PENDING at PTB",
+  "uid": "sm-ptb",
+  "arrange": [],
+  "ops": [
+    {
+      "path": "products/p-special",
+      "kind": "create",
+      "data": {
+        "name": "Plum Cake",
+        "category": "Cakes",
+        "price": null,
+        "proposedPrice": 45000,
+        "unit": "PCS",
+        "gstRate": null,
+        "scope": "PTB",
+        "status": "PENDING",
+        "recipe": null,
+        "sortOrder": 0,
+        "createdBy": "sm-ptb",
+        "createdAt": {
+          "__op": "serverTimestamp"
+        },
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,293 @@
+{
+  "description": "Same-day cancel of bill D01-000007 from device D02",
+  "uid": "sm-ptb",
+  "arrange": [
+    {
+      "path": "locations/PTB/bills/D01-000007",
+      "data": {
+        "billNo": "PTB-D01-000007",
+        "deviceId": "D01",
+        "seq": 7,
+        "lines": [
+          {
+            "productId": "cake-choco-1kg",
+            "name": "Chocolate Cake 1 kg",
+            "qty": 1,
+            "unitPrice": 65000,
+            "lineTotal": 65000
+          },
+          {
+            "productId": "puff-veg",
+            "name": "Veg Puff",
+            "qty": 2,
+            "unitPrice": 2550,
+            "lineTotal": 5100
+          }
+        ],
+        "subtotal": 70100,
+        "discount": {
+          "type": "PCT",
+          "value": 10,
+          "amount": 7010
+        },
+        "taxableValue": 63090,
+        "taxLines": [],
+        "roundOff": 10,
+        "total": 63100,
+        "payments": [
+          {
+            "mode": "CASH",
+            "amount": 50000
+          },
+          {
+            "mode": "UPI",
+            "amount": 13100,
+            "ref": "UPI-1"
+          }
+        ],
+        "cashTendered": 50000,
+        "status": "COMPLETED",
+        "cancel": null,
+        "returnedQty": {},
+        "soldQty": {
+          "cake-choco-1kg": 1,
+          "puff-veg": 2
+        },
+        "lastReturnId": null,
+        "servedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "serverCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D01",
+      "data": {
+        "code": "D01",
+        "label": "Counter 1",
+        "registeredBy": "sm-ptb",
+        "lastBillSeq": 7,
+        "lastMovementSeq": 0,
+        "lastReturnSeq": 0,
+        "retired": false,
+        "registeredAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "ops": [
+    {
+      "path": "locations/PTB/bills/D01-000007",
+      "kind": "update",
+      "data": {
+        "status": "CANCELLED",
+        "cancel": {
+          "reason": "Customer changed order",
+          "by": "sm-ptb",
+          "at": {
+            "__op": "timestamp",
+            "value": "2026-09-26T06:30:00.000Z"
+          },
+          "businessDate": "2026-09-26"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_cake-choco-1kg",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "cake-choco-1kg",
+        "name": "Chocolate Cake 1 kg",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": 1
+        },
+        "lastMovementId": "D01-000007-X",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_puff-veg",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "puff-veg",
+        "name": "Veg Puff",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": 2
+        },
+        "lastMovementId": "D01-000007-X",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/movements/D01-000007-X",
+      "kind": "create",
+      "data": {
+        "type": "CANCEL",
+        "lines": [
+          {
+            "itemKey": "FG_cake-choco-1kg",
+            "delta": 1
+          },
+          {
+            "itemKey": "FG_puff-veg",
+            "delta": 2
+          }
+        ],
+        "reason": "Customer changed order",
+        "note": null,
+        "refId": "D01-000007",
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T06:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "deviceId": "D02",
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/dailySummary/2026-09-26",
+      "kind": "setMerge",
+      "data": {
+        "cancelCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "cancelled": {
+          "__op": "increment",
+          "by": 63100
+        },
+        "byMode": {
+          "CASH": {
+            "__op": "increment",
+            "by": -50000
+          },
+          "UPI": {
+            "__op": "increment",
+            "by": -13100
+          }
+        },
+        "byProduct": {
+          "cake-choco-1kg": {
+            "qty": {
+              "__op": "increment",
+              "by": -1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": -58500
+            }
+          },
+          "puff-veg": {
+            "qty": {
+              "__op": "increment",
+              "by": -2
+            },
+            "amount": {
+              "__op": "increment",
+              "by": -4590
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/movements/D01-000007-X"
+      }
+    },
+    {
+      "path": "locations/PTB/monthlySummary/2026-09",
+      "kind": "setMerge",
+      "data": {
+        "cancelCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "cancelled": {
+          "__op": "increment",
+          "by": 63100
+        },
+        "byMode": {
+          "CASH": {
+            "__op": "increment",
+            "by": -50000
+          },
+          "UPI": {
+            "__op": "increment",
+            "by": -13100
+          }
+        },
+        "byProduct": {
+          "cake-choco-1kg": {
+            "qty": {
+              "__op": "increment",
+              "by": -1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": -58500
+            }
+          },
+          "puff-veg": {
+            "qty": {
+              "__op": "increment",
+              "by": -2
+            },
+            "amount": {
+              "__op": "increment",
+              "by": -4590
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/movements/D01-000007-X"
+      }
+    },
+    {
+      "path": "auditLog/PTB-D01-000007-X",
+      "kind": "create",
+      "data": {
+        "action": "BILL_CANCEL",
+        "entityPath": "locations/PTB/bills/D01-000007",
+        "locationId": "PTB",
+        "before": {
+          "status": "COMPLETED"
+        },
+        "after": {
+          "status": "CANCELLED"
+        },
+        "reason": "Customer changed order",
+        "by": "sm-ptb",
+        "deviceId": "D02",
+        "clientAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T06:30:00.000Z"
+        },
+        "at": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

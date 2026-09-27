@@ -1,0 +1,108 @@
+{
+  "description": "Expense edit moving it to MNJ in August: two monthly deltas",
+  "uid": "admin",
+  "arrange": [
+    {
+      "path": "expenses/e1",
+      "data": {
+        "locationId": "PTB",
+        "category": "RENT",
+        "amount": 2500000,
+        "date": "2026-09-01",
+        "note": "September rent",
+        "createdBy": "admin",
+        "createdAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "updatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "ops": [
+    {
+      "path": "expenses/e1",
+      "kind": "update",
+      "data": {
+        "locationId": "MNJ",
+        "category": "UTILITIES",
+        "amount": 300000,
+        "date": "2026-08-31",
+        "note": "Power",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/monthlySummary/2026-09",
+      "kind": "setMerge",
+      "data": {
+        "expenses": {
+          "__op": "increment",
+          "by": -2500000
+        },
+        "byExpenseCategory": {
+          "RENT": {
+            "__op": "increment",
+            "by": -2500000
+          }
+        },
+        "lastWriteRef": "auditLog/EXP-e1-1790397300000"
+      }
+    },
+    {
+      "path": "locations/MNJ/monthlySummary/2026-08",
+      "kind": "setMerge",
+      "data": {
+        "expenses": {
+          "__op": "increment",
+          "by": 300000
+        },
+        "byExpenseCategory": {
+          "UTILITIES": {
+            "__op": "increment",
+            "by": 300000
+          }
+        },
+        "lastWriteRef": "auditLog/EXP-e1-1790397300000"
+      }
+    },
+    {
+      "path": "auditLog/EXP-e1-1790397300000",
+      "kind": "create",
+      "data": {
+        "action": "EXPENSE_UPDATE",
+        "entityPath": "expenses/e1",
+        "locationId": "MNJ",
+        "before": {
+          "locationId": "PTB",
+          "category": "RENT",
+          "amount": 2500000,
+          "date": "2026-09-01",
+          "note": "September rent"
+        },
+        "after": {
+          "locationId": "MNJ",
+          "category": "UTILITIES",
+          "amount": 300000,
+          "date": "2026-08-31",
+          "note": "Power"
+        },
+        "reason": null,
+        "by": "admin",
+        "deviceId": null,
+        "clientAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:35:00.000Z"
+        },
+        "at": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "description": "Set a low-stock threshold on an item that has no stock doc yet",
+  "uid": "sm-ptb",
+  "arrange": [],
+  "ops": [
+    {
+      "path": "locations/PTB/stock/RM_cream",
+      "kind": "setMerge",
+      "data": {
+        "kind": "RAW",
+        "refId": "cream",
+        "name": "Cream",
+        "unit": "ML",
+        "lowThreshold": 2000,
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

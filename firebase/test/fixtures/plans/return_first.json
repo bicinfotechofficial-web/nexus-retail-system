@@ -1,0 +1,282 @@
+{
+  "description": "First return of bill D01-000007: 1 puff, refunded in cash",
+  "uid": "sm-ptb",
+  "arrange": [
+    {
+      "path": "locations/PTB/bills/D01-000007",
+      "data": {
+        "billNo": "PTB-D01-000007",
+        "deviceId": "D01",
+        "seq": 7,
+        "lines": [
+          {
+            "productId": "cake-choco-1kg",
+            "name": "Chocolate Cake 1 kg",
+            "qty": 1,
+            "unitPrice": 65000,
+            "lineTotal": 65000
+          },
+          {
+            "productId": "puff-veg",
+            "name": "Veg Puff",
+            "qty": 2,
+            "unitPrice": 2550,
+            "lineTotal": 5100
+          }
+        ],
+        "subtotal": 70100,
+        "discount": {
+          "type": "PCT",
+          "value": 10,
+          "amount": 7010
+        },
+        "taxableValue": 63090,
+        "taxLines": [],
+        "roundOff": 10,
+        "total": 63100,
+        "payments": [
+          {
+            "mode": "CASH",
+            "amount": 50000
+          },
+          {
+            "mode": "UPI",
+            "amount": 13100,
+            "ref": "UPI-1"
+          }
+        ],
+        "cashTendered": 50000,
+        "status": "COMPLETED",
+        "cancel": null,
+        "returnedQty": {},
+        "soldQty": {
+          "cake-choco-1kg": 1,
+          "puff-veg": 2
+        },
+        "lastReturnId": null,
+        "servedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "serverCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D01",
+      "data": {
+        "code": "D01",
+        "label": "Counter 1",
+        "registeredBy": "sm-ptb",
+        "lastBillSeq": 7,
+        "lastMovementSeq": 0,
+        "lastReturnSeq": 2,
+        "retired": false,
+        "registeredAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "ops": [
+    {
+      "path": "locations/PTB/returns/D01-R000003",
+      "kind": "create",
+      "data": {
+        "billId": "D01-000007",
+        "billNo": "PTB-D01-000007",
+        "lines": [
+          {
+            "productId": "puff-veg",
+            "name": "Veg Puff",
+            "qty": 1,
+            "amount": 2295
+          }
+        ],
+        "refundTotal": 2300,
+        "refunds": [
+          {
+            "mode": "CASH",
+            "amount": 2300
+          }
+        ],
+        "reason": "Damaged",
+        "prevReturnId": null,
+        "businessDate": "2026-09-26",
+        "createdBy": "sm-ptb",
+        "deviceId": "D01",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T06:30:00.000Z"
+        },
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/bills/D01-000007",
+      "kind": "update",
+      "data": {
+        "returnedQty.puff-veg": {
+          "__op": "increment",
+          "by": 1
+        },
+        "lastReturnId": "D01-R000003"
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_puff-veg",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "puff-veg",
+        "name": "Veg Puff",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": 1
+        },
+        "lastMovementId": "D01-R000003",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/movements/D01-R000003",
+      "kind": "create",
+      "data": {
+        "type": "RETURN",
+        "lines": [
+          {
+            "itemKey": "FG_puff-veg",
+            "delta": 1
+          }
+        ],
+        "reason": null,
+        "note": null,
+        "refId": "D01-R000003",
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T06:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "deviceId": "D01",
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/dailySummary/2026-09-26",
+      "kind": "setMerge",
+      "data": {
+        "returnCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "returns": {
+          "__op": "increment",
+          "by": 2300
+        },
+        "byMode": {
+          "CASH": {
+            "__op": "increment",
+            "by": -2300
+          }
+        },
+        "byProduct": {
+          "puff-veg": {
+            "qty": {
+              "__op": "increment",
+              "by": -1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": -2295
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/returns/D01-R000003"
+      }
+    },
+    {
+      "path": "locations/PTB/monthlySummary/2026-09",
+      "kind": "setMerge",
+      "data": {
+        "returnCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "returns": {
+          "__op": "increment",
+          "by": 2300
+        },
+        "byMode": {
+          "CASH": {
+            "__op": "increment",
+            "by": -2300
+          }
+        },
+        "byProduct": {
+          "puff-veg": {
+            "qty": {
+              "__op": "increment",
+              "by": -1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": -2295
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/returns/D01-R000003"
+      }
+    },
+    {
+      "path": "auditLog/PTB-D01-R000003",
+      "kind": "create",
+      "data": {
+        "action": "RETURN",
+        "entityPath": "locations/PTB/returns/D01-R000003",
+        "locationId": "PTB",
+        "before": null,
+        "after": {
+          "billId": "D01-000007",
+          "refundTotal": 2300,
+          "lines": {
+            "puff-veg": 1
+          }
+        },
+        "reason": "Damaged",
+        "by": "sm-ptb",
+        "deviceId": "D01",
+        "clientAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T06:30:00.000Z"
+        },
+        "at": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D01",
+      "kind": "update",
+      "data": {
+        "lastReturnSeq": 3
+      }
+    }
+  ]
+}
