@@ -390,6 +390,15 @@ describe('#8 stock: read', () => {
     await assertFails(getDoc(stockRef(t.db('disabled'), 'RM_flour')));
   });
 
+  it('needs catalog.view: a role with only it reads, one with every other stock permission does not (QA-042)', async () => {
+    await arrangeStock('RM_flour', 5000);
+    await withRole(['catalog.view']);
+    await assertSucceeds(getDoc(stockRef(t.db('smPtb'), 'RM_flour')));
+    await assertSucceeds(getDocs(collection(t.db('smPtb'), 'locations', LOC.PTB, 'stock')));
+    await withRole(['stock.move', 'stock.adjust', 'stock.threshold', 'report.own']);
+    await assertFails(getDoc(stockRef(t.db('smPtb'), 'RM_flour')));
+    await assertFails(getDocs(collection(t.db('smPtb'), 'locations', LOC.PTB, 'stock')));
+  });
 });
 
 // ---- The bill batch (SALE side) ----------------------------------------------

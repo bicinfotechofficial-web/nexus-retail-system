@@ -236,4 +236,22 @@ describe('#7 returns: read', () => {
     await assertFails(getDoc(returnRef(t.db('smMnj'))));
     await assertFails(getDoc(returnRef(t.db('disabled'))));
   });
+
+  it('lets any one of bill.create, report.own and return.create read (QA-042)', async () => {
+    await t.arrange((db) => setDoc(returnRef(db), { ...makeReturn(), serverCreatedAt: new Date() }));
+    await assertSucceeds(getDoc(returnRef(t.db('cashierPtb'))));
+    for (const p of ['bill.create', 'report.own', 'return.create']) {
+      await t.withPermissions('smPtb', [p]);
+      await assertSucceeds(getDoc(returnRef(t.db('smPtb'))));
+      await assertSucceeds(getDocs(collection(t.db('smPtb'), 'locations', LOC.PTB, 'returns')));
+    }
+  });
+
+  it('denies a role with none of them at the same location (QA-042)', async () => {
+    await t.arrange((db) => setDoc(returnRef(db), { ...makeReturn(), serverCreatedAt: new Date() }));
+    await assertFails(getDoc(returnRef(t.db('counterPtb'))));
+    await t.withPermissions('smPtb', ['bill.cancel', 'stock.move', 'stock.adjust', 'catalog.view']);
+    await assertFails(getDoc(returnRef(t.db('smPtb'))));
+    await assertFails(getDocs(collection(t.db('smPtb'), 'locations', LOC.PTB, 'returns')));
+  });
 });
