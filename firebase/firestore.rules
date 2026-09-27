@@ -432,6 +432,15 @@ service cloud.firestore {
         && (t in ['WASTAGE_RAW', 'WASTAGE_FG', 'ADJUST']
           ? existsAfter(auditPath(loc + '-' + id))
           : true)
+        // SALE, RETURN and CANCEL move stock only as part of their bill,
+        // return or cancellation, in the same batch (QA-038): a new bill or
+        // return with the movement's ID, or the bill named by refId going
+        // COMPLETED -> CANCELLED.
+        && (t == 'SALE' ? !exists(billPath(loc, id)) && existsAfter(billPath(loc, id))
+          : t == 'RETURN' ? !exists(returnPath(loc, id)) && existsAfter(returnPath(loc, id))
+          : t == 'CANCEL' ? get(billPath(loc, m.refId)).data.status == 'COMPLETED'
+            && getAfter(billPath(loc, m.refId)).data.status == 'CANCELLED'
+          : true)
         && isBusinessDate(m.businessDate)
         && m.clientCreatedAt is timestamp
         && m.serverCreatedAt == request.time;
