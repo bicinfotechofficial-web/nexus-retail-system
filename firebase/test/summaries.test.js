@@ -10,13 +10,15 @@ import {
   makeAudit,
   makeBill,
   makeExpense,
+  makeMovement,
   makeReturn,
   manyLines,
+  movementId,
   returnId,
   storedBill,
   summaryWrite,
 } from './support/builders.js';
-import { addSummaries, arrangeDevice, billBatch, cancelBatch, returnBatch } from './support/batches.js';
+import { addSummaries, arrangeDevice, billBatch, cancelBatch, returnBatch, stockBatch } from './support/batches.js';
 import { assertFails, assertSucceeds, useRulesEnv } from './support/env.js';
 
 const t = useRulesEnv();
@@ -118,6 +120,37 @@ describe('#9 summaries: lastWriteRef', () => {
       retired: false,
     });
     b.set(dailyRef(db), summaryWrite(`locations/${LOC.PTB}/devices/D01`), { merge: true });
+    await assertFails(b.commit());
+  });
+
+  it('denies a summary increment carried by a STOCK_IN movement (the QA-039 exploit)', async () => {
+    await arrangeDevice(t);
+    const db = t.db('smPtb');
+    const M1 = movementId('D01', 1);
+    const stockIn = () => stockBatch(db, { mid: M1, movement: makeMovement(), seq: 1 });
+    const b = stockIn();
+    addSummaries(b, db, { ref: `locations/${LOC.PTB}/movements/${M1}`, fields: { billCount: 5, netSales: 99900000 } });
+    await assertFails(b.commit());
+    await assertSucceeds(stockIn().commit());
+  });
+
+  it("denies naming a bill's SALE movement instead of the bill (QA-039)", async () => {
+    await arrangeDevice(t);
+    const db = t.db('smPtb');
+    const b = billBatch(db, makeBill());
+    addSummaries(b, db, { ref: `locations/${LOC.PTB}/movements/${BILL}` });
+    await assertFails(b.commit());
+  });
+
+  it("denies naming a return's RETURN movement instead of the return (QA-039)", async () => {
+    const bill = makeBill();
+    await t.arrange((db) => setDoc(doc(db, BILL_PATH), storedBill(bill)));
+    await arrangeDevice(t);
+    const rid = returnId('D01', 1);
+    await t.arrange((db) => setDoc(doc(db, 'auditLog', `${LOC.PTB}-${rid}`), { x: 1 }));
+    const db = t.db('smPtb');
+    const b = returnBatch(db, { rid, ret: makeReturn(), returnedQty: { 'puff-veg': 1 }, seq: 1 });
+    addSummaries(b, db, { ref: `locations/${LOC.PTB}/movements/${rid}`, fields: { returnCount: 1 } });
     await assertFails(b.commit());
   });
 

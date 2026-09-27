@@ -491,7 +491,8 @@ service cloud.firestore {
     }
 
     // #9. Every summary write names, in lastWriteRef, the doc that caused
-    // it: a bill, return or CANCEL movement at this location, or an expense
+    // it: a bill, return or CANCEL movement (`{billId}-X`; no other
+    // movement, QA-039) at this location, or an expense
     // audit doc (`{loc}-EXP-...`, D-032; an edit that moves an expense to
     // another location ties both summaries to the one audit doc). That doc must be new in this batch, which ties each
     // increment to exactly one business event. The numbers themselves are
@@ -501,7 +502,7 @@ service cloud.firestore {
       return activeAt(loc)
         && incoming().keys().hasOnly(summaryKeys())
         && ref is string
-        && (ref.matches('^locations/' + loc + '/(bills|returns|movements)/[A-Za-z0-9-]+$')
+        && (ref.matches('^locations/' + loc + '/((bills|returns)/[A-Za-z0-9-]+|movements/D[0-9]{2}-[0-9]{6}-X)$')
           || ref.matches('^auditLog/[A-Z]{2,4}-EXP-[A-Za-z0-9_-]+$'))
         && !exists(path('/databases/' + database + '/documents/' + ref))
         && existsAfter(path('/databases/' + database + '/documents/' + ref));
