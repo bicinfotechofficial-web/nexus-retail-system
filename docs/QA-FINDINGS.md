@@ -97,3 +97,6 @@ Recorded by the central agent. QA closes a row once the contract and a PLAN.md s
 | QA-034 | Accepted: partial-permission test roles. Assigned to the backend. | backend next |
 | QA-035 | Clarified: create writes `nextDeviceNo: 0`, and edits never write it. | `LocationService.save` doc |
 | QA-036 | Accepted, P3: the GST block must come before the total and add up to it. Assigned to the printer. | printer next |
+
+### Central outcomes, fifth review
+QA-030, QA-032, QA-033, QA-034, QA-035 and QA-036 are fixed on main (backend `ed5f5fb`, `ae90594`; printer `54eae97`, `2e63240`). QA to re-verify and close.

@@ -32,10 +32,10 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
 | BE-1 | Rules test harness (Node, `@firebase/rules-unit-testing`, emulator) with fixtures for Admin, SM@PTB, SM@MNJ, a disabled user and an anonymous user | C-4 | S | An example test runs green | DONE |
-| BE-2 | Rules: helper functions, default deny, `roles`, `users`, `locations`, `devices` (04-PERMISSIONS #1–4) | BE-1 | M | Allow and deny tests for each rule | REVIEW |
-| BE-3 | Rules: `bills` create, validation, cancel, returnedQty (#5–6) | BE-2 | L | Tests include a duplicate create (denied), a next-day cancel (denied) and a bad payment sum (denied) | REVIEW |
-| BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | REVIEW |
-| BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | REVIEW |
+| BE-2 | Rules: helper functions, default deny, `roles`, `users`, `locations`, `devices` (04-PERMISSIONS #1–4) | BE-1 | M | Allow and deny tests for each rule | DONE |
+| BE-3 | Rules: `bills` create, validation, cancel, returnedQty (#5–6) | BE-2 | L | Tests include a duplicate create (denied), a next-day cancel (denied) and a bad payment sum (denied) | DONE |
+| BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | DONE |
+| BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | DONE |
 | BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | TODO |
 | BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Deploys to the emulator | TODO |
 | BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq`, `lastMovementSeq` and `lastReturnSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | TODO |
@@ -52,9 +52,9 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | PR-1 | `ReceiptDocument` model (header, meta, lines, totals, discount, round-off, payments, optional GST block, footer) plus a `ReturnSlipDocument` | 02-DATA-MODEL | S | Reviewed by the central agent | DONE |
 | PR-2 | Text layout engine: 48 or 32 columns, left/right alignment, wrapping of long product names, money formatting ₹1,234.00 | PR-1 | M | Golden text tests pass | DONE |
 | PR-3 | ESC/POS encoder: init, bold, double height for the total, alignment, feed, cut, plus a code-page check for the ₹ glyph with a fallback to "Rs." | PR-2 | M | Byte-level golden tests | DONE |
-| PR-4 | Bluetooth Classic transport: permissions for Android 12+ and older, list paired devices, connect, write in chunks, timeout and reconnect, remember the printer | PR-3 | L | Works against a fake transport in tests. A real device is Bicy's check | REVIEW |
-| PR-5 | `PrinterService` facade (`print(ReceiptDocument)`, status stream) plus a test-print screen widget | PR-4 | S | Widget test | REVIEW |
-| PR-6 | Golden set: normal bill, discount + split payment, return slip, cancelled-bill reprint (a "CANCELLED" banner), 58 mm and 80 mm | PR-3 | S | Goldens committed | REVIEW |
+| PR-4 | Bluetooth Classic transport: permissions for Android 12+ and older, list paired devices, connect, write in chunks, timeout and reconnect, remember the printer | PR-3 | L | Works against a fake transport in tests. A real device is Bicy's check | DONE |
+| PR-5 | `PrinterService` facade (`print(ReceiptDocument)`, status stream) plus a test-print screen widget | PR-4 | S | Widget test | DONE |
+| PR-6 | Golden set: normal bill, discount + split payment, return slip, cancelled-bill reprint (a "CANCELLED" banner), 58 mm and 80 mm | PR-3 | S | Goldens committed | DONE |
 
 ## POS app — `apps/pos/`
 | ID | Task | Needs | Size | Done when | Status |
