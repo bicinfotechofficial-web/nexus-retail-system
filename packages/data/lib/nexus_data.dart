@@ -15,6 +15,8 @@ export 'src/api/sales.dart';
 export 'src/api/session.dart';
 export 'src/api/stock.dart';
 export 'src/api/sync.dart';
+export 'src/counters/counter_store.dart';
+export 'src/counters/durable_store.dart';
 export 'src/plans/admin_plans.dart';
 export 'src/plans/device_plans.dart';
 export 'src/plans/pin_hasher.dart';
