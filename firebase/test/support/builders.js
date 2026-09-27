@@ -2,7 +2,7 @@
 // models' toMap(), with consistent arithmetic, so a test only spells out the
 // field it's tampering with.
 
-import { serverTimestamp, Timestamp } from 'firebase/firestore';
+import { increment, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
 
 export const TODAY = '2026-09-26';
@@ -84,4 +84,157 @@ export function makeCancel({ uid = ACTORS.smPtb.uid, businessDate = TODAY, reaso
 /** `n` distinct lines of one piece each, for cap tests. */
 export function manyLines(n, unitPrice = 10000) {
   return Array.from({ length: n }, (_, i) => [`p${String(i + 1).padStart(2, '0')}`, 1, unitPrice]);
+}
+
+/** `D01-R000007` */
+export function returnId(deviceId, seq) {
+  return `${deviceId}-R${String(seq).padStart(6, '0')}`;
+}
+
+/** `D01-M000042` */
+export function movementId(deviceId, seq) {
+  return `${deviceId}-M${String(seq).padStart(6, '0')}`;
+}
+
+/**
+ * A return of `lines` (`[[productId, qty, amountPaise], ...]`) from bill
+ * `billId`. `refunds` defaults to one CASH refund of the rupee-rounded total.
+ */
+export function makeReturn({
+  loc = LOC.PTB,
+  deviceId = 'D01',
+  billId: forBill = billId('D01', 1),
+  lines = [['puff-veg', 1, 2550]],
+  refunds,
+  refundTotal,
+  prevReturnId = null,
+  uid = ACTORS.smPtb.uid,
+  businessDate = TODAY,
+} = {}) {
+  const returnLines = lines.map(([productId, qty, amount]) => ({ productId, name: `Product ${productId}`, qty, amount }));
+  const total = refundTotal ?? roundToRupee(returnLines.reduce((a, l) => a + l.amount, 0));
+  return {
+    billId: forBill,
+    billNo: `${loc}-${forBill}`,
+    lines: returnLines,
+    refundTotal: total,
+    refunds: refunds ?? [{ mode: 'CASH', amount: total }],
+    reason: 'Damaged in transit',
+    prevReturnId,
+    businessDate,
+    createdBy: uid,
+    deviceId,
+    clientCreatedAt: Timestamp.now(),
+    serverCreatedAt: serverTimestamp(),
+  };
+}
+
+/** A movement. `lines` is `[[itemKey, delta], ...]`. */
+export function makeMovement({
+  type = 'STOCK_IN',
+  lines = [['RM_flour', 5000]],
+  reason = null,
+  note = null,
+  refId = null,
+  deviceId = 'D01',
+  uid = ACTORS.smPtb.uid,
+  businessDate = TODAY,
+} = {}) {
+  return {
+    type,
+    lines: lines.map(([itemKey, delta]) => ({ itemKey, delta })),
+    reason,
+    note,
+    refId,
+    businessDate,
+    clientCreatedAt: Timestamp.now(),
+    serverCreatedAt: serverTimestamp(),
+    createdBy: uid,
+    deviceId,
+  };
+}
+
+/** The set(merge) data a batch writes to one stock doc (D-005). */
+export function stockWrite(itemKey, delta, lastMovementId, { name } = {}) {
+  const raw = itemKey.startsWith('RM_');
+  const refId = itemKey.slice(3);
+  return {
+    kind: raw ? 'RAW' : 'FINISHED',
+    refId,
+    name: name ?? `Item ${refId}`,
+    unit: raw ? 'G' : 'PCS',
+    qty: increment(delta),
+    lastMovementId,
+    updatedAt: serverTimestamp(),
+  };
+}
+
+/** An audit doc as the batches write it (02-DATA-MODEL auditLog). */
+export function makeAudit({
+  action,
+  entityPath,
+  locationId = LOC.PTB,
+  uid = ACTORS.smPtb.uid,
+  reason = null,
+  deviceId = 'D01',
+  before = null,
+  after = null,
+} = {}) {
+  return {
+    action,
+    entityPath,
+    locationId,
+    before,
+    after,
+    reason,
+    by: uid,
+    deviceId,
+    clientAt: Timestamp.now(),
+    at: serverTimestamp(),
+  };
+}
+
+/**
+ * The set(merge) data for a daily or monthly summary: `fields` are plain
+ * numbers that become increments; nested maps (byMode, byProduct) too.
+ */
+export function summaryWrite(lastWriteRef, fields = { billCount: 1, netSales: 70100 }) {
+  const toIncrements = (o) =>
+    Object.fromEntries(
+      Object.entries(o).map(([k, v]) => [k, typeof v === 'number' ? increment(v) : toIncrements(v)]),
+    );
+  return { ...toIncrements(fields), lastWriteRef };
+}
+
+/** A valid expense doc. */
+export function makeExpense({ locationId = LOC.PTB, amount = 1500000, category = 'RENT', uid = ACTORS.admin.uid } = {}) {
+  return {
+    locationId,
+    category,
+    amount,
+    date: TODAY,
+    note: 'September rent',
+    createdBy: uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
+/** A valid product doc. */
+export function makeProduct({ status = 'ACTIVE', price = 65000, proposedPrice = null, scope = 'GLOBAL', uid = ACTORS.admin.uid } = {}) {
+  return {
+    name: 'Black Forest 1 kg',
+    category: 'Cakes',
+    price,
+    proposedPrice,
+    unit: 'PCS',
+    gstRate: null,
+    scope,
+    status,
+    recipe: null,
+    sortOrder: 10,
+    createdBy: uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
 }

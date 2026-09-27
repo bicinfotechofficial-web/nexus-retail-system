@@ -83,7 +83,19 @@ export const PERMS = parsePermissionsDart(
 export const ROLE = {
   ADMIN: PERMS.adminId,
   STORE_MANAGER: PERMS.storeManagerId,
+  // Test-only roles that hold part of the permissions, so each rule can be
+  // shown to need its own permission (QA-034, D-017).
+  CASHIER: 'CASHIER',
+  STOCK_COUNTER: 'STOCK_COUNTER',
 };
+
+/** Checks a hand-written permission list against packages/core. */
+function known(permissions) {
+  for (const p of permissions) {
+    if (!PERMS.all.includes(p)) throw new Error(`fixtures: unknown permission ${p}`);
+  }
+  return permissions;
+}
 
 /** roles/{roleId} */
 export const ROLES = {
@@ -95,6 +107,18 @@ export const ROLES = {
   [ROLE.STORE_MANAGER]: {
     name: 'Store Manager',
     permissions: PERMS.storeManagerPermissions,
+    allLocations: false,
+  },
+  // The CASHIER (future) column of the 04-PERMISSIONS role matrix.
+  [ROLE.CASHIER]: {
+    name: 'Cashier',
+    permissions: known(['catalog.view', 'bill.create', 'device.register']),
+    allLocations: false,
+  },
+  // Counts stock but can't move it: stock.adjust without stock.move (QA-029).
+  [ROLE.STOCK_COUNTER]: {
+    name: 'Stock Counter',
+    permissions: known(['catalog.view', 'stock.adjust']),
     allLocations: false,
   },
 };
@@ -182,6 +206,26 @@ export const ACTORS = {
       roleId: ROLE.STORE_MANAGER,
       locationId: LOC.PTB,
       active: false,
+    },
+  },
+  cashierPtb: {
+    uid: 'cashier-ptb',
+    doc: {
+      name: 'Cashier PTB',
+      email: 'cashier-ptb@example.test',
+      roleId: ROLE.CASHIER,
+      locationId: LOC.PTB,
+      active: true,
+    },
+  },
+  counterPtb: {
+    uid: 'counter-ptb',
+    doc: {
+      name: 'Stock Counter PTB',
+      email: 'counter-ptb@example.test',
+      roleId: ROLE.STOCK_COUNTER,
+      locationId: LOC.PTB,
+      active: true,
     },
   },
   // Signed in, but no users/{uid} doc (sign-in reports noProfile).

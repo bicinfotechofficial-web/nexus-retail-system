@@ -261,6 +261,16 @@ describe('#4 locations: create, update, delete', () => {
     await assertFails(setDoc(doc(db, 'locations/KOCHI'), newLocation('KOCHI')));
   });
 
+  it('denies a new location without nextDeviceNo: create writes 0 (QA-035)', async () => {
+    const { nextDeviceNo, ...withoutCounter } = newLocation('KOC');
+    await assertFails(setDoc(doc(t.db('admin'), 'locations/KOC'), withoutCounter));
+  });
+
+  it('accepts an edit that leaves nextDeviceNo out (QA-035)', async () => {
+    const { nextDeviceNo, code, ...fields } = LOCATIONS[LOC.PTB];
+    await assertSucceeds(setDoc(doc(t.db('admin'), 'locations', LOC.PTB), { ...fields, name: 'Renamed' }, { merge: true }));
+  });
+
   it('denies a new location with missing or extra fields', async () => {
     const { receiptFooter, ...missing } = newLocation('KOC');
     await assertFails(setDoc(doc(t.db('admin'), 'locations/KOC'), missing));
@@ -327,6 +337,18 @@ describe('#4 device registration', () => {
     const db = t.db('smPtb');
     await assertFails(registrationBatch(db, LOC.PTB, { nextDeviceNo: 10, code: 'D010', uid: ACTORS.smPtb.uid }).commit());
     await assertSucceeds(registrationBatch(db, LOC.PTB, { nextDeviceNo: 10, code: 'D10', uid: ACTORS.smPtb.uid }).commit());
+  });
+
+  it('lets the Cashier (device.register) register, and denies the stock counter, who lacks it (QA-034)', async () => {
+    await assertSucceeds(registrationBatch(t.db('cashierPtb'), LOC.PTB, { nextDeviceNo: 1, code: 'D01', uid: ACTORS.cashierPtb.uid }).commit());
+    await assertFails(registrationBatch(t.db('counterPtb'), LOC.PTB, { nextDeviceNo: 2, code: 'D02', uid: ACTORS.counterPtb.uid }).commit());
+  });
+
+  it('stops at D99: registering D100 is denied (Ids.maxDeviceNo)', async () => {
+    await t.arrange((db) => updateDoc(doc(db, 'locations', LOC.PTB), { nextDeviceNo: 98 }));
+    const db = t.db('smPtb');
+    await assertSucceeds(registrationBatch(db, LOC.PTB, { nextDeviceNo: 99, code: 'D99', uid: ACTORS.smPtb.uid }).commit());
+    await assertFails(registrationBatch(db, LOC.PTB, { nextDeviceNo: 100, code: 'D100', uid: ACTORS.smPtb.uid }).commit());
   });
 
   it('denies incrementing nextDeviceNo without creating the device', async () => {
@@ -396,6 +418,12 @@ describe('#4 devices: read', () => {
     await assertSucceeds(getDocs(collection(t.db('admin'), 'locations', LOC.PTB, 'devices')));
   });
 
+  it('lets the Cashier (device.register) read, and denies a role without device.register or location.manage', async () => {
+    await withDeviceD01();
+    await assertSucceeds(getDoc(doc(t.db('cashierPtb'), devicePath())));
+    await assertFails(getDoc(doc(t.db('counterPtb'), devicePath())));
+  });
+
   it("denies another location's SM", async () => {
     await withDeviceD01();
     await assertFails(getDoc(doc(t.db('smMnj'), devicePath())));
@@ -410,6 +438,31 @@ describe('#4 devices: update', () => {
     await assertSucceeds(updateDoc(ref, { lastBillSeq: 11 }));
     await assertSucceeds(updateDoc(ref, { lastMovementSeq: 9 }));
     await assertSucceeds(updateDoc(ref, { lastReturnSeq: 2 }));
+  });
+
+  // QA-034: each counter needs its own permission. The Cashier has
+  // bill.create only; the stock counter has stock.adjust but not
+  // stock.move (QA-029); return.create is checked with a one-off role.
+  it('lets only bill.create raise lastBillSeq', async () => {
+    await withDeviceD01({ lastBillSeq: 10 });
+    await assertSucceeds(updateDoc(doc(t.db('cashierPtb'), devicePath()), { lastBillSeq: 11 }));
+    await assertFails(updateDoc(doc(t.db('counterPtb'), devicePath()), { lastBillSeq: 12 }));
+  });
+
+  it('lets stock.move or stock.adjust raise lastMovementSeq, and nobody else (QA-029)', async () => {
+    await withDeviceD01({ lastMovementSeq: 4 });
+    await assertSucceeds(updateDoc(doc(t.db('counterPtb'), devicePath()), { lastMovementSeq: 5 }));
+    await assertFails(updateDoc(doc(t.db('cashierPtb'), devicePath()), { lastMovementSeq: 6 }));
+    await t.withPermissions('smPtb', ['stock.move']);
+    await assertSucceeds(updateDoc(doc(t.db('smPtb'), devicePath()), { lastMovementSeq: 6 }));
+  });
+
+  it('lets only return.create raise lastReturnSeq', async () => {
+    await withDeviceD01({ lastReturnSeq: 1 });
+    await assertFails(updateDoc(doc(t.db('cashierPtb'), devicePath()), { lastReturnSeq: 2 }));
+    await assertFails(updateDoc(doc(t.db('counterPtb'), devicePath()), { lastReturnSeq: 2 }));
+    await t.withPermissions('smPtb', ['return.create']);
+    await assertSucceeds(updateDoc(doc(t.db('smPtb'), devicePath()), { lastReturnSeq: 2 }));
   });
 
   it('accepts the merge the bill batch writes', async () => {
@@ -433,6 +486,7 @@ describe('#4 devices: update', () => {
 
   it('lets any active user at the location stamp lastSeenAt with the server time', async () => {
     await withDeviceD01();
+    await assertSucceeds(updateDoc(doc(t.db('counterPtb'), devicePath()), { lastSeenAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(t.db('smPtb'), devicePath()), { lastSeenAt: serverTimestamp() }));
   });
 

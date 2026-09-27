@@ -10,8 +10,8 @@ rules_version = '2';
 //   the docs that rule is about.
 // - Evaluated expressions: at most 1000 per rule evaluation (per document in a
 //   batch). Unrolled per-line checks are what use it up: the largest bill
-//   (20 lines, 4 payments) and the largest return update (20 products) are
-//   the tight spots, and BE-6 tests them. Guard unrolled checks with ?: so
+//   (15 lines, 4 payments) and the largest return update (15 products) are
+//   the tight spots, and BE-6 tests them (D-030, CR-001). Guard unrolled checks with ?: so
 //   only the entries that exist are evaluated, and keep per-entry checks to
 //   what the contract needs.
 service cloud.firestore {
@@ -183,53 +183,48 @@ service cloud.firestore {
     // Line i: well formed, lineTotal = qty x unitPrice, and soldQty carries
     // exactly this line's qty. soldQty.size() == lines.size() then also rules
     // out two lines for one product (D-024).
-    // Per-line checks are unrolled up to the cap, but only the lines that
-    // exist are evaluated: each check is followed by `size() == n ? true : ...`
-    // (?: evaluates one branch; || and && evaluate both sides). Every
+    // Checks over list entries are unrolled up to the cap (15 lines on a
+    // bill, D-030), and only the entries that exist are evaluated: every
     // evaluated expression counts towards Firestore's limit of 1000 per rule
-    // evaluation, so a guard per slot for all 20 slots would not fit.
+    // evaluation (CR-001), so the unrolled code dispatches on size() with ?:
+    // rather than guarding each of the 15 slots.
 
-    // One bill line: soldQty carries exactly its qty for its product.
-    // soldQty.size() == lines.size() then rules out two lines for one
-    // product (D-024). Line arithmetic and positive quantities are the
-    // client's (BillCalculator): with 20 lines there's no budget for them,
-    // and soldQty only has to be right for the return cap (#5b).
-    // (Inlined below as `sold.get(ls[i].productId, -1) == ls[i].qty`.)
-    function billLinesFrom0(ls, sold) {
-      return sold.get(ls[0].productId, -1) == ls[0].qty
-          && (ls.size() == 1 ? true : sold.get(ls[1].productId, -1) == ls[1].qty
-          && (ls.size() == 2 ? true : sold.get(ls[2].productId, -1) == ls[2].qty
-          && (ls.size() == 3 ? true : sold.get(ls[3].productId, -1) == ls[3].qty
-          && (ls.size() == 4 ? true : sold.get(ls[4].productId, -1) == ls[4].qty
-          && (ls.size() == 5 ? true : billLinesFrom5(ls, sold))))));
+    // The soldQty a bill must carry: {productId: qty} built from its lines,
+    // one literal per line count. Two lines for one product collapse into
+    // one key, so the size check below catches them (D-024 (e), QA-033).
+    function soldFromLines1to5(ls) {
+      return ls.size() == 1 ? {ls[0].productId: ls[0].qty}
+        : ls.size() == 2 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty}
+        : ls.size() == 3 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty}
+        : ls.size() == 4 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty}
+        : ls.size() == 5 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty}
+        : soldFromLines6to10(ls);
     }
-    function billLinesFrom5(ls, sold) {
-      return sold.get(ls[5].productId, -1) == ls[5].qty
-          && (ls.size() == 6 ? true : sold.get(ls[6].productId, -1) == ls[6].qty
-          && (ls.size() == 7 ? true : sold.get(ls[7].productId, -1) == ls[7].qty
-          && (ls.size() == 8 ? true : sold.get(ls[8].productId, -1) == ls[8].qty
-          && (ls.size() == 9 ? true : sold.get(ls[9].productId, -1) == ls[9].qty
-          && (ls.size() == 10 ? true : billLinesFrom10(ls, sold))))));
+    function soldFromLines6to10(ls) {
+      return ls.size() == 6 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty}
+        : ls.size() == 7 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty}
+        : ls.size() == 8 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty}
+        : ls.size() == 9 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty}
+        : ls.size() == 10 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty}
+        : soldFromLines11to15(ls);
     }
-    function billLinesFrom10(ls, sold) {
-      return sold.get(ls[10].productId, -1) == ls[10].qty
-          && (ls.size() == 11 ? true : sold.get(ls[11].productId, -1) == ls[11].qty
-          && (ls.size() == 12 ? true : sold.get(ls[12].productId, -1) == ls[12].qty
-          && (ls.size() == 13 ? true : sold.get(ls[13].productId, -1) == ls[13].qty
-          && (ls.size() == 14 ? true : sold.get(ls[14].productId, -1) == ls[14].qty
-          && (ls.size() == 15 ? true : billLinesFrom15(ls, sold))))));
+    function soldFromLines11to15(ls) {
+      return ls.size() == 11 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty}
+        : ls.size() == 12 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty}
+        : ls.size() == 13 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty, ls[12].productId: ls[12].qty}
+        : ls.size() == 14 ? {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty, ls[12].productId: ls[12].qty, ls[13].productId: ls[13].qty}
+        : {ls[0].productId: ls[0].qty, ls[1].productId: ls[1].qty, ls[2].productId: ls[2].qty, ls[3].productId: ls[3].qty, ls[4].productId: ls[4].qty, ls[5].productId: ls[5].qty, ls[6].productId: ls[6].qty, ls[7].productId: ls[7].qty, ls[8].productId: ls[8].qty, ls[9].productId: ls[9].qty, ls[10].productId: ls[10].qty, ls[11].productId: ls[11].qty, ls[12].productId: ls[12].qty, ls[13].productId: ls[13].qty, ls[14].productId: ls[14].qty};
     }
-    function billLinesFrom15(ls, sold) {
-      return sold.get(ls[15].productId, -1) == ls[15].qty
-          && (ls.size() == 16 ? true : sold.get(ls[16].productId, -1) == ls[16].qty
-          && (ls.size() == 17 ? true : sold.get(ls[17].productId, -1) == ls[17].qty
-          && (ls.size() == 18 ? true : sold.get(ls[18].productId, -1) == ls[18].qty
-          && (ls.size() == 19 ? true : sold.get(ls[19].productId, -1) == ls[19].qty))));
-    }
+
+    // #6: 1-15 lines, one per product, and soldQty is exactly those
+    // products with those quantities, no key missing and none extra. Line
+    // arithmetic and positive quantities are the client's (BillCalculator);
+    // soldQty only has to be right for the return cap (#5b).
     function billLinesOk(ls, sold) {
-      return ls is list && ls.size() >= 1 && ls.size() <= 20
-        && sold is map && sold.size() == ls.size()
-        && billLinesFrom0(ls, sold);
+      let expected = ls is list && ls.size() >= 1 && ls.size() <= 15 ? soldFromLines1to5(ls) : null;
+      return expected != null
+        && expected.size() == ls.size()
+        && sold == expected;
     }
 
     // Payments (and refunds): at most 4, adding up to exactly [total]. An
@@ -306,56 +301,336 @@ service cloud.firestore {
     function returnedQtyOk(p, rq, old, sold) {
       return rq[p] >= old.get(p, 0) && rq[p] <= sold.get(p, 0);
     }
-    function returnedQtyFrom0(ks, rq, old, sold) {
+    function returnedQtyFrom0(ks, n, rq, old, sold) {
       return returnedQtyOk(ks[0], rq, old, sold)
-          && (ks.size() == 1 ? true : returnedQtyOk(ks[1], rq, old, sold)
-          && (ks.size() == 2 ? true : returnedQtyOk(ks[2], rq, old, sold)
-          && (ks.size() == 3 ? true : returnedQtyOk(ks[3], rq, old, sold)
-          && (ks.size() == 4 ? true : returnedQtyOk(ks[4], rq, old, sold)
-          && (ks.size() == 5 ? true : returnedQtyFrom5(ks, rq, old, sold))))));
+          && (n == 1 ? true : returnedQtyOk(ks[1], rq, old, sold)
+          && (n == 2 ? true : returnedQtyOk(ks[2], rq, old, sold)
+          && (n == 3 ? true : returnedQtyOk(ks[3], rq, old, sold)
+          && (n == 4 ? true : returnedQtyOk(ks[4], rq, old, sold)
+          && (n == 5 ? true : returnedQtyFrom5(ks, n, rq, old, sold))))));
     }
-    function returnedQtyFrom5(ks, rq, old, sold) {
+    function returnedQtyFrom5(ks, n, rq, old, sold) {
       return returnedQtyOk(ks[5], rq, old, sold)
-          && (ks.size() == 6 ? true : returnedQtyOk(ks[6], rq, old, sold)
-          && (ks.size() == 7 ? true : returnedQtyOk(ks[7], rq, old, sold)
-          && (ks.size() == 8 ? true : returnedQtyOk(ks[8], rq, old, sold)
-          && (ks.size() == 9 ? true : returnedQtyOk(ks[9], rq, old, sold)
-          && (ks.size() == 10 ? true : returnedQtyFrom10(ks, rq, old, sold))))));
+          && (n == 6 ? true : returnedQtyOk(ks[6], rq, old, sold)
+          && (n == 7 ? true : returnedQtyOk(ks[7], rq, old, sold)
+          && (n == 8 ? true : returnedQtyOk(ks[8], rq, old, sold)
+          && (n == 9 ? true : returnedQtyOk(ks[9], rq, old, sold)
+          && (n == 10 ? true : returnedQtyFrom10(ks, n, rq, old, sold))))));
     }
-    function returnedQtyFrom10(ks, rq, old, sold) {
+    function returnedQtyFrom10(ks, n, rq, old, sold) {
       return returnedQtyOk(ks[10], rq, old, sold)
-          && (ks.size() == 11 ? true : returnedQtyOk(ks[11], rq, old, sold)
-          && (ks.size() == 12 ? true : returnedQtyOk(ks[12], rq, old, sold)
-          && (ks.size() == 13 ? true : returnedQtyOk(ks[13], rq, old, sold)
-          && (ks.size() == 14 ? true : returnedQtyOk(ks[14], rq, old, sold)
-          && (ks.size() == 15 ? true : returnedQtyFrom15(ks, rq, old, sold))))));
-    }
-    function returnedQtyFrom15(ks, rq, old, sold) {
-      return returnedQtyOk(ks[15], rq, old, sold)
-          && (ks.size() == 16 ? true : returnedQtyOk(ks[16], rq, old, sold)
-          && (ks.size() == 17 ? true : returnedQtyOk(ks[17], rq, old, sold)
-          && (ks.size() == 18 ? true : returnedQtyOk(ks[18], rq, old, sold)
-          && (ks.size() == 19 ? true : returnedQtyOk(ks[19], rq, old, sold)))));
+          && (n == 11 ? true : returnedQtyOk(ks[11], rq, old, sold)
+          && (n == 12 ? true : returnedQtyOk(ks[12], rq, old, sold)
+          && (n == 13 ? true : returnedQtyOk(ks[13], rq, old, sold)
+          && (n == 14 ? true : returnedQtyOk(ks[14], rq, old, sold)))));
     }
 
     // #5(b). A return raises returnedQty, tied to a return doc created in the
-    // same batch (lastReturnId). First to sync wins against a cancel (D-029).
+    // same batch (lastReturnId). First to sync wins against a cancel or a
+    // stale return (D-029).
     function isReturnUpdate(loc) {
       let rq = incoming().returnedQty;
       let ks = rq.keys();
       let r = incoming().lastReturnId;
+      // Both fields must change: a return always raises some quantity. No
+      // separate type or format checks on rq and r: a non-map rq, an empty
+      // one or a non-string r makes an expression below fail, which denies.
+      // Every evaluated expression counts, and this is the tightest rule.
       let ch = changed();
       return ch.hasOnly(['returnedQty', 'lastReturnId'])
         && ch.hasAll(['returnedQty', 'lastReturnId'])
         && canAt('return.create', loc)
         && resource.data.status == 'COMPLETED'
-        && rq is map
         && ks.hasAll(resource.data.returnedQty.keys())
-        && ks.size() >= 1 && ks.size() <= resource.data.soldQty.size()
-        && returnedQtyFrom0(ks, rq, resource.data.returnedQty, resource.data.soldQty)
-        && r is string && r.matches('^D[0-9]{2}-R[0-9]{6}$')
+        && ks.size() <= resource.data.soldQty.size()
+        && returnedQtyFrom0(ks, ks.size(), rq, resource.data.returnedQty, resource.data.soldQty)
         && !exists(returnPath(loc, r))
-        && existsAfter(returnPath(loc, r));
+        && existsAfter(returnPath(loc, r))
+        // The return was worked out from the bill as it is now, not from a
+        // stale copy: its prevReturnId is the bill's current lastReturnId
+        // (both null for the first return). Same doc as existsAfter, so no
+        // extra access call (QA-024).
+        && getAfter(returnPath(loc, r)).data.prevReturnId == resource.data.lastReturnId;
+    }
+
+
+    // ---- #7 returns and movements, #8 stock ------------------------------
+
+    function returnKeys() {
+      return ['billId', 'billNo', 'lines', 'refundTotal', 'refunds', 'reason', 'prevReturnId',
+              'businessDate', 'createdBy', 'deviceId', 'clientCreatedAt', 'serverCreatedAt'];
+    }
+
+    // #7. A return has 1-15 lines (a bill's cap, D-030). It is created together with the bill update that raises
+    // returnedQty (the bill must name it as lastReturnId after the batch;
+    // #5(b) checks the rest) and its audit doc (#10, D-028).
+    function validNewReturn(loc, returnId) {
+      let r = incoming();
+      let keys = returnKeys();
+      return returnId.matches('^D[0-9]{2}-R[0-9]{6}$')
+        && r.keys().hasOnly(keys)
+        && r.keys().size() == keys.size()
+        && r.deviceId == returnId.split('-')[0]
+        && r.billId is string && r.billId.matches('^D[0-9]{2}-[0-9]{6}$')
+        && r.billNo == loc + '-' + r.billId
+        && r.createdBy == request.auth.uid
+        && r.lines is list && r.lines.size() >= 1 && r.lines.size() <= 15
+        && r.refundTotal is int && r.refundTotal >= 0 && r.refundTotal % 100 == 0
+        && paymentsOk(r.refunds, r.refundTotal)
+        && r.reason is string
+        && (r.prevReturnId == null || r.prevReturnId is string)
+        && isBusinessDate(r.businessDate)
+        && r.clientCreatedAt is timestamp
+        && r.serverCreatedAt == request.time
+        && getAfter(billPath(loc, r.billId)).data.lastReturnId == returnId
+        && existsAfter(auditPath(loc + '-' + returnId));
+    }
+
+    function movementKeys() {
+      return ['type', 'lines', 'reason', 'note', 'refId', 'businessDate',
+              'clientCreatedAt', 'serverCreatedAt', 'createdBy', 'deviceId'];
+    }
+    // The permission each movement type needs (#7).
+    function movementPermission(t) {
+      return t == 'SALE' ? 'bill.create'
+        : t == 'CANCEL' ? 'bill.cancel'
+        : t == 'RETURN' ? 'return.create'
+        : t == 'ADJUST' ? 'stock.adjust'
+        : 'stock.move';
+    }
+    // SALE, RETURN and CANCEL movements share their bill's or return's ID
+    // (02-DATA-MODEL); the rest use the device's movement counter.
+    function movementIdPattern(t) {
+      return t == 'SALE' ? '^D[0-9]{2}-[0-9]{6}$'
+        : t == 'CANCEL' ? '^D[0-9]{2}-[0-9]{6}-X$'
+        : t == 'RETURN' ? '^D[0-9]{2}-R[0-9]{6}$'
+        : '^D[0-9]{2}-M[0-9]{6}$';
+    }
+
+    function validNewMovement(loc, id) {
+      let m = incoming();
+      let t = m.type;
+      let keys = movementKeys();
+      return m.keys().hasOnly(keys)
+        && m.keys().size() == keys.size()
+        && t in ['STOCK_IN', 'STOCK_OUT_RAW', 'WASTAGE_RAW', 'PRODUCE', 'WASTAGE_FG',
+                 'ADJUST', 'SALE', 'RETURN', 'CANCEL']
+        && canAt(movementPermission(t), loc)
+        && id.matches(movementIdPattern(t))
+        && m.deviceId is string && m.deviceId.matches('^D[0-9]{2}$')
+        // A cancel can be made on another device than the bill's.
+        && (t == 'CANCEL' || m.deviceId == id.split('-')[0])
+        && (t == 'SALE' || t == 'RETURN' ? m.refId == id
+          : t == 'CANCEL' ? m.refId + '-X' == id
+          : true)
+        && m.createdBy == request.auth.uid
+        && m.lines is list && m.lines.size() >= 1 && m.lines.size() <= 20
+        && (t in ['WASTAGE_RAW', 'WASTAGE_FG', 'ADJUST', 'CANCEL']
+          ? m.reason is string && m.reason.size() > 0
+          : true)
+        // Wastage and adjustments are audited (#10, D-028).
+        && (t in ['WASTAGE_RAW', 'WASTAGE_FG', 'ADJUST']
+          ? existsAfter(auditPath(loc + '-' + id))
+          : true)
+        && isBusinessDate(m.businessDate)
+        && m.clientCreatedAt is timestamp
+        && m.serverCreatedAt == request.time;
+    }
+
+    function stockKeys() {
+      return ['kind', 'refId', 'name', 'unit', 'qty', 'lastMovementId', 'updatedAt', 'lowThreshold'];
+    }
+
+    // #8, for the keys a stock write sets (create) or changes (update):
+    // - qty and lastMovementId only with a movement that is new in this
+    //   batch, so every quantity change has a movement doc behind it;
+    // - lowThreshold only with stock.threshold;
+    // - updatedAt is the server time.
+    function stockChangeOk(loc, ks) {
+      let d = incoming();
+      return (!ks.hasAny(['qty', 'lastMovementId'])
+          || (d.qty is int && d.lastMovementId is string
+            && !exists(movementPath(loc, d.lastMovementId))
+            && existsAfter(movementPath(loc, d.lastMovementId))))
+        && (!ks.hasAny(['lowThreshold'])
+          || (canAt('stock.threshold', loc)
+            && (d.lowThreshold == null || (d.lowThreshold is int && d.lowThreshold >= 0))))
+        && (!ks.hasAny(['updatedAt']) || d.updatedAt == request.time)
+        && (!ks.hasAny(['name']) || d.name is string);
+    }
+
+    // Every batch writes the stock doc with set(merge) and qty as an
+    // increment (D-005), so the first use creates it. The itemKey is
+    // RM_{materialId} or FG_{productId}.
+    function validNewStock(loc, itemKey) {
+      let d = incoming();
+      return d.keys().hasOnly(stockKeys())
+        && d.keys().hasAll(['kind', 'refId', 'name', 'unit', 'updatedAt'])
+        && d.kind in ['RAW', 'FINISHED']
+        && d.unit in ['G', 'ML', 'PCS']
+        && d.refId is string
+        && itemKey == (d.kind == 'RAW' ? 'RM_' : 'FG_') + d.refId
+        && stockChangeOk(loc, d.keys());
+    }
+
+    // ---- #9 summaries ----------------------------------------------------
+
+    function summaryKeys() {
+      return ['billCount', 'cancelCount', 'returnCount', 'grossSales', 'discounts', 'roundOff',
+              'netSales', 'returns', 'cancelled', 'byMode', 'byProduct', 'expenses',
+              'byExpenseCategory', 'lastWriteRef'];
+    }
+
+    // #9. Every summary write names, in lastWriteRef, the doc that caused
+    // it: a bill, return or CANCEL movement at this location, or an expense
+    // audit doc. That doc must be new in this batch, which ties each
+    // increment to exactly one business event. The numbers themselves are
+    // increments the rules can't see; QA-5 reconciles them.
+    function validSummaryWrite(loc) {
+      let ref = incoming().lastWriteRef;
+      return activeAt(loc)
+        && incoming().keys().hasOnly(summaryKeys())
+        && ref is string
+        && (ref.matches('^locations/' + loc + '/(bills|returns|movements)/[A-Za-z0-9-]+$')
+          || ref.matches('^auditLog/EXP-[A-Za-z0-9_-]+$'))
+        && !exists(path('/databases/' + database + '/documents/' + ref))
+        && existsAfter(path('/databases/' + database + '/documents/' + ref));
+    }
+
+    // ---- #10 auditLog ------------------------------------------------------
+
+    function auditKeys() {
+      return ['action', 'entityPath', 'locationId', 'before', 'after', 'reason', 'by',
+              'deviceId', 'clientAt', 'at'];
+    }
+    // Actions only an Admin-style permission may record. The rest are
+    // recorded by whoever does the audited thing at the location.
+    function auditPermission(action) {
+      return action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'expense.manage'
+        : action in ['PRICE_CHANGE', 'PRODUCT_APPROVE'] ? 'catalog.manage'
+        : action in ['USER_CREATE', 'USER_DISABLE'] ? 'user.manage'
+        : action == 'LOCATION_UPDATE' ? 'location.manage'
+        : null;
+    }
+
+    // #10. Location-scoped IDs are {loc}-{entityId} (D-028); expense events
+    // are EXP-{expenseId}-{millis}.
+    function validNewAudit(auditId) {
+      let a = incoming();
+      let keys = auditKeys();
+      let p = auditPermission(a.action);
+      let expense = auditId.matches('^EXP-[A-Za-z0-9_-]+$');
+      return a.keys().hasOnly(keys)
+        && a.keys().size() == keys.size()
+        && a.action in ['STOCK_ADJUST', 'WASTAGE', 'BILL_CANCEL', 'RETURN', 'EXPENSE_CREATE',
+                        'EXPENSE_UPDATE', 'PRICE_CHANGE', 'PRODUCT_APPROVE', 'USER_CREATE',
+                        'USER_DISABLE', 'OFFLINE_OVERRIDE', 'THRESHOLD_CHANGE', 'LOCATION_UPDATE']
+        && (p == null ? active() : can(p))
+        && a.by == request.auth.uid
+        && a.at == request.time
+        && a.clientAt is timestamp
+        && a.entityPath is string
+        && (a.locationId == null || (isLocationCode(a.locationId) && atLoc(a.locationId)))
+        && (expense == (a.action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE']))
+        && (expense || a.locationId == null || auditId.matches('^' + a.locationId + '-.+$'));
+    }
+
+    // ---- #11 products and raw materials ------------------------------------
+
+    function productKeys() {
+      return ['name', 'category', 'price', 'proposedPrice', 'unit', 'gstRate', 'scope', 'status',
+              'recipe', 'sortOrder', 'createdBy', 'createdAt', 'updatedAt'];
+    }
+    function isSafeKey(s) {
+      return s.matches('^[A-Za-z0-9_-]{1,100}$');
+    }
+    function validProductFields(d) {
+      return d.name is string && d.name.size() > 0
+        && d.category is string
+        && (d.price == null || (d.price is int && d.price >= 0))
+        && (d.proposedPrice == null || (d.proposedPrice is int && d.proposedPrice >= 0))
+        && d.unit == 'PCS'
+        && d.status in ['ACTIVE', 'PENDING', 'INACTIVE']
+        && (d.scope == 'GLOBAL' || isLocationCode(d.scope))
+        && d.sortOrder is int
+        && d.updatedAt == request.time;
+    }
+    // A Store Manager's suggestion: PENDING, no price yet, scoped to their own
+    // location (D-008).
+    function isSuggestion(d) {
+      return can('catalog.suggest')
+        && d.status == 'PENDING'
+        && d.price == null
+        && d.scope == me().locationId;
+    }
+
+    // ---- #12 expenses --------------------------------------------------------
+
+    function validExpenseFields(d) {
+      return d.keys().hasOnly(['locationId', 'category', 'amount', 'date', 'note', 'createdBy', 'createdAt', 'updatedAt'])
+        && isLocationCode(d.locationId) && atLoc(d.locationId)
+        && d.category in ['RENT', 'SALARY', 'UTILITIES', 'OTHER']
+        && d.amount is int && d.amount >= 0
+        && isBusinessDate(d.date)
+        && d.note is string
+        && d.updatedAt == request.time;
+    }
+
+    match /auditLog/{auditId} {
+      // Admin-style roles read every location's entries; a role with
+      // audit.view scoped to one location reads only that location's.
+      allow read: if can('audit.view') && (role().allLocations == true || resource.data.locationId == me().locationId);
+      allow create: if validNewAudit(auditId);
+      allow update, delete: if false;
+    }
+
+    match /products/{productId} {
+      allow read: if can('catalog.view');
+      allow create: if isSafeKey(productId)
+        && incoming().keys().hasOnly(productKeys())
+        && incoming().keys().hasAll(productKeys())
+        && validProductFields(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && (can('catalog.manage') || isSuggestion(incoming()));
+      // Prices, approval, deactivation and edits (#11). createdBy and
+      // createdAt never change.
+      allow update: if can('catalog.manage')
+        && !changed().hasAny(['createdBy', 'createdAt'])
+        && incoming().keys().hasOnly(productKeys())
+        && validProductFields(incoming());
+      allow delete: if false;
+    }
+
+    match /rawMaterials/{materialId} {
+      allow read: if can('catalog.view');
+      allow create: if can('rawMaterial.create')
+        && isSafeKey(materialId)
+        && incoming().keys().hasOnly(['name', 'unit', 'active', 'createdBy'])
+        && incoming().name is string && incoming().name.size() > 0
+        && incoming().unit in ['G', 'ML', 'PCS']
+        && incoming().active == true
+        && incoming().createdBy == request.auth.uid;
+      // Renaming and deactivating are catalog management; the unit is fixed
+      // because stock quantities are counted in it.
+      allow update: if can('catalog.manage')
+        && changed().hasOnly(['name', 'active'])
+        && incoming().name is string && incoming().name.size() > 0
+        && incoming().active is bool;
+      allow delete: if false;
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if can('expense.manage') && atLoc(resource.data.locationId);
+      allow create: if can('expense.manage')
+        && isSafeKey(expenseId)
+        && validExpenseFields(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if can('expense.manage')
+        && !changed().hasAny(['createdBy', 'createdAt'])
+        && validExpenseFields(incoming());
+      allow delete: if false;
     }
 
     match /locations/{loc} {
@@ -388,6 +663,41 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /returns/{returnId} {
+        allow read: if canAt('report.own', loc) || canAt('bill.create', loc) || canAt('return.create', loc);
+        allow create: if canAt('return.create', loc) && validNewReturn(loc, returnId);
+        allow update, delete: if false;
+      }
+
+      match /movements/{movementId} {
+        allow read: if canAt('stock.move', loc) || canAt('stock.adjust', loc) || canAt('report.own', loc);
+        allow create: if validNewMovement(loc, movementId);
+        allow update, delete: if false;
+      }
+
+      match /stock/{itemKey} {
+        allow read: if canAt('catalog.view', loc);
+        allow create: if activeAt(loc) && validNewStock(loc, itemKey);
+        // kind, refId and unit are create-only; name may change on any write,
+        // so a renamed product keeps selling (QA-023).
+        allow update: if activeAt(loc)
+          && changed().hasOnly(['name', 'qty', 'lastMovementId', 'updatedAt', 'lowThreshold'])
+          && stockChangeOk(loc, changed());
+        allow delete: if false;
+      }
+
+      match /dailySummary/{day} {
+        allow read: if canAt('report.own', loc);
+        allow create, update: if isBusinessDate(day) && validSummaryWrite(loc);
+        allow delete: if false;
+      }
+
+      match /monthlySummary/{month} {
+        allow read: if canAt('report.own', loc);
+        allow create, update: if month.matches('^[0-9]{4}-[0-9]{2}$') && validSummaryWrite(loc);
+        allow delete: if false;
+      }
+
       match /devices/{deviceId} {
         allow read: if canAt('device.register', loc) || canAt('location.manage', loc);
 
@@ -415,7 +725,7 @@ service cloud.firestore {
             || (can('bill.create') && incoming().lastBillSeq is int
               && incoming().lastBillSeq > resource.data.get('lastBillSeq', 0)))
           && (!changed().hasAny(['lastMovementSeq'])
-            || (can('stock.move') && incoming().lastMovementSeq is int
+            || ((can('stock.move') || can('stock.adjust')) && incoming().lastMovementSeq is int
               && incoming().lastMovementSeq > resource.data.get('lastMovementSeq', 0)))
           && (!changed().hasAny(['lastReturnSeq'])
             || (can('return.create') && incoming().lastReturnSeq is int
