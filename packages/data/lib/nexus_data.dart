@@ -24,3 +24,4 @@ export 'src/firestore/firestore_catalog_repository.dart';
 export 'src/firestore/firestore_sales_repository.dart';
 export 'src/firestore/firestore_stock_repository.dart';
 export 'src/firestore/firestore_summary_repository.dart';
+export 'src/firestore/firestore_user_service.dart';
