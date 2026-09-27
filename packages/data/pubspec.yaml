@@ -11,6 +11,8 @@ environment:
 dependencies:
   cloud_firestore: ^6.10.0
   cryptography: ^2.9.0
+  firebase_auth: ^6.7.0
+  firebase_core: ^4.15.0
   flutter:
     sdk: flutter
   hive_ce: ^2.20.0
@@ -18,5 +20,9 @@ dependencies:
     path: ../core
 
 dev_dependencies:
+  fake_cloud_firestore: ^4.3.0
+  firebase_auth_mocks: ^0.15.2
   flutter_test:
     sdk: flutter
+  mock_exceptions: ^0.8.2
+  mocktail: ^1.0.5

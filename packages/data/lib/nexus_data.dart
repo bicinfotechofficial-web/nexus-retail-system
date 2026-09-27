@@ -15,6 +15,7 @@ export 'src/api/sales.dart';
 export 'src/api/session.dart';
 export 'src/api/stock.dart';
 export 'src/api/sync.dart';
+export 'src/convert/firestore_values.dart';
 export 'src/counters/counter_store.dart';
 export 'src/counters/durable_store.dart';
 export 'src/firestore/device_service.dart'
@@ -23,6 +24,15 @@ export 'src/firestore/device_service.dart'
         DeviceTxn,
         FirestoreDeviceBackend,
         FirestoreDeviceService;
+export 'src/firestore/failure_mapping.dart';
+export 'src/firestore/firebase_auth_service.dart';
+export 'src/firestore/firestore_admin_repositories.dart';
+export 'src/firestore/firestore_audit_repository.dart';
+export 'src/firestore/firestore_catalog_repository.dart';
+export 'src/firestore/firestore_sales_repository.dart';
+export 'src/firestore/firestore_stock_repository.dart';
+export 'src/firestore/firestore_summary_repository.dart';
+export 'src/firestore/firestore_user_service.dart';
 export 'src/plans/admin_plans.dart';
 export 'src/plans/device_plans.dart';
 export 'src/plans/pin_hasher.dart';
