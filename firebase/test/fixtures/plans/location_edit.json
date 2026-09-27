@@ -1,0 +1,65 @@
+{
+  "description": "Admin edits PTB with a new PIN; nextDeviceNo is not written",
+  "uid": "admin",
+  "arrange": [],
+  "ops": [
+    {
+      "path": "locations/PTB",
+      "kind": "update",
+      "data": {
+        "name": "Test Store PTB (renamed)",
+        "address": "Test Store PTB address",
+        "phone": "0000000000",
+        "gstin": null,
+        "offlineLimitHours": 6,
+        "overrideExtensionHours": 2,
+        "maxDiscountPct": 15,
+        "receiptFooter": "Thanks, visit again!",
+        "active": true,
+        "overridePinHash": "Zml4dHVyZS1LVEw=$My24sNIbFGHL5UnbIT0eNVqKrnJiurgKBAVJXK0RRcc="
+      }
+    },
+    {
+      "path": "auditLog/PTB-LOC-1790397000000",
+      "kind": "create",
+      "data": {
+        "action": "LOCATION_UPDATE",
+        "entityPath": "locations/PTB",
+        "locationId": "PTB",
+        "before": {
+          "name": "Test Store PTB",
+          "address": "Test Store PTB address",
+          "phone": "0000000000",
+          "gstin": null,
+          "offlineLimitHours": 5,
+          "overrideExtensionHours": 2,
+          "maxDiscountPct": 20,
+          "receiptFooter": "Thank you!",
+          "active": true
+        },
+        "after": {
+          "name": "Test Store PTB (renamed)",
+          "address": "Test Store PTB address",
+          "phone": "0000000000",
+          "gstin": null,
+          "offlineLimitHours": 6,
+          "overrideExtensionHours": 2,
+          "maxDiscountPct": 15,
+          "receiptFooter": "Thanks, visit again!",
+          "active": true,
+          "pinChanged": true
+        },
+        "reason": null,
+        "by": "admin",
+        "deviceId": null,
+        "clientAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "at": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

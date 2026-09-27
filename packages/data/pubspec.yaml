@@ -9,8 +9,11 @@ environment:
   flutter: ">=3.35.0"
 
 dependencies:
+  cloud_firestore: ^6.10.0
+  cryptography: ^2.9.0
   flutter:
     sdk: flutter
+  hive_ce: ^2.20.0
   nexus_core:
     path: ../core
 

@@ -1,0 +1,101 @@
+{
+  "description": "WASTAGE_FG with its WASTAGE audit",
+  "uid": "sm-ptb",
+  "arrange": [
+    {
+      "path": "locations/PTB/devices/D01",
+      "data": {
+        "code": "D01",
+        "label": "Counter 1",
+        "registeredBy": "sm-ptb",
+        "lastBillSeq": 0,
+        "lastMovementSeq": 41,
+        "lastReturnSeq": 0,
+        "retired": false,
+        "registeredAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "ops": [
+    {
+      "path": "locations/PTB/movements/D01-M000042",
+      "kind": "create",
+      "data": {
+        "type": "WASTAGE_FG",
+        "lines": [
+          {
+            "itemKey": "FG_cake-choco-1kg",
+            "delta": -1
+          }
+        ],
+        "reason": "Dropped",
+        "note": null,
+        "refId": null,
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "deviceId": "D01",
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_cake-choco-1kg",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "cake-choco-1kg",
+        "name": "Chocolate Cake 1 kg",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -1
+        },
+        "lastMovementId": "D01-M000042",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "auditLog/PTB-D01-M000042",
+      "kind": "create",
+      "data": {
+        "action": "WASTAGE",
+        "entityPath": "locations/PTB/movements/D01-M000042",
+        "locationId": "PTB",
+        "before": null,
+        "after": {
+          "type": "WASTAGE_FG",
+          "lines": {
+            "FG_cake-choco-1kg": -1
+          }
+        },
+        "reason": "Dropped",
+        "by": "sm-ptb",
+        "deviceId": "D01",
+        "clientAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "at": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D01",
+      "kind": "update",
+      "data": {
+        "lastMovementSeq": 42
+      }
+    }
+  ]
+}

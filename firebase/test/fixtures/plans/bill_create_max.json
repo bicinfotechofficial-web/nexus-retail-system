@@ -1,0 +1,956 @@
+{
+  "description": "Create bill at the caps: 15 lines, a flat discount, 4 payments",
+  "uid": "sm-ptb",
+  "arrange": [
+    {
+      "path": "locations/PTB/devices/D01",
+      "data": {
+        "code": "D01",
+        "label": "Counter 1",
+        "registeredBy": "sm-ptb",
+        "lastBillSeq": 0,
+        "lastMovementSeq": 0,
+        "lastReturnSeq": 0,
+        "retired": false,
+        "registeredAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "ops": [
+    {
+      "path": "locations/PTB/bills/D01-000001",
+      "kind": "create",
+      "data": {
+        "billNo": "PTB-D01-000001",
+        "deviceId": "D01",
+        "seq": 1,
+        "lines": [
+          {
+            "productId": "p01",
+            "name": "Product 1",
+            "qty": 1,
+            "unitPrice": 1037,
+            "lineTotal": 1037
+          },
+          {
+            "productId": "p02",
+            "name": "Product 2",
+            "qty": 2,
+            "unitPrice": 1074,
+            "lineTotal": 2148
+          },
+          {
+            "productId": "p03",
+            "name": "Product 3",
+            "qty": 3,
+            "unitPrice": 1111,
+            "lineTotal": 3333
+          },
+          {
+            "productId": "p04",
+            "name": "Product 4",
+            "qty": 4,
+            "unitPrice": 1148,
+            "lineTotal": 4592
+          },
+          {
+            "productId": "p05",
+            "name": "Product 5",
+            "qty": 5,
+            "unitPrice": 1185,
+            "lineTotal": 5925
+          },
+          {
+            "productId": "p06",
+            "name": "Product 6",
+            "qty": 6,
+            "unitPrice": 1222,
+            "lineTotal": 7332
+          },
+          {
+            "productId": "p07",
+            "name": "Product 7",
+            "qty": 7,
+            "unitPrice": 1259,
+            "lineTotal": 8813
+          },
+          {
+            "productId": "p08",
+            "name": "Product 8",
+            "qty": 8,
+            "unitPrice": 1296,
+            "lineTotal": 10368
+          },
+          {
+            "productId": "p09",
+            "name": "Product 9",
+            "qty": 9,
+            "unitPrice": 1333,
+            "lineTotal": 11997
+          },
+          {
+            "productId": "p10",
+            "name": "Product 10",
+            "qty": 10,
+            "unitPrice": 1370,
+            "lineTotal": 13700
+          },
+          {
+            "productId": "p11",
+            "name": "Product 11",
+            "qty": 11,
+            "unitPrice": 1407,
+            "lineTotal": 15477
+          },
+          {
+            "productId": "p12",
+            "name": "Product 12",
+            "qty": 12,
+            "unitPrice": 1444,
+            "lineTotal": 17328
+          },
+          {
+            "productId": "p13",
+            "name": "Product 13",
+            "qty": 13,
+            "unitPrice": 1481,
+            "lineTotal": 19253
+          },
+          {
+            "productId": "p14",
+            "name": "Product 14",
+            "qty": 14,
+            "unitPrice": 1518,
+            "lineTotal": 21252
+          },
+          {
+            "productId": "p15",
+            "name": "Product 15",
+            "qty": 15,
+            "unitPrice": 1555,
+            "lineTotal": 23325
+          }
+        ],
+        "subtotal": 165880,
+        "discount": {
+          "type": "FLAT",
+          "value": 1234,
+          "amount": 1234
+        },
+        "taxableValue": 164646,
+        "taxLines": [],
+        "roundOff": -46,
+        "total": 164600,
+        "payments": [
+          {
+            "mode": "CASH",
+            "amount": 41100
+          },
+          {
+            "mode": "UPI",
+            "amount": 41100
+          },
+          {
+            "mode": "CARD",
+            "amount": 41100
+          },
+          {
+            "mode": "WALLET",
+            "amount": 41300
+          }
+        ],
+        "cashTendered": null,
+        "status": "COMPLETED",
+        "cancel": null,
+        "returnedQty": {},
+        "soldQty": {
+          "p01": 1,
+          "p02": 2,
+          "p03": 3,
+          "p04": 4,
+          "p05": 5,
+          "p06": 6,
+          "p07": 7,
+          "p08": 8,
+          "p09": 9,
+          "p10": 10,
+          "p11": 11,
+          "p12": 12,
+          "p13": 13,
+          "p14": 14,
+          "p15": 15
+        },
+        "lastReturnId": null,
+        "servedBy": {
+          "uid": "sm-ptb",
+          "name": "SM"
+        },
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p01",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p01",
+        "name": "Product 1",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -1
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p02",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p02",
+        "name": "Product 2",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -2
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p03",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p03",
+        "name": "Product 3",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -3
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p04",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p04",
+        "name": "Product 4",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -4
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p05",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p05",
+        "name": "Product 5",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -5
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p06",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p06",
+        "name": "Product 6",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -6
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p07",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p07",
+        "name": "Product 7",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -7
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p08",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p08",
+        "name": "Product 8",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -8
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p09",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p09",
+        "name": "Product 9",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -9
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p10",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p10",
+        "name": "Product 10",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -10
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p11",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p11",
+        "name": "Product 11",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -11
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p12",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p12",
+        "name": "Product 12",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -12
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p13",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p13",
+        "name": "Product 13",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -13
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p14",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p14",
+        "name": "Product 14",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -14
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_p15",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "p15",
+        "name": "Product 15",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -15
+        },
+        "lastMovementId": "D01-000001",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/movements/D01-000001",
+      "kind": "create",
+      "data": {
+        "type": "SALE",
+        "lines": [
+          {
+            "itemKey": "FG_p01",
+            "delta": -1
+          },
+          {
+            "itemKey": "FG_p02",
+            "delta": -2
+          },
+          {
+            "itemKey": "FG_p03",
+            "delta": -3
+          },
+          {
+            "itemKey": "FG_p04",
+            "delta": -4
+          },
+          {
+            "itemKey": "FG_p05",
+            "delta": -5
+          },
+          {
+            "itemKey": "FG_p06",
+            "delta": -6
+          },
+          {
+            "itemKey": "FG_p07",
+            "delta": -7
+          },
+          {
+            "itemKey": "FG_p08",
+            "delta": -8
+          },
+          {
+            "itemKey": "FG_p09",
+            "delta": -9
+          },
+          {
+            "itemKey": "FG_p10",
+            "delta": -10
+          },
+          {
+            "itemKey": "FG_p11",
+            "delta": -11
+          },
+          {
+            "itemKey": "FG_p12",
+            "delta": -12
+          },
+          {
+            "itemKey": "FG_p13",
+            "delta": -13
+          },
+          {
+            "itemKey": "FG_p14",
+            "delta": -14
+          },
+          {
+            "itemKey": "FG_p15",
+            "delta": -15
+          }
+        ],
+        "reason": null,
+        "note": null,
+        "refId": "D01-000001",
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "deviceId": "D01",
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/dailySummary/2026-09-26",
+      "kind": "setMerge",
+      "data": {
+        "billCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "grossSales": {
+          "__op": "increment",
+          "by": 165880
+        },
+        "discounts": {
+          "__op": "increment",
+          "by": 1234
+        },
+        "roundOff": {
+          "__op": "increment",
+          "by": -46
+        },
+        "netSales": {
+          "__op": "increment",
+          "by": 164600
+        },
+        "byMode": {
+          "CASH": {
+            "__op": "increment",
+            "by": 41100
+          },
+          "UPI": {
+            "__op": "increment",
+            "by": 41100
+          },
+          "CARD": {
+            "__op": "increment",
+            "by": 41100
+          },
+          "WALLET": {
+            "__op": "increment",
+            "by": 41300
+          }
+        },
+        "byProduct": {
+          "p01": {
+            "qty": {
+              "__op": "increment",
+              "by": 1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 1029
+            }
+          },
+          "p02": {
+            "qty": {
+              "__op": "increment",
+              "by": 2
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 2132
+            }
+          },
+          "p03": {
+            "qty": {
+              "__op": "increment",
+              "by": 3
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 3308
+            }
+          },
+          "p04": {
+            "qty": {
+              "__op": "increment",
+              "by": 4
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 4558
+            }
+          },
+          "p05": {
+            "qty": {
+              "__op": "increment",
+              "by": 5
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 5881
+            }
+          },
+          "p06": {
+            "qty": {
+              "__op": "increment",
+              "by": 6
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 7277
+            }
+          },
+          "p07": {
+            "qty": {
+              "__op": "increment",
+              "by": 7
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 8747
+            }
+          },
+          "p08": {
+            "qty": {
+              "__op": "increment",
+              "by": 8
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 10291
+            }
+          },
+          "p09": {
+            "qty": {
+              "__op": "increment",
+              "by": 9
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 11908
+            }
+          },
+          "p10": {
+            "qty": {
+              "__op": "increment",
+              "by": 10
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 13598
+            }
+          },
+          "p11": {
+            "qty": {
+              "__op": "increment",
+              "by": 11
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 15362
+            }
+          },
+          "p12": {
+            "qty": {
+              "__op": "increment",
+              "by": 12
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 17199
+            }
+          },
+          "p13": {
+            "qty": {
+              "__op": "increment",
+              "by": 13
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 19110
+            }
+          },
+          "p14": {
+            "qty": {
+              "__op": "increment",
+              "by": 14
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 21094
+            }
+          },
+          "p15": {
+            "qty": {
+              "__op": "increment",
+              "by": 15
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 23152
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/bills/D01-000001"
+      }
+    },
+    {
+      "path": "locations/PTB/monthlySummary/2026-09",
+      "kind": "setMerge",
+      "data": {
+        "billCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "grossSales": {
+          "__op": "increment",
+          "by": 165880
+        },
+        "discounts": {
+          "__op": "increment",
+          "by": 1234
+        },
+        "roundOff": {
+          "__op": "increment",
+          "by": -46
+        },
+        "netSales": {
+          "__op": "increment",
+          "by": 164600
+        },
+        "byMode": {
+          "CASH": {
+            "__op": "increment",
+            "by": 41100
+          },
+          "UPI": {
+            "__op": "increment",
+            "by": 41100
+          },
+          "CARD": {
+            "__op": "increment",
+            "by": 41100
+          },
+          "WALLET": {
+            "__op": "increment",
+            "by": 41300
+          }
+        },
+        "byProduct": {
+          "p01": {
+            "qty": {
+              "__op": "increment",
+              "by": 1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 1029
+            }
+          },
+          "p02": {
+            "qty": {
+              "__op": "increment",
+              "by": 2
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 2132
+            }
+          },
+          "p03": {
+            "qty": {
+              "__op": "increment",
+              "by": 3
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 3308
+            }
+          },
+          "p04": {
+            "qty": {
+              "__op": "increment",
+              "by": 4
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 4558
+            }
+          },
+          "p05": {
+            "qty": {
+              "__op": "increment",
+              "by": 5
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 5881
+            }
+          },
+          "p06": {
+            "qty": {
+              "__op": "increment",
+              "by": 6
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 7277
+            }
+          },
+          "p07": {
+            "qty": {
+              "__op": "increment",
+              "by": 7
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 8747
+            }
+          },
+          "p08": {
+            "qty": {
+              "__op": "increment",
+              "by": 8
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 10291
+            }
+          },
+          "p09": {
+            "qty": {
+              "__op": "increment",
+              "by": 9
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 11908
+            }
+          },
+          "p10": {
+            "qty": {
+              "__op": "increment",
+              "by": 10
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 13598
+            }
+          },
+          "p11": {
+            "qty": {
+              "__op": "increment",
+              "by": 11
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 15362
+            }
+          },
+          "p12": {
+            "qty": {
+              "__op": "increment",
+              "by": 12
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 17199
+            }
+          },
+          "p13": {
+            "qty": {
+              "__op": "increment",
+              "by": 13
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 19110
+            }
+          },
+          "p14": {
+            "qty": {
+              "__op": "increment",
+              "by": 14
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 21094
+            }
+          },
+          "p15": {
+            "qty": {
+              "__op": "increment",
+              "by": 15
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 23152
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/bills/D01-000001"
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D01",
+      "kind": "update",
+      "data": {
+        "lastBillSeq": 1
+      }
+    }
+  ]
+}

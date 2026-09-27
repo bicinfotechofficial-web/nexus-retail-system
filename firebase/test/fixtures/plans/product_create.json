@@ -1,0 +1,30 @@
+{
+  "description": "Admin creates a priced, active product",
+  "uid": "admin",
+  "arrange": [],
+  "ops": [
+    {
+      "path": "products/bf1kg",
+      "kind": "create",
+      "data": {
+        "name": "Black Forest 1 kg",
+        "category": "Cakes",
+        "price": 60000,
+        "proposedPrice": null,
+        "unit": "PCS",
+        "gstRate": null,
+        "scope": "GLOBAL",
+        "status": "ACTIVE",
+        "recipe": null,
+        "sortOrder": 3,
+        "createdBy": "admin",
+        "createdAt": {
+          "__op": "serverTimestamp"
+        },
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

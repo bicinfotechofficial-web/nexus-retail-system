@@ -1,0 +1,30 @@
+{
+  "description": "Registration at PTB: nextDeviceNo 0 -> 1 and a clean devices/D01",
+  "uid": "sm-ptb",
+  "arrange": [],
+  "ops": [
+    {
+      "path": "locations/PTB",
+      "kind": "update",
+      "data": {
+        "nextDeviceNo": 1
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D01",
+      "kind": "create",
+      "data": {
+        "code": "D01",
+        "label": "Counter 1",
+        "registeredBy": "sm-ptb",
+        "lastBillSeq": 0,
+        "lastMovementSeq": 0,
+        "lastReturnSeq": 0,
+        "retired": false,
+        "registeredAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}
