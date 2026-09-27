@@ -2,7 +2,7 @@
 
 Every acceptance item in `docs/01-MVP-SCOPE.md`, every rule in `docs/03-SYNC-AND-OFFLINE.md` and every security-rule behaviour in `docs/04-PERMISSIONS.md` #1–13 maps to at least one numbered scenario below. Scenarios are written from the contracts (`docs/`, `packages/core`, `packages/data/lib/src/api/`), not from any implementation. Where a contract is unclear or wrong, the scenario names the finding in `docs/QA-FINDINGS.md` that has to be settled before its expected result is final.
 
-Revision 3 follows the central outcomes for QA-001 to QA-031 (D-016, D-028 to D-031, CR-001's 15-line cap in D-030, `prevReturnId` in D-029, and the revised 02, 03 and 04). Findings still open are named where they apply.
+Revision 3 follows the central outcomes for QA-001 to QA-031 (D-016, D-028 to D-031, CR-001's 15-line cap in D-030, `prevReturnId` in D-029, and the revised 02, 03 and 04). Findings still open are named where they apply. Revision 4 points each Device scenario that has a test at its file in `apps/pos/integration_test/` (see its README for the run command); those tests are written and skipped until the backend's Firestore implementations (BE-10 to BE-12) are merged.
 
 ## Layers
 | Layer | Where it runs | What it can reach |
@@ -30,11 +30,13 @@ Status: **Written** (in this package and green), **Ready** (can be written now),
 - Setup: F-1..F-3. Devices A (`D01`) and B (`D02`) at PTB, both signed in as `uid-sm-ptb` and synced.
 - Steps: both go offline. A creates 20 bills, B creates 20 bills, overlapping products, including discounts and split payments. Both go online; run `SyncService.syncNow()` on each.
 - Expected: 40 bill docs on the server with 40 distinct IDs and `billNo`s; each device's `seq` runs 1..20 with no reuse; every stock doc equals the stock oracle; `devices/D01.lastBillSeq == devices/D02.lastBillSeq == 20`; the day's summary equals the summary oracle; both devices' `SyncService.errors` are empty and their ledgers are empty.
+- Test: `apps/pos/integration_test/qa2_offline_billing_test.dart` (A1-1). Skipped until BE-10/11/12 (`support/backend.dart`).
 
 **A1-2 Both sell the last piece.** Layer: Device. Waits: BE-10, BE-12.
 - Setup: FG item X with qty 1 at PTB. A and B offline.
 - Steps: A sells 1 × X, B sells 1 × X, both sync.
 - Expected: both bills accepted (the sale is never blocked, 03-SYNC §5), `stock/FG_X.qty == -1`, X appears in `StockRepository.watchLowStock` if its threshold is ≥ −1.
+- Test: `apps/pos/integration_test/qa2_offline_billing_test.dart` (A1-2). Skipped until BE-10/11/12 (`support/backend.dart`).
 
 **A1-3 Device registration and `nextDeviceNo`.** Layer: Device, with the denials in Rules (R-4). Waits: BE-2, BE-9.
 - Steps: (a) at a new location (`nextDeviceNo == 0`) register one install; (b) two fresh installs at PTB call `DeviceService.register` at the same time; (c) an Admin saves the PTB location (`LocationService.save`) with a `Location` whose `nextDeviceNo` is stale, while (b) runs.
@@ -56,6 +58,7 @@ Status: **Written** (in this package and green), **Ready** (can be written now),
 **A1-7 Two offline returns past the sold qty (D-029).** Layer: Device (and Dart, Written). Waits: BE-10, BE-12.
 - Steps: bill X has 2 × item P. Offline, A returns 2 × P and B returns 1 × P; both sync.
 - Expected: the first to sync lands; the second is rejected because `returnedQty[P]` would exceed `soldQty[P]`; X is refunded exactly its P value once.
+- Test: `apps/pos/integration_test/qa4_denied_paths_test.dart` (A1-7). Skipped until BE-10/11/12 (`support/backend.dart`).
 
 **A1-8 Two offline returns within the sold qty (D-029, QA-024).** Layer: Device (and Dart, Written: `concurrent_returns_test.dart` and P-01's stale-return conflicts). Waits: BE-4, BE-10, BE-12.
 - Steps: bill X is 3 × ₹1.67 = ₹5. Offline, A and B each return 1 unit (both with `prevReturnId` null); A syncs, then B; B's SM redoes the return from the refreshed bill; then the last unit is returned online.
@@ -69,14 +72,17 @@ Status: **Written** (in this package and green), **Ready** (can be written now),
 **A2-2 Kill after the local commit, before sync.** Layer: Device. Waits: BE-10, BE-12.
 - Steps: offline, create a bill; drop the app instance; reopen (still offline) and check the bills list; go online and sync.
 - Expected: the bill is in `SalesRepository.watchBills` before sync; after sync exactly one bill doc, one SALE movement, one stock deduction per line, summary counted once.
+- Test: `apps/pos/integration_test/qa3_kill_and_retry_test.dart` (A2-2). Skipped until BE-10/11/12 (`support/backend.dart`).
 
 **A2-3 Reboot with a queue.** Layer: Device; Manual on the pilot phone. Waits: BE-10, BE-12.
 - Steps: offline, create 10 bills, 1 cancel and 2 returns; restart the process (and, in QA-8, reboot the phone); go online.
 - Expected: all 13 operations land exactly once; stock oracle and summary oracle hold; ledger empty.
+- Test: `apps/pos/integration_test/qa3_kill_and_retry_test.dart` (A2-3); the phone reboot stays in the QA-8 checklist. Skipped until BE-10/11/12 (`support/backend.dart`).
 
 **A2-4 The same batch submitted twice.** Layer: Rules (fixture replay) and Device. Waits: BE-3, BE-5, BE-10.
 - Steps: apply the bill `WritePlan` fixture; apply it again unchanged. Repeat for a return plan and a stock-movement plan.
 - Expected: the second application is denied as a whole: no second stock decrement, no second summary increment (03-SYNC §4, 04 #7, #9).
+- Test (Device): `apps/pos/integration_test/qa3_kill_and_retry_test.dart` (A2-4), for a bill, cancel, return, stock in and adjust plan, each re-applied offline (with and without a restart before sync) and again online after the first copy is confirmed, through `TestDevice.reapplyLastPlan`. The ledger finds the first copy on the server, so no sync error is expected. Skipped until BE-10/11/12 (`support/backend.dart`). The Rules half waits for the D-027 fixtures.
 
 **A2-5 Double tap on Save.** Layer: POS widget test (POS-5), confirmed on Device. Waits: POS-5.
 - Expected: `SalesService.createBill` is called once; one bill.
@@ -96,7 +102,8 @@ Status: **Written** (in this package and green), **Ready** (can be written now),
 - A PTB bill batch that also increments `locations/MNJ/dailySummary/{d}` → the whole batch is denied, and PTB is unchanged.
 
 **A3-4 Through the SDK.** Layer: Device. Waits: BE-11.
-- Signed in as SM @ PTB, `SalesRepository.getBill('MNJ', …)`, `findByBillNo('MNJ-…')`, `StockRepository.watchStock('MNJ')` and `SummaryRepository.daily('MNJ', …)` all fail with `DataFailure(notPermitted)` and return no data.
+- Signed in as SM @ PTB, `SalesRepository.getBill('MNJ', …)`, `findByBillNo('MNJ-…')`, `StockRepository.watchStock('MNJ')` and `SummaryRepository.daily('MNJ', …)` all fail with `DataFailure(notPermitted)` and return no data. The device's own bill leaves MNJ as seeded.
+- Test: `apps/pos/integration_test/qa4_denied_paths_test.dart` (A3-4). Skipped until BE-10/11/12 (`support/backend.dart`).
 
 ### Acceptance #4 — the printed receipt matches the saved bill (QA-8, printer suites)
 **A4-1 Normal bill.** Layer: Device (the printer package is Flutter, so not Dart). Waits: PR-2, PR-5, BE-10.
@@ -113,7 +120,7 @@ Status: **Written** (in this package and green), **Ready** (can be written now),
 
 **A4-6 Paper.** Layer: Manual (QA-8, steps 3.2 and 4.8). The printed slip matches the on-screen preview for A4-1..A4-4 line for line, with no extra line feeds or stray characters mid-slip (QA-032), and the ₹ glyph or the `Rs.` fallback prints.
 
-**A4-7 Transport bytes.** Layer: printer package test with a mock `MethodChannel`. The bytes the plugin channel receives for one job equal `EscPosEncoder.encode` output, as a plain list, with at most one leading line feed per job (QA-032). Waits: the printer agent's fix.
+**A4-7 Transport bytes.** Layer: printer package test with a mock `MethodChannel`. The bytes the plugin channel receives for one job equal `EscPosEncoder.encode` output, as a plain list, with at most one leading line feed per job (QA-032). Written by the printer agent: `packages/printer/test/thermal_plugin_transport_test.dart` (one `writebytes` per job, a plain list, the socket gets exactly one LF then the job).
 
 ### Acceptance #5 — the admin's daily totals equal the bills and returns of that day (QA-5)
 **P-01 Summary-equals-documents property, core.** Layer: Dart. **Written** (`test/summary_reconciliation_test.dart`).
@@ -135,7 +142,7 @@ Status: **Written** (in this package and green), **Ready** (can be written now),
 - Expected: each `monthlySummary.expenses` and `byExpenseCategory` equals Σ expenses with that location and month; `profit == netRevenue − expenses`.
 
 **P-05 The headline "Sales" is net revenue (QA-013, QA-028).** Layer: Admin widget tests (AD-2, AD-8), reviewed under QA-7; Device with BE-11. Status: widget tests written by the admin agent (`apps/admin/test/dashboard_test.dart`, `reports_test.dart`).
-- Expected: the dashboard's first KPI is "Sales" = `netRevenue` (`netSales − returns − cancelled`), with "Billed" (`netSales`) after it; the reports headline "Sales" is `netRevenue`, with returns and cancellations as their own lines. After a ₹500 bill is cancelled, "Sales" drops by ₹500 and "Billed" doesn't change. Reports for a period include a location deactivated since (QA-031, open).
+- Expected: the dashboard's first KPI is "Sales" = `netRevenue` (`netSales − returns − cancelled`), with "Billed" (`netSales`) after it; the reports headline "Sales" is `netRevenue`, with returns and cancellations as their own lines. After a ₹500 bill is cancelled, "Sales" drops by ₹500 and "Billed" doesn't change. Reports for a period include a location deactivated since (QA-031, `apps/admin/test/reports_test.dart`).
 
 ### Acceptance #6 — at the offline limit billing is blocked, and an Admin PIN allows billing for the next 2 hours
 All with a fake clock. Layer: Device (the `OfflineGuard` lives in `nexus_data`) plus BE-13's unit tests. Waits: BE-12, BE-13, POS-12. `lastSyncAt` is the end of the last pass in which `waitForPendingWrites` finished and every ledger entry was resolved (03-SYNC §6.4); it is first set at sign-in or registration.
@@ -189,6 +196,7 @@ All with a fake clock. Layer: Device (the `OfflineGuard` lives in `nexus_data`) 
 **S5-4 Concurrent PRODUCE, SALE, ADJUST (QA-6).** Layer: Device. Waits: BE-10.
 - Steps: A produces (−RM, +FG), B sells FG, A adjusts RM, all offline, then sync in either order.
 - Expected: every item equals the stock oracle; no increment lost.
+- Test: `apps/pos/integration_test/qa6_concurrent_stock_test.dart` (S5-4, both sync orders). It also has each device adjust against its own stale view (S5-2's arithmetic): A's flour count records −500 from its local 8000, B's cake count records −1 from its local 7, and the final quantities are opening + every delta. Skipped until BE-10/11/12 (`support/backend.dart`).
 **S5-5 First use of an item at a location.** Layer: Device and Rules. Waits: BE-10.
 - Steps: a product approved today, with no stock doc at PTB, is sold offline on A while B (also offline, with no cached stock doc for it) sells it too; then a PRODUCE of it. Also a first-ever RETURN of an item with no stock doc.
 - Expected: both bills accepted; the first `set(merge)` with `increment(−1)` creates the doc at −1, and the second makes it −2; after the PRODUCE, qty = produced − 2; no batch writes a literal `qty`, so it is never reset to 0.
@@ -197,7 +205,7 @@ All with a fake clock. Layer: Device (the `OfflineGuard` lives in `nexus_data`) 
 - Expected: all three batches accepted (rule #8 lets `name` change on any stock write; `kind`, `refId` and `unit` stay create-only), and the stock doc's `name` is whatever the last write carried (02-DATA-MODEL "refreshed on every write").
 
 **S6-1 Ledger (§6).** Every bill, return and movement written goes into the ledger and is removed after a server read confirms it. Waits: BE-12.
-**S6-2 Rejected write becomes a sync error.** Queue a bill as `uid-sm-off` (disabled while offline) → after sync, `SyncService.errors` lists its path; nothing of its batch is on the server; `lastSyncAt` still moves (A6-8 b). Waits: BE-12.
+**S6-2 Rejected write becomes a sync error.** Queue a bill as `uid-sm-off` (disabled while offline) → after sync, `SyncService.errors` lists its path; nothing of its batch is on the server; `lastSyncAt` still moves (A6-8 b). Waits: BE-12. Test: with S8-2.
 **S6-3 Status chip.** `SyncService.status` emits `Offline(since)` when the network drops, `Syncing(n)` with the ledger count while flushing, `Online` after. Waits: BE-12.
 **S6-4 `lastSeenAt` throttling.** Several passes within 5 minutes update `devices/{id}.lastSeenAt` at most once; the update is allowed for any active user at the location (R-4d). Waits: BE-12.
 **S6-5 Pass triggers.** A pass runs on reconnect, on app resume, and every 2 minutes online (fake clock). Waits: BE-12.
@@ -206,6 +214,7 @@ All with a fake clock. Layer: Device (the `OfflineGuard` lives in `nexus_data`) 
 
 **S8-1 Offline session (§8).** Sign in online, go offline, restart: session, user, role, location, active products and raw materials are available from cache; billing works. Waits: BE-11, POS-2.
 **S8-2 Disabled while offline.** An Admin disables `uid-sm-ptb` while device A is offline with queued bills, a cancel and a return → on sync every queued batch is rejected and shows as a sync error; stock and summaries show none of them. `signIn` for that user now throws `DataFailure(userDisabled)` (it can still read its own user doc, R-1). Waits: BE-2, BE-12.
+- Test: `apps/pos/integration_test/qa4_denied_paths_test.dart` (S8-2, covering S6-2 and A6-8 b): two bills, a cancel, a return and a STOCK_IN queued offline; the user is disabled; after sync each queued path is in `SyncService.errors`, the server shows none of them, and `lastSyncAt` moved. The `signIn` check is not automated yet. Skipped until BE-10/11/12 (`support/backend.dart`).
 **S8-3 First sign-in needs the network.** `signIn` offline on a fresh install → `DataFailure(offline)`. Waits: POS-2.
 
 **S9-1 Admin web reads summaries only (§9, D-014).** Review of AD-2 / AD-8 (QA-7): reports use `SummaryRepository`, never bill queries. Layer: review.
@@ -226,10 +235,10 @@ All Rules layer, on F-1, with one allow and one deny test per line as a minimum.
 | R-5b | Bill cancel | COMPLETED→CANCELLED with `bill.cancel`, `cancel.businessDate == businessDate`, `cancel.by == auth.uid`, empty `returnedQty`, and the CANCEL movement and `auditLog/{loc}-{billId}-X` in the batch | a different `cancel.businessDate`; another user as `cancel.by`; CANCELLED→COMPLETED; a cancel that also changes `total`, `lines` or `payments`; a cancel of a bill with any `returnedQty` (D-025, D-029); a cancel without its movement or audit doc | BE-3 |
 | R-5c | `returnedQty` | increments with `return.create`, `lastReturnId` naming a return created in the same batch whose `prevReturnId` equals the bill's current `lastReturnId` (null and null for the first) | a decrement; an increment without a new return doc; a `lastReturnId` naming an existing return; a new return whose `prevReturnId` is stale (null on a bill that already has a return, or an older return's ID; D-029, QA-024); any increment on a CANCELLED bill (D-029); any value above `soldQty` (D-029); a key not in `soldQty`; a change to `soldQty` | BE-3, BE-4 |
 | R-6 | Bill validation | a valid bill with 1, 2, 3 and 4 payments, and with 1 and 15 lines | `total % 100 != 0`; 5 payments; Σ payments ≠ total for each of 1–4 entries; 16 lines (D-030, CR-001); a `soldQty` missing a line, with an extra key or a wrong qty; two lines for one product, including with a made-up extra `soldQty` key so the sizes match (QA-033, unless D-024 (e) is recorded as client-enforced); a non-empty `returnedQty`; status CANCELLED on create; `billNo != loc-billId`; `createdBy != auth.uid` | BE-3 |
-| R-7 | Returns and movements | create at own location with the matching permission when the path is new; a return with 1–4 refunds summing to a whole-rupee `refundTotal` | a second create on the same path; update; delete; without `return.create` (returns and RETURN movements) / `stock.move` / `stock.adjust`; `createdBy != auth.uid`; 16 lines on a return, 21 on a movement; a return with 5 refunds, Σ refunds ≠ `refundTotal`, a non-whole `refundTotal`, or `billNo != loc-billId` | BE-4 |
+| R-7 | Returns and movements | create at own location with the matching permission when the path is new; a return with 1–4 refunds summing to a whole-rupee `refundTotal` | a second create on the same path; update; delete; without `return.create` (returns and RETURN movements) / `stock.move` / `stock.adjust`; `createdBy != auth.uid`; 16 lines on a return, 21 on a movement; a return with 5 refunds, Σ refunds ≠ `refundTotal`, a non-whole `refundTotal`, or `billNo != loc-billId`; a SALE, RETURN or CANCEL movement without its new bill, return or cancellation in the batch (QA-038); a `refundTotal` above the bill's total (QA-040, if accepted) | BE-4 |
 | R-8 | `stock/{itemKey}` | `set(merge)` with `qty: increment(delta)` creating or updating the doc, with `lastMovementId` naming a movement that did not exist before the batch and does after; a new `name` on an existing doc (QA-023); `lowThreshold` change with `stock.threshold` | a qty change with no movement; a qty change naming an old movement (`!exists` fails); a change to `kind`, `refId` or `unit` after create; `lowThreshold` without `stock.threshold`; any other field | BE-4 |
-| R-9 | Summaries | increments whose `lastWriteRef` is a doc created in the same batch | no `lastWriteRef`; a `lastWriteRef` to a doc that already existed; a `lastWriteRef` to a doc not written in the batch | BE-5 |
-| R-10 | `auditLog` | create with `by == auth.uid` at `{loc}-{entityId}`; Admin reads | update or delete; `by` of another user; SM reads; an ADJUST, WASTAGE_*, cancel or return batch without `auditLog/{loc}-{same id}`; the same batch naming the unprefixed ID | BE-5 |
+| R-9 | Summaries | increments whose `lastWriteRef` is a doc created in the same batch | no `lastWriteRef`; a `lastWriteRef` to a doc that already existed; a `lastWriteRef` to a doc not written in the batch; a `lastWriteRef` to a new movement that isn't a CANCEL (QA-039) | BE-5 |
+| R-10 | `auditLog` | create with `by == auth.uid` at `{loc}-{entityId}`; Admin reads | update or delete; `by` of another user; SM reads; an ADJUST, WASTAGE_*, cancel or return batch without `auditLog/{loc}-{same id}`; the same batch naming the unprefixed ID; an SM at PTB creating `MNJ-…` (or any location-prefixed ID) with `locationId: null` (QA-037); a global action whose ID doesn't have its prefix (QA-041) | BE-5 |
 | R-11 | `products` | any `catalog.view` reads; SM creates PENDING with `scope == PTB`; Admin creates, prices, approves | SM creates PENDING scoped to MNJ or GLOBAL; SM creates ACTIVE; SM changes a price or status | BE-5 |
 | R-12 | `expenses` | Admin creates, edits, reads | SM reads or writes | BE-5 |
 | R-13 | Cross-location | — | A3-1, A3-2, A3-3 | BE-6 |
@@ -248,10 +257,10 @@ Mostly covered by the core unit tests (C-3) and by P-01; the rows here are what 
 | M-3 | D-024 (c), (d) | Per-line nets add up to the net; cumulative refunds equal the rounded value returned and never exceed the total | Dart | Written (P-01) |
 | M-4 | D-012 | A return of a September bill processed in October counts in October only | Dart; Device (P-02) | Written (P-01) |
 | M-5 | D-009, D-025, D-029 | Cancel after a return is refused by `cancelBlocker` (Dart) and by rule #5(a) (Rules); cancel vs return offline is A1-6; two devices cancelling the same bill offline: one succeeds, the other becomes a sync error. Next-day cancel is client-only (C-2) | Dart, Rules, Device | P-01 and A1-6 Dart written; rest waits BE-3, BE-12 |
-| M-6 | Over-return | Refused by `ReturnCalculator` (Dart); A1-7 on the server (`soldQty`, D-029); A1-8 on the server (`prevReturnId`, D-029) | Dart, Device | Dart written (P-01, `concurrent_returns_test.dart`); Device waits BE-10, BE-12 |
+| M-6 | Over-return | Refused by `ReturnCalculator` (Dart), and by `SalesService.createReturn` on the device before anything is written; A1-7 on the server (`soldQty`, D-029); A1-8 on the server (`prevReturnId`, D-029) | Dart, Device | Dart written (P-01, `concurrent_returns_test.dart`); Device written, skipped until BE-10/11/12: `apps/pos/integration_test/qa4_denied_paths_test.dart` (M-6 and A1-7) |
 | M-7 | D-008 | Client-only (D-031): see C-1 | Device | Waits BE-10, BE-11 |
 | M-8 | D-013 | `taxLines` is empty on every bill; no GST block on any receipt | Dart (P-01), Device (A4) | Partly written |
-| M-9 | D-030 list limits | `BillCalculator.compute` refuses 16 lines (`BillError.tooManyLines`, `Limits.maxBillLines`); `checkPayments` refuses 5 payments; `checkRefunds` refuses 5 refunds (`RefundError.tooManyRefunds`); the stock service refuses a 21-line movement; the POS cart stops at 15 items with the `tooManyLines` message and a working Charge button (QA-027) | Dart (P-01 for bills), Device, POS widget test | Bills written; rest waits BE-10, POS |
+| M-9 | D-030 list limits | `BillCalculator.compute` refuses 16 lines (`BillError.tooManyLines`, `Limits.maxBillLines`); `checkPayments` refuses 5 payments; `checkRefunds` refuses 5 refunds (`RefundError.tooManyRefunds`); the stock service refuses a 21-line movement; the POS cart stops at 15 items with the `tooManyLines` message and a working Charge button (QA-027) | Dart (P-01 for bills), Device, POS widget test | Bills written; POS cart written (`apps/pos/test/billing_screen_test.dart`, QA-027); the stock service's 21-line refusal waits BE-10 |
 
 ## C. Client-enforced rules (D-031)
 The rules can't check these, so each is proven on the device, and the Rules layer proves only what the server does check.
@@ -259,7 +268,7 @@ The rules can't check these, so each is proven on the device, and the Rules laye
 | # | Rule | Scenario | Layer | Waits |
 |---|---|---|---|---|
 | C-1 | D-008 unsellable products | A PENDING or INACTIVE product is not in `CatalogRepository.watchSellable`, and `SalesService.createBill` with it throws before writing. A bill written straight to Firestore with a PENDING product's ID is accepted by the rules (documented, not a failure) | Device; Rules (the accepted write) | BE-10, BE-11 |
-| C-2 | D-009 same-day cancel | On the device, `cancelBlocker(bill, today)` is `differentDay` for yesterday's bill and `SalesService.cancelBill` throws `DataFailure(ruleViolation)` without writing. In the rules, only `cancel.businessDate == businessDate` is checked (R-5b) | Dart (P-01 written); Device | BE-10 |
+| C-2 | D-009 same-day cancel | On the device, `cancelBlocker(bill, today)` is `differentDay` for yesterday's bill and `SalesService.cancelBill` throws `DataFailure(ruleViolation)` without writing, online and offline. In the rules, only `cancel.businessDate == businessDate` is checked (R-5b) | Dart (P-01 written); Device written, skipped until BE-10/11/12: `apps/pos/integration_test/qa4_denied_paths_test.dart` (C-2) | BE-10 |
 | C-3 | The device clock | Moving the clock back resets the offline timer; reports can flag bills whose `clientCreatedAt` and `serverCreatedAt` differ by more than the limit (03-SYNC §7). Recorded in the pilot checklist, not automated | Manual (QA-8) | — |
 | C-4 | Override PIN | A6-11 (8-digit minimum); the hash is readable at the location (R-4 allows the read), accepted for the pilot | Device, Rules | BE-11 |
 
