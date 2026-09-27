@@ -11,7 +11,7 @@
       }
     },
     {
-      "path": "auditLog/PTB-USER-sm-ptb-1790397000000",
+      "path": "auditLog/PTB-USR-sm-ptb-1790397000000",
       "kind": "create",
       "data": {
         "action": "USER_DISABLE",

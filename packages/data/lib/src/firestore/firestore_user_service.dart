@@ -50,13 +50,9 @@ final class FirestoreUserService implements UserService {
     return FirebaseAuth.instanceFor(app: app);
   }
 
-  /// The audit ID of a user event: `{loc}-USR-{uid}-{millis}` for a user
-  /// with a location (`Ids.auditId`, D-028), `USR-{uid}-{millis}` without.
-  /// 02-DATA-MODEL doesn't define one yet; proposed in CHANGE-REQUESTS.
-  static String userAuditId(String? locationId, String uid, DateTime at) {
-    final entity = 'USR-$uid-${at.millisecondsSinceEpoch}';
-    return locationId == null ? entity : Ids.auditId(locationId, entity);
-  }
+  /// The audit ID of a user event (D-032).
+  static String userAuditId(String? locationId, String uid, DateTime at) =>
+      Ids.userAuditId(locationId, uid, at);
 
   @override
   Future<AppUser> createStoreManager({

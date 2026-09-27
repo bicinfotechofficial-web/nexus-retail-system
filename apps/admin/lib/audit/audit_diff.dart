@@ -122,6 +122,7 @@ String auditActionLabel(AuditAction a) => switch (a) {
   AuditAction.productApprove => 'Product approved',
   AuditAction.userCreate => 'User created',
   AuditAction.userDisable => 'User disabled',
+  AuditAction.userEnable => 'User enabled',
   AuditAction.offlineOverride => 'Offline override',
   AuditAction.thresholdChange => 'Threshold change',
   AuditAction.locationUpdate => 'Location update',

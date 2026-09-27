@@ -122,30 +122,20 @@ final class StockQty {
   final int qty;
 }
 
-/// Audit IDs the contract doesn't define yet. D-028 fixes the ID of
-/// location-scoped entities (`Ids.auditId`), overrides and expenses; these
-/// four actions record events that can repeat on the same entity, so each
-/// carries the event time. Location-scoped ones start with `{loc}-`, which
-/// rule #10 requires. Proposed for `Ids` in docs/CHANGE-REQUESTS.md (DA-CR-1).
+/// Audit IDs for events that can repeat on one entity. Thin names over the
+/// builders in `Ids` (D-032), kept so the plan builders read clearly.
 abstract final class PlanAuditIds {
-  /// `PRICE-{productId}-{millis}`.
   static String priceChange(String productId, DateTime at) =>
-      'PRICE-$productId-${at.millisecondsSinceEpoch}';
+      Ids.priceChangeAuditId(productId, at);
 
-  /// `APPROVE-{productId}-{millis}`.
   static String productApprove(String productId, DateTime at) =>
-      'APPROVE-$productId-${at.millisecondsSinceEpoch}';
+      Ids.productApproveAuditId(productId, at);
 
-  /// `{loc}-USER-{uid}-{millis}`, or `USER-{uid}-{millis}` for a user with
-  /// no location.
-  static String userDisable(String uid, String? locationId, DateTime at) {
-    final id = 'USER-$uid-${at.millisecondsSinceEpoch}';
-    return locationId == null ? id : Ids.auditId(locationId, id);
-  }
+  static String userDisable(String uid, String? locationId, DateTime at) =>
+      Ids.userAuditId(locationId, uid, at);
 
-  /// `{loc}-LOC-{millis}`.
   static String locationUpdate(String locationId, DateTime at) =>
-      Ids.auditId(locationId, 'LOC-${at.millisecondsSinceEpoch}');
+      Ids.locationAuditId(locationId, at);
 }
 
 /// A model's map with each of its `serverTimestampFields` set to the

@@ -39,19 +39,31 @@ describe('#10 auditLog: create', () => {
 
   it('keeps Admin actions to their permissions', async () => {
     const product = { action: 'PRICE_CHANGE', entityPath: 'products/p1', locationId: null, deviceId: null };
-    await assertFails(create('smPtb', 'p1-1790000000000', product));
-    await assertSucceeds(create('admin', 'p1-1790000000000', product));
-    const user = { action: 'USER_DISABLE', entityPath: 'users/sm-ptb', locationId: null, deviceId: null };
-    await assertFails(create('smPtb', 'sm-ptb-1790000000000', user));
-    await assertSucceeds(create('admin', 'sm-ptb-1790000000000', user));
+    await assertFails(create('smPtb', 'PRICE-p1-1790000000000', product));
+    await assertSucceeds(create('admin', 'PRICE-p1-1790000000000', product));
+    await assertFails(create('admin', 'p1-1790000000000', product));
+    const user = { action: 'USER_DISABLE', entityPath: 'users/sm-ptb', locationId: 'PTB', deviceId: null };
+    await assertFails(create('smPtb', 'PTB-USR-sm-ptb-1790000000000', user));
+    await assertSucceeds(create('admin', 'PTB-USR-sm-ptb-1790000000000', user));
+    await assertFails(create('admin', 'USR-sm-ptb-1790000000001', user));
   });
 
-  it('ties EXP- IDs to expense actions and back', async () => {
-    const expense = { action: 'EXPENSE_CREATE', entityPath: 'expenses/e1', deviceId: null };
-    await assertSucceeds(create('admin', 'EXP-e1-1790000000000', expense));
-    await assertFails(create('smPtb', 'EXP-e2-1790000000000', expense));
-    await assertFails(create('admin', 'PTB-e1-1790000000000', expense));
-    await assertFails(create('admin', 'EXP-e1-1790000000001', { action: 'BILL_CANCEL', entityPath: 'x' }));
+  it('scopes expense audits to their location (D-032)', async () => {
+    const expense = { action: 'EXPENSE_CREATE', entityPath: 'expenses/e1', locationId: 'PTB', deviceId: null };
+    await assertSucceeds(create('admin', 'PTB-EXP-e1-1790000000000', expense));
+    await assertFails(create('smPtb', 'PTB-EXP-e2-1790000000000', expense));
+    await assertFails(create('admin', 'EXP-e1-1790000000001', expense));
+    await assertFails(create('admin', 'MNJ-EXP-e1-1790000000002', expense));
+  });
+
+  it('denies a location event with a null locationId, and one without its permission (QA-037)', async () => {
+    const cancel = { action: 'BILL_CANCEL', entityPath: 'locations/MNJ/bills/D01-000001', locationId: null, deviceId: null };
+    await assertFails(create('smPtb', 'MNJ-D01-000001-X', cancel));
+    const cancelMnj = { ...cancel, locationId: 'MNJ' };
+    await assertFails(create('smPtb', 'MNJ-D01-000001-X', cancelMnj));
+    const adjust = { action: 'STOCK_ADJUST', entityPath: 'locations/PTB/movements/D01-M000001', locationId: 'PTB', deviceId: 'D01' };
+    await assertFails(create('cashierPtb', 'PTB-D01-M000001', adjust));
+    await assertSucceeds(create('smPtb', 'PTB-D01-M000001', adjust));
   });
 
   it('denies a disabled user and an anonymous user', async () => {

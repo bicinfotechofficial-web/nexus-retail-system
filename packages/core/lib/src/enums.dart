@@ -132,6 +132,7 @@ enum AuditAction {
   productApprove('PRODUCT_APPROVE'),
   userCreate('USER_CREATE'),
   userDisable('USER_DISABLE'),
+  userEnable('USER_ENABLE'),
   offlineOverride('OFFLINE_OVERRIDE'),
   thresholdChange('THRESHOLD_CHANGE'),
   locationUpdate('LOCATION_UPDATE');

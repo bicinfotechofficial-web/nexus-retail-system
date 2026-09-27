@@ -53,7 +53,7 @@ abstract final class AdminPlans {
     );
     final path = FirestorePaths.expense(expenseId);
     final auditPath = FirestorePaths.audit(
-      Ids.expenseAuditId(expenseId, ctx.now),
+      Ids.expenseAuditId(input.locationId, expenseId, ctx.now),
     );
     final b = PlanBuilder();
     if (before == null) {

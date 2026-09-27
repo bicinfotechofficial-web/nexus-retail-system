@@ -53,7 +53,7 @@ Seed data: `ADMIN`, `STORE_MANAGER`. Only the seeding script writes these. There
 | name, address, phone | string | Printed on the receipt |
 | gstin | string \| null | Reserved |
 | offlineLimitHours | int | Default 5 |
-| overridePinHash | string | PBKDF2-SHA256, 100k iterations, `salt$hash` base64 |
+| overridePinHash | string | PBKDF2-HMAC-SHA256 over the PIN's UTF-8 bytes, 100k iterations, a random 16-byte salt and a 32-byte key, stored as `base64(salt)$base64(key)` (standard base64). The seed script and the app must match exactly |
 | overrideExtensionHours | int | Default 2 |
 | maxDiscountPct | int \| null | null = no cap |
 | receiptFooter | string | e.g. "Thank you! Visit caramelcottage.in" |
@@ -187,7 +187,20 @@ Net revenue for a period = `netSales − returns − cancelled`. Profit = that f
 When an expense is edited, `monthlySummary.expenses` is incremented by (new − old) in the same batch.
 
 ## auditLog/{auditId}
-`auditId` for a location-scoped event = `{loc}-{entityId}` (`Ids.auditId`), because device codes repeat across locations (D-028): `PTB-D01-000123-X` for a cancellation, `PTB-D01-R000007` for a return, `PTB-D01-M000042` for a wastage or adjust. An offline override is `{loc}-{deviceId}-OVR-{millis}` with `entityPath` = the device doc. An expense create or edit is `EXP-{id}-{millis}`.
+`auditId` comes from the builders in `Ids` (D-028, D-032):
+
+| Event | ID | `locationId` |
+|---|---|---|
+| Cancellation | `PTB-D01-000123-X` | the location |
+| Return | `PTB-D01-R000007` | the location |
+| Wastage, adjust | `PTB-D01-M000042` | the location |
+| Offline override | `PTB-D01-OVR-{millis}` (`entityPath` = the device doc) | the location |
+| Expense create or edit | `PTB-EXP-{expenseId}-{millis}` (the location after the edit) | the location |
+| Location create or edit | `PTB-LOC-{millis}` | the location |
+| User create, disable, enable | `PTB-USR-{uid}-{millis}`, or `USR-{uid}-{millis}` for a user with no location | the user's location, or null |
+| Price change, product approval | `PRICE-{productId}-{millis}`, `APPROVE-{productId}-{millis}` | null |
+
+`THRESHOLD_CHANGE` is reserved and not written in the MVP.
 | Field | Type |
 |---|---|
 | action | `STOCK_ADJUST`, `WASTAGE`, `BILL_CANCEL`, `RETURN`, `EXPENSE_CREATE`, `EXPENSE_UPDATE`, `PRICE_CHANGE`, `PRODUCT_APPROVE`, `USER_CREATE`, `USER_DISABLE`, `OFFLINE_OVERRIDE`, `THRESHOLD_CHANGE`, `LOCATION_UPDATE` |

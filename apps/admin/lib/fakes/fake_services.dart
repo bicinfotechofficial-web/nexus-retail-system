@@ -367,17 +367,15 @@ final class FakeUserService implements UserService {
         ),
       );
     }
-    if (!active) {
-      audit.add(
-        AuditAction.userDisable,
-        uid,
-        entityPath: FirestorePaths.user(uid),
-        locationId: user.locationId,
-        before: {'active': user.active},
-        after: {'active': false},
-        by: _uidOf(auth),
-      );
-    }
+    audit.add(
+      active ? AuditAction.userEnable : AuditAction.userDisable,
+      uid,
+      entityPath: FirestorePaths.user(uid),
+      locationId: user.locationId,
+      before: {'active': user.active},
+      after: {'active': active},
+      by: _uidOf(auth),
+    );
   }
 }
 

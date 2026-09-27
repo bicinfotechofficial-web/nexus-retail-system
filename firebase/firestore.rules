@@ -483,7 +483,8 @@ service cloud.firestore {
 
     // #9. Every summary write names, in lastWriteRef, the doc that caused
     // it: a bill, return or CANCEL movement at this location, or an expense
-    // audit doc. That doc must be new in this batch, which ties each
+    // audit doc (`{loc}-EXP-...`, D-032; an edit that moves an expense to
+    // another location ties both summaries to the one audit doc). That doc must be new in this batch, which ties each
     // increment to exactly one business event. The numbers themselves are
     // increments the rules can't see; QA-5 reconciles them.
     function validSummaryWrite(loc) {
@@ -492,7 +493,7 @@ service cloud.firestore {
         && incoming().keys().hasOnly(summaryKeys())
         && ref is string
         && (ref.matches('^locations/' + loc + '/(bills|returns|movements)/[A-Za-z0-9-]+$')
-          || ref.matches('^auditLog/EXP-[A-Za-z0-9_-]+$'))
+          || ref.matches('^auditLog/[A-Z]{2,4}-EXP-[A-Za-z0-9_-]+$'))
         && !exists(path('/databases/' + database + '/documents/' + ref))
         && existsAfter(path('/databases/' + database + '/documents/' + ref));
     }
@@ -503,36 +504,51 @@ service cloud.firestore {
       return ['action', 'entityPath', 'locationId', 'before', 'after', 'reason', 'by',
               'deviceId', 'clientAt', 'at'];
     }
-    // Actions only an Admin-style permission may record. The rest are
-    // recorded by whoever does the audited thing at the location.
+    // #10 (D-032). Every action needs its own permission, at the location
+    // for location-scoped events (QA-037).
     function auditPermission(action) {
-      return action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'expense.manage'
+      return action == 'STOCK_ADJUST' ? 'stock.adjust'
+        : action == 'WASTAGE' ? 'stock.move'
+        : action == 'BILL_CANCEL' ? 'bill.cancel'
+        : action == 'RETURN' ? 'return.create'
+        : action == 'OFFLINE_OVERRIDE' ? 'bill.create'
+        : action == 'THRESHOLD_CHANGE' ? 'stock.threshold'
+        : action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'expense.manage'
         : action in ['PRICE_CHANGE', 'PRODUCT_APPROVE'] ? 'catalog.manage'
-        : action in ['USER_CREATE', 'USER_DISABLE'] ? 'user.manage'
-        : action == 'LOCATION_UPDATE' ? 'location.manage'
-        : null;
+        : action in ['USER_CREATE', 'USER_DISABLE', 'USER_ENABLE'] ? 'user.manage'
+        : 'location.manage';
     }
 
-    // #10. Location-scoped IDs are {loc}-{entityId} (D-028); expense events
-    // are EXP-{expenseId}-{millis}.
+    // IDs (D-028, D-032): a location-scoped event is `{loc}-...` with
+    // locationId set; PRICE_CHANGE and PRODUCT_APPROVE are global
+    // (`PRICE-...`, `APPROVE-...`, locationId null); a user event is
+    // `{loc}-USR-...` for a user with a location, or `USR-...` without.
     function validNewAudit(auditId) {
       let a = incoming();
       let keys = auditKeys();
       let p = auditPermission(a.action);
-      let expense = auditId.matches('^EXP-[A-Za-z0-9_-]+$');
+      let global = a.action in ['PRICE_CHANGE', 'PRODUCT_APPROVE'];
+      let userEvent = a.action in ['USER_CREATE', 'USER_DISABLE', 'USER_ENABLE'];
+      let scoped = a.locationId is string && isLocationCode(a.locationId)
+        && canAt(p, a.locationId) && auditId.matches('^' + a.locationId + '-.+$');
       return a.keys().hasOnly(keys)
         && a.keys().size() == keys.size()
         && a.action in ['STOCK_ADJUST', 'WASTAGE', 'BILL_CANCEL', 'RETURN', 'EXPENSE_CREATE',
                         'EXPENSE_UPDATE', 'PRICE_CHANGE', 'PRODUCT_APPROVE', 'USER_CREATE',
-                        'USER_DISABLE', 'OFFLINE_OVERRIDE', 'THRESHOLD_CHANGE', 'LOCATION_UPDATE']
-        && (p == null ? active() : can(p))
+                        'USER_DISABLE', 'USER_ENABLE', 'OFFLINE_OVERRIDE', 'THRESHOLD_CHANGE',
+                        'LOCATION_UPDATE']
         && a.by == request.auth.uid
         && a.at == request.time
         && a.clientAt is timestamp
         && a.entityPath is string
-        && (a.locationId == null || (isLocationCode(a.locationId) && atLoc(a.locationId)))
-        && (expense == (a.action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE']))
-        && (expense || a.locationId == null || auditId.matches('^' + a.locationId + '-.+$'));
+        && (global
+              ? a.locationId == null && can(p)
+                && auditId.matches('^' + (a.action == 'PRICE_CHANGE' ? 'PRICE' : 'APPROVE') + '-.+$')
+            : userEvent
+              ? (a.locationId == null
+                  ? can(p) && auditId.matches('^USR-.+$')
+                  : scoped && auditId.matches('^' + a.locationId + '-USR-.+$'))
+            : scoped);
     }
 
     // ---- #11 products and raw materials ------------------------------------

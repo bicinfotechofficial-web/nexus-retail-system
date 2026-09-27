@@ -36,15 +36,15 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | BE-3 | Rules: `bills` create, validation, cancel, returnedQty (#5–6) | BE-2 | L | Tests include a duplicate create (denied), a next-day cancel (denied) and a bad payment sum (denied) | DONE |
 | BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | DONE |
 | BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | DONE |
-| BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | REVIEW |
-| BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Deploys to the emulator | REVIEW |
-| BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq`, `lastMovementSeq` and `lastReturnSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | TODO |
-| BE-9 | `DeviceRegistrationService`: a transaction on `nextDeviceNo` that creates the device doc | BE-8 | S | Emulator test: two concurrent registrations get D01 and D02 | TODO |
-| BE-10 | Batch builders: `createBill`, `cancelBill`, `createReturn`, `recordMovement` (IN, OUT, WASTAGE, PRODUCE), `adjustStock`, `upsertExpense`, `setThreshold`, `suggestProduct`, `approveProduct` | C-3, BE-8 | L | Emulator tests: every batch is accepted by the rules and every summary field is exact | TODO |
-| BE-11 | Read repositories: catalog, stock (with a low-stock stream), bills (paged by date), returns, summaries (day, month, year), audit (filtered), users, devices, expenses | C-3 | M | Emulator tests | REVIEW |
+| BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | DONE |
+| BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Passes the Firebase CLI's deploy validation and every indexed query runs under the rules on the emulator (the emulator doesn't read index files) | DONE |
+| BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq`, `lastMovementSeq` and `lastReturnSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | DONE |
+| BE-9 | `DeviceRegistrationService`: a transaction on `nextDeviceNo` that creates the device doc | BE-8 | S | Emulator test: two concurrent registrations get D01 and D02 | DONE |
+| BE-10 | Batch builders: `createBill`, `cancelBill`, `createReturn`, `recordMovement` (IN, OUT, WASTAGE, PRODUCE), `adjustStock`, `upsertExpense`, `setThreshold`, `suggestProduct`, `approveProduct` | C-3, BE-8 | L | Emulator tests: every batch is accepted by the rules and every summary field is exact | DONE |
+| BE-11 | Read repositories: catalog, stock (with a low-stock stream), bills (paged by date), returns, summaries (day, month, year), audit (filtered), users, devices, expenses | C-3 | M | Emulator tests | DONE |
 | BE-12 | `SyncService`: pending-write ledger, sync pass (03-SYNC §6), `lastSyncAt`, `lastSeenAt` throttling, a status stream (online / syncing n / offline since) | BE-10 | M | Tests with the emulator stopped and restarted | TODO |
 | BE-13 | `OfflineGuard`: warn and block state, PIN verification (PBKDF2), extension, queued `OFFLINE_OVERRIDE` audit doc | BE-12 | S | Unit tests with a fake clock | TODO |
-| BE-14 | Seed script: roles, one admin user, locations PTB and MNJ with PINs, 10 products, 5 raw materials | BE-5 | S | Running it twice changes nothing | REVIEW |
+| BE-14 | Seed script: roles, one admin user, locations PTB and MNJ with PINs, 10 products, 5 raw materials | BE-5 | S | Running it twice changes nothing | DONE |
 
 ## Printer — `packages/printer/`
 | ID | Task | Needs | Size | Done when | Status |
@@ -91,11 +91,11 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
 | QA-1 | Scenario test plan from 01-MVP-SCOPE acceptance and 03-SYNC, reviewed by the central agent | C-1 | S | `test/e2e/PLAN.md` | DONE |
-| QA-2 | Two devices billing offline at the same location (two emulator clients with the network disabled), then sync. Check: no duplicate IDs and exact stock | BE-10, BE-12 | M | Green | TODO |
-| QA-3 | Kill mid-batch and duplicate submit. Check: one bill and a single deduction | BE-10 | M | Green | TODO |
-| QA-4 | Denied paths: next-day cancel, over-return, cross-location, a disabled user's queued writes | BE-6, BE-10 | M | Green | TODO |
+| QA-2 | Two devices billing offline at the same location (two emulator clients with the network disabled), then sync. Check: no duplicate IDs and exact stock | BE-10, BE-12 | M | Green | WIP |
+| QA-3 | Kill mid-batch and duplicate submit. Check: one bill and a single deduction | BE-10 | M | Green | WIP |
+| QA-4 | Denied paths: next-day cancel, over-return, cross-location, a disabled user's queued writes | BE-6, BE-10 | M | Green | WIP |
 | QA-5 | Reconciliation: for random bills, returns and cancels, the summary equals the sum of the docs, for each day and month | BE-10 | M | Property test green | WIP |
-| QA-6 | Concurrent PRODUCE + SALE + ADJUST stock totals | BE-10 | S | Green | TODO |
+| QA-6 | Concurrent PRODUCE + SALE + ADJUST stock totals | BE-10 | S | Green | WIP |
 | QA-7 | Review every agent branch before merge, and log findings in `docs/QA-FINDINGS.md` | ongoing | — | No open P1 finding at merge | WIP |
 | QA-8 | Pilot checklist for B-6 (a device-side manual script) | Phase 2 | S | Checklist committed | DONE |
 

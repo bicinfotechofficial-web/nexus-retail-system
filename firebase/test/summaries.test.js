@@ -57,7 +57,7 @@ describe('#9 summaries in the complete batches', () => {
 
   it('accepts the complete expense batch: expense, monthly summary, audit', async () => {
     const db = t.db('admin');
-    const auditId = 'EXP-e1-1790000000000';
+    const auditId = 'PTB-EXP-e1-1790000000000';
     const b = writeBatch(db);
     b.set(doc(db, 'expenses/e1'), makeExpense());
     b.set(monthlyRef(db), summaryWrite(`auditLog/${auditId}`, { expenses: 1500000, byExpenseCategory: { RENT: 1500000 } }), { merge: true });

@@ -68,9 +68,36 @@ abstract final class Ids {
     DateTime at,
   ) => '${_loc(locationId)}-${_dev(deviceId)}-OVR-${at.millisecondsSinceEpoch}';
 
-  /// `EXP-{expenseId}-{millis}`: one audit doc per expense create or edit.
-  static String expenseAuditId(String expenseId, DateTime at) =>
-      'EXP-$expenseId-${at.millisecondsSinceEpoch}';
+  /// `PTB-EXP-{expenseId}-{millis}`: one audit doc per expense create or
+  /// edit (D-032).
+  static String expenseAuditId(
+    String locationId,
+    String expenseId,
+    DateTime at,
+  ) => auditId(
+    locationId,
+    'EXP-${_key(expenseId)}-${at.millisecondsSinceEpoch}',
+  );
+
+  /// `PTB-LOC-{millis}`: a location create or edit (D-032).
+  static String locationAuditId(String locationId, DateTime at) =>
+      auditId(locationId, 'LOC-${at.millisecondsSinceEpoch}');
+
+  /// A user create, disable or enable (D-032): `PTB-USR-{uid}-{millis}` for
+  /// a user with a location, `USR-{uid}-{millis}` for one without (Admin).
+  static String userAuditId(String? locationId, String uid, DateTime at) {
+    final entity = 'USR-$uid-${at.millisecondsSinceEpoch}';
+    return locationId == null ? entity : auditId(locationId, entity);
+  }
+
+  /// `PRICE-{productId}-{millis}`: a price change. Products are global, so
+  /// there is no location prefix (D-032).
+  static String priceChangeAuditId(String productId, DateTime at) =>
+      'PRICE-${_key(productId)}-${at.millisecondsSinceEpoch}';
+
+  /// `APPROVE-{productId}-{millis}`: a pending product approved (D-032).
+  static String productApproveAuditId(String productId, DateTime at) =>
+      'APPROVE-${_key(productId)}-${at.millisecondsSinceEpoch}';
 
   /// `RM_{materialId}`.
   static String rawItemKey(String materialId) => 'RM_${_key(materialId)}';

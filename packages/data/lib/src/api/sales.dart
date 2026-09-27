@@ -27,7 +27,8 @@ abstract interface class SalesService {
   /// the bill, stock, SALE movement, summaries and `lastBillSeq`.
   ///
   /// Throws the calculator's exceptions, or `DataFailure` with
-  /// billingBlocked, deviceNotRegistered or notPermitted. Call it once per
+  /// billingBlocked, deviceNotRegistered, notPermitted, or ruleViolation when
+  /// the payments don't pass `BillCalculator.checkPayments` (DA-CR-3). Call it once per
   /// Save tap; a second call is a second bill.
   Future<Bill> createBill(NewBill bill);
 

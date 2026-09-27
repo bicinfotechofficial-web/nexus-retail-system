@@ -51,7 +51,7 @@
             "by": -2500000
           }
         },
-        "lastWriteRef": "auditLog/EXP-e1-1790397300000"
+        "lastWriteRef": "auditLog/MNJ-EXP-e1-1790397300000"
       }
     },
     {
@@ -68,11 +68,11 @@
             "by": 300000
           }
         },
-        "lastWriteRef": "auditLog/EXP-e1-1790397300000"
+        "lastWriteRef": "auditLog/MNJ-EXP-e1-1790397300000"
       }
     },
     {
-      "path": "auditLog/EXP-e1-1790397300000",
+      "path": "auditLog/MNJ-EXP-e1-1790397300000",
       "kind": "create",
       "data": {
         "action": "EXPENSE_UPDATE",

@@ -37,7 +37,7 @@ void main() {
       date: '2026-09-01',
       note: ' September rent ',
     );
-    const auditPath = 'auditLog/EXP-e1-$_millis';
+    const auditPath = 'auditLog/PTB-EXP-e1-$_millis';
 
     test('create: expense, monthly summary naming the audit, audit', () {
       final p = AdminPlans.saveExpense(
@@ -143,17 +143,17 @@ void main() {
         'expenses/e1',
         'locations/PTB/monthlySummary/2026-09',
         'locations/MNJ/monthlySummary/2026-08',
-        auditPath,
+        'auditLog/MNJ-EXP-e1-$_millis',
       ]);
       expect(p.plan.opAt('locations/PTB/monthlySummary/2026-09')!.data, {
         'expenses': const Increment(-2500000),
         'byExpenseCategory': {'RENT': const Increment(-2500000)},
-        'lastWriteRef': auditPath,
+        'lastWriteRef': 'auditLog/MNJ-EXP-e1-$_millis',
       });
       expect(p.plan.opAt('locations/MNJ/monthlySummary/2026-08')!.data, {
         'expenses': const Increment(300000),
         'byExpenseCategory': {'UTILITIES': const Increment(300000)},
-        'lastWriteRef': auditPath,
+        'lastWriteRef': 'auditLog/MNJ-EXP-e1-$_millis',
       });
     });
 
@@ -557,33 +557,30 @@ void main() {
       createdBy: Fx.adminUid,
     );
 
-    test(
-      'disable: active false and USER_DISABLE {loc}-USER-{uid}-{millis}',
-      () {
-        final p = AdminPlans.setUserActive(
-          ctx: Fx.admin(),
-          user: sm,
-          active: false,
-        );
-        const audit = 'auditLog/PTB-USER-sm-ptb-$_millis';
-        expect(p.plan.paths, ['users/sm-ptb', audit]);
-        expect(p.plan.ops.first.kind, WriteKind.update);
-        expect(p.plan.ops.first.data, {'active': false});
-        expect(p.plan.opAt(audit)!.data, {
-          'action': 'USER_DISABLE',
-          'entityPath': 'users/sm-ptb',
-          'locationId': 'PTB',
-          'before': {'active': true},
-          'after': {'active': false},
-          'reason': null,
-          'by': Fx.adminUid,
-          'deviceId': null,
-          'clientAt': Fx.now,
-          'at': serverTimestamp,
-        });
-        expect(p.value.active, isFalse);
-      },
-    );
+    test('disable: active false and USER_DISABLE {loc}-USR-{uid}-{millis}', () {
+      final p = AdminPlans.setUserActive(
+        ctx: Fx.admin(),
+        user: sm,
+        active: false,
+      );
+      const audit = 'auditLog/PTB-USR-sm-ptb-$_millis';
+      expect(p.plan.paths, ['users/sm-ptb', audit]);
+      expect(p.plan.ops.first.kind, WriteKind.update);
+      expect(p.plan.ops.first.data, {'active': false});
+      expect(p.plan.opAt(audit)!.data, {
+        'action': 'USER_DISABLE',
+        'entityPath': 'users/sm-ptb',
+        'locationId': 'PTB',
+        'before': {'active': true},
+        'after': {'active': false},
+        'reason': null,
+        'by': Fx.adminUid,
+        'deviceId': null,
+        'clientAt': Fx.now,
+        'at': serverTimestamp,
+      });
+      expect(p.value.active, isFalse);
+    });
 
     test('enable: no audit; nobody changes their own flag', () {
       final p = AdminPlans.setUserActive(
@@ -600,7 +597,7 @@ void main() {
         ),
         _violation(),
       );
-      expect(PlanAuditIds.userDisable('a1', null, Fx.now), 'USER-a1-$_millis');
+      expect(PlanAuditIds.userDisable('a1', null, Fx.now), 'USR-a1-$_millis');
     });
   });
 }

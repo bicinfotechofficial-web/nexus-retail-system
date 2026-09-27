@@ -48,7 +48,11 @@ void main() {
 
   test('has audit history of every action', () async {
     final all = await backend.audit.query(const AuditQuery(limit: 1000));
-    expect(all.map((e) => e.action).toSet(), AuditAction.values.toSet());
+    // USER_ENABLE (D-032) only appears once a user is re-enabled.
+    expect(
+      all.map((e) => e.action).toSet(),
+      AuditAction.values.toSet().difference({AuditAction.userEnable}),
+    );
     expect(backend.audit.actions, isEmpty);
   });
 

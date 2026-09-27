@@ -25,13 +25,13 @@ void main() {
       expect(Ids.deviceCode(99), 'D99');
       expect(Ids.rawItemKey('mix'), 'RM_mix');
       expect(Ids.finishedItemKey('bf1kg'), 'FG_bf1kg');
-      expect(
-        Ids.expenseAuditId(
-          'e1',
-          DateTime.fromMillisecondsSinceEpoch(5, isUtc: true),
-        ),
-        'EXP-e1-5',
-      );
+      final t5 = DateTime.fromMillisecondsSinceEpoch(5, isUtc: true);
+      expect(Ids.expenseAuditId('PTB', 'e1', t5), 'PTB-EXP-e1-5');
+      expect(Ids.locationAuditId('MNJ', t5), 'MNJ-LOC-5');
+      expect(Ids.userAuditId('PTB', 'u9', t5), 'PTB-USR-u9-5');
+      expect(Ids.userAuditId(null, 'u9', t5), 'USR-u9-5');
+      expect(Ids.priceChangeAuditId('bf', t5), 'PRICE-bf-5');
+      expect(Ids.productApproveAuditId('bf', t5), 'APPROVE-bf-5');
     });
 
     test('bill IDs sort in sequence order', () {

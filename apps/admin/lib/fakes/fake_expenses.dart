@@ -88,7 +88,7 @@ final class FakeExpenses implements ExpenseRepository, ExpenseService {
     audit.add(
       before == null ? AuditAction.expenseCreate : AuditAction.expenseUpdate,
       id,
-      id: Ids.expenseAuditId(id, now),
+      id: Ids.expenseAuditId(after.locationId, id, now),
       entityPath: FirestorePaths.expense(id),
       locationId: after.locationId,
       before: before?.toMap(),

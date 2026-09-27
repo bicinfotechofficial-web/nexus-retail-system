@@ -121,3 +121,14 @@ Checked on main at `552ea2f`. The rules suite passes on the emulator (9 files, 2
 | QA-034 | Closed. Fixture roles CASHIER (the matrix column) and STOCK_COUNTER (`stock.adjust` without `stock.move`), plus one-off `withPermissions` roles (`firebase/test/support/fixtures.js:83-124`, `env.js:122-127`). Holder and non-holder tests: bill create (`bills.test.js:61`), bill read (`:212`), cancel (`:310`), `returnedQty` (`:346-351`), registration (`org.test.js:342`), device read (`:423`), each counter (`:443-465`), `label`/`retired` (`:499-511`), D100 (`:347-352`), returns (`returns.test.js:196`), movement types (`stock.test.js:105-143`), threshold (`:279`), summaries (`summaries.test.js:160-173`). Three reads are still missing a pair (QA-042) |
 | QA-035 | Closed. `LocationService.save` documents `nextDeviceNo: 0` on create and never on edit (`packages/data/lib/src/api/admin.dart:9-18`), which matches the create rule (`firestore.rules:639-645`). PLAN A1-3 |
 | QA-036 | Closed. The GST block sits between the discount and the round-off (`packages/printer/lib/src/layout/receipt_layout.dart:55-70`). The fixture's total includes the tax (₹892.50, rounded to ₹893 with +₹0.50; `packages/printer/test/fixtures.dart:131-152`), and `bill_gst_mm80.txt` reads Subtotal, Taxable value, CGST, SGST, Round off, TOTAL ₹893.00, which adds up |
+
+### Central outcomes, sixth review
+| ID | Outcome | Where |
+|---|---|---|
+| QA-037 | Fixed on main by the central agent: rule #10 rewritten (D-032). A null `locationId` is only for global events, and every action needs its permission at the location. Tests added. | firestore.rules #10, audit.test.js |
+| QA-038 | Accepted. SALE movements need a new bill with the same ID in the batch; RETURN movements a new return with the same ID; CANCEL movements (`{billId}-X`) the bill going COMPLETED → CANCELLED in the batch. Assigned to the rules worker. | 04 #7, next run |
+| QA-039 | Accepted. A summary's `lastWriteRef` may name a movement only when it is a CANCEL (`…/movements/{billId}-X`). Assigned to the rules worker. | 04 #9, next run |
+| QA-040 | Accepted in part: the rules cap `refundTotal ≤ bill.total` (one `get` of the bill). Matching the return's lines to the `returnedQty` increase stays client-enforced (D-031). Assigned to the rules worker. | 04 #7, D-031 |
+| QA-041 | Resolved by D-032: every action has an ID builder in `Ids`. | D-032, 02 auditLog |
+| QA-042 | Accepted: holder and non-holder tests for the stock, raw-material and return reads. Assigned to the rules worker. | next run |
+| QA-043 | Accepted: the data layer gets a test-support entry point (per-app services on a named `FirebaseApp` pointed at the emulator, plus the four hooks). The POS debug manifest allows cleartext for the emulator only. Assigned to the data C and integration runs. | next run |
