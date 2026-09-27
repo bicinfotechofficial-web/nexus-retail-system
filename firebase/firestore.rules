@@ -161,7 +161,7 @@ service cloud.firestore {
 
     // ---- #5-6 bills --------------------------------------------------------
     // The rules language has no loops, so per-line and per-key checks are
-    // unrolled up to the caps in Limits (D-030): 20 lines, 4 payments.
+    // unrolled up to the caps in Limits (D-030): 15 lines, 4 payments.
 
     function billPath(loc, billId) {
       return /databases/$(database)/documents/locations/$(loc)/bills/$(billId);
