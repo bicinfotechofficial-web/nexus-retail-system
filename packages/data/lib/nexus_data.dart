@@ -15,3 +15,5 @@ export 'src/api/sales.dart';
 export 'src/api/session.dart';
 export 'src/api/stock.dart';
 export 'src/api/sync.dart';
+export 'src/convert/firestore_values.dart';
+export 'src/firestore/failure_mapping.dart';
