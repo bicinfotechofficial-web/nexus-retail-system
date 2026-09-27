@@ -1,6 +1,6 @@
-# Firestore rules, indexes and tests
+# Firestore rules, indexes, tests and seed
 
-`firestore.rules` enforces `docs/04-PERMISSIONS.md`. The suite under `test/` proves it on the Firestore emulator (BE-1 to BE-6) and checks `firestore.indexes.json` (BE-7).
+`firestore.rules` enforces `docs/04-PERMISSIONS.md`. The suite under `test/` proves it on the Firestore emulator (BE-1 to BE-6), checks `firestore.indexes.json` (BE-7) and runs the seed script (BE-14).
 
 ## Running the tests
 Once, and after `package-lock.json` changes:
@@ -13,8 +13,8 @@ npm ci
 Then either start the emulator yourself and run the suite against it (what `tool/check.sh --e2e` does):
 
 ```bash
-firebase emulators:start --only firestore   # terminal 1
-npm test                                     # terminal 2 (npm run test:watch to re-run on save)
+firebase emulators:start --only firestore,auth   # terminal 1
+npm test                                          # terminal 2 (npm run test:watch to re-run on save)
 ```
 
 or let the Firebase CLI start and stop an emulator around one run:
@@ -23,7 +23,7 @@ or let the Firebase CLI start and stop an emulator around one run:
 npm run test:emulator
 ```
 
-The tests use the `demo-caramel-cottage` project and **clear its Firestore data before every test**, so don't keep hand-made emulator data you care about while they run. The budget probes use `demo-caramel-cottage-budget` and clear it too. The emulator address comes from `FIRESTORE_EMULATOR_HOST` if it is set, otherwise from `firebase.json`. The rules are read from `firestore.rules` on disk at the start of each test file, so there's no need to restart the emulator after editing them.
+The tests use the `demo-caramel-cottage` project and **clear its Firestore data before every test**, so don't keep hand-made emulator data you care about while they run. The budget probes use `demo-caramel-cottage-budget` and the seed tests `demo-caramel-cottage-seed` (Firestore and Auth), and clear those too. The emulator addresses come from `FIRESTORE_EMULATOR_HOST` and `FIREBASE_AUTH_EMULATOR_HOST` if they are set, otherwise from `firebase.json`. The seed tests need the Auth emulator as well as Firestore. The rules are read from `firestore.rules` on disk at the start of each test file, so there's no need to restart the emulator after editing them.
 
 ## Layout
 | Path | What it is |
@@ -34,8 +34,9 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 | `test/support/batches.js` | Whole business batches (bill, cancel, return, stock operation), with or without summaries and audit, until BE-10's plan fixtures replace them |
 | `test/support/caps.js` | The largest batches the list caps allow (D-030), with the caps read from `Limits` in `packages/core` |
 | `test/support/budget.js` | Probes that measure how far a rule is from Firestore's evaluation limits (see "Rules budget") |
-| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `budget` (the caps), plus `indexes` (BE-7) |
+| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `budget` (the caps), plus `indexes` (BE-7) and `seed` (BE-14) |
 | `scripts/lib/core.js` | What `firebase/` reads from `packages/core`: permission sets, `Limits`, and the override PIN hash |
+| `scripts/seed.mjs` | The seed script (see "Seeding") |
 | `scripts/budget.mjs` | `npm run budget`: prints the measured headroom of each cap case |
 
 ## Actors
@@ -97,3 +98,32 @@ Production is assumed to count like the emulator; nobody guarantees it (CR-001).
 
 The emulator serves every query without indexes and doesn't read the file, so `test/indexes.test.js` checks it instead: it passes the Firebase CLI's own validation (the step `firebase deploy --only firestore:indexes` runs before calling the API), it holds exactly the indexes above, and each of those queries runs on the emulator under the rules as the user who makes it. Deploy with `firebase deploy --only firestore:indexes --project prod`; Firestore builds the indexes in a few minutes.
 
+## Seeding
+`scripts/seed.mjs` sets up a fresh project: the `ADMIN` and `STORE_MANAGER` roles (permissions read from `packages/core/lib/src/permissions.dart`), one Admin (the Auth account and `users/{uid}`), the locations PTB (Pattambi) and MNJ (Manjeri) with `nextDeviceNo: 0`, the default limits and a hashed override PIN, 10 sample products (cakes and pastries, ACTIVE, GLOBAL, prices in paise) and 5 raw materials.
+
+It is **idempotent**: it creates what is missing and leaves everything that exists alone, so running it twice changes nothing, and an Admin's later edits (a location's phone, a price) are never overwritten. Roles are the exception: only this script writes them (02-DATA-MODEL), so a role that differs from `permissions.dart` is brought back in line. `test/seed.test.js` runs it twice on the emulator and checks that no doc and no Auth account changed.
+
+Inputs come from environment variables, or a prompt when one is needed and missing. Nothing is hard-coded:
+
+| Variable | Used |
+|---|---|
+| `SEED_ADMIN_EMAIL` | Always: the Admin's sign-in email |
+| `SEED_ADMIN_PASSWORD` | Only when the Admin's Auth account is created. At least 8 characters |
+| `SEED_OVERRIDE_PIN` | Only when a location is created: its offline override PIN, at least 8 digits (`Limits.minOverridePinDigits`). Both locations get it, each with its own salt; change it per store in the admin console |
+
+The PIN is stored as PBKDF2-SHA256 over the PIN's UTF-8 bytes, 100,000 iterations, a 16-byte random salt and a 32-byte key, as `base64(salt)$base64(key)` (02-DATA-MODEL).
+
+**On the emulator** (the default: project `demo-caramel-cottage`, addresses from `FIRESTORE_EMULATOR_HOST` and `FIREBASE_AUTH_EMULATOR_HOST`, else `firebase.json`). Start the Firestore and Auth emulators, then:
+
+```bash
+npm run seed                                  # prompts for the email, password and PIN
+npm run seed -- --project demo-anything       # any other demo- project
+```
+
+**On production**, only with both flags, with no emulator variables set, and with credentials for the project (for example `GOOGLE_APPLICATION_CREDENTIALS` pointing at a service-account key, which never goes into the repo):
+
+```bash
+npm run seed -- --project caramel-cottage-retail --yes-really
+```
+
+Any other project ID is refused. The script prints one line per doc (`created`, `updated` or `unchanged`) and a total.

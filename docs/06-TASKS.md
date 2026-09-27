@@ -44,7 +44,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | BE-11 | Read repositories: catalog, stock (with a low-stock stream), bills (paged by date), returns, summaries (day, month, year), audit (filtered), users, devices, expenses | C-3 | M | Emulator tests | TODO |
 | BE-12 | `SyncService`: pending-write ledger, sync pass (03-SYNC §6), `lastSyncAt`, `lastSeenAt` throttling, a status stream (online / syncing n / offline since) | BE-10 | M | Tests with the emulator stopped and restarted | TODO |
 | BE-13 | `OfflineGuard`: warn and block state, PIN verification (PBKDF2), extension, queued `OFFLINE_OVERRIDE` audit doc | BE-12 | S | Unit tests with a fake clock | TODO |
-| BE-14 | Seed script: roles, one admin user, locations PTB and MNJ with PINs, 10 products, 5 raw materials | BE-5 | S | Running it twice changes nothing | TODO |
+| BE-14 | Seed script: roles, one admin user, locations PTB and MNJ with PINs, 10 products, 5 raw materials | BE-5 | S | Running it twice changes nothing | REVIEW |
 
 ## Printer — `packages/printer/`
 | ID | Task | Needs | Size | Done when | Status |
