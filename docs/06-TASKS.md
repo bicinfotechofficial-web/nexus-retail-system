@@ -37,7 +37,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | BE-4 | Rules: `returns`, `movements`, `stock` with `lastMovementId` (#7–8) | BE-2 | M | Tests include a qty change without a movement (denied) | DONE |
 | BE-5 | Rules: summaries with `lastWriteRef`, `auditLog`, `products`, `rawMaterials`, `expenses` (#9–12) | BE-3, BE-4 | M | Tests include a summary increment without a new doc (denied) | DONE |
 | BE-6 | Cross-location isolation suite (#13) plus a test that the largest batch (a return) stays within the rules `get()` limit | BE-5 | S | Green | REVIEW |
-| BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Deploys to the emulator | TODO |
+| BE-7 | `firestore.indexes.json` per 02-DATA-MODEL | BE-5 | S | Deploys to the emulator | REVIEW |
 | BE-8 | `packages/data`: a `CounterStore` (Hive) for bill, movement and return sequences, with persist-before-use and recovery from `lastBillSeq`, `lastMovementSeq` and `lastReturnSeq` | C-3 | M | Unit tests cover kill-after-allocate and reinstall | TODO |
 | BE-9 | `DeviceRegistrationService`: a transaction on `nextDeviceNo` that creates the device doc | BE-8 | S | Emulator test: two concurrent registrations get D01 and D02 | TODO |
 | BE-10 | Batch builders: `createBill`, `cancelBill`, `createReturn`, `recordMovement` (IN, OUT, WASTAGE, PRODUCE), `adjustStock`, `upsertExpense`, `setThreshold`, `suggestProduct`, `approveProduct` | C-3, BE-8 | L | Emulator tests: every batch is accepted by the rules and every summary field is exact | TODO |

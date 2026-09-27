@@ -1,6 +1,6 @@
-# Firestore rules and tests
+# Firestore rules, indexes and tests
 
-`firestore.rules` enforces `docs/04-PERMISSIONS.md`. The suite under `test/` proves it on the Firestore emulator (BE-1 to BE-6).
+`firestore.rules` enforces `docs/04-PERMISSIONS.md`. The suite under `test/` proves it on the Firestore emulator (BE-1 to BE-6) and checks `firestore.indexes.json` (BE-7).
 
 ## Running the tests
 Once, and after `package-lock.json` changes:
@@ -34,7 +34,7 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 | `test/support/batches.js` | Whole business batches (bill, cancel, return, stock operation), with or without summaries and audit, until BE-10's plan fixtures replace them |
 | `test/support/caps.js` | The largest batches the list caps allow (D-030), with the caps read from `Limits` in `packages/core` |
 | `test/support/budget.js` | Probes that measure how far a rule is from Firestore's evaluation limits (see "Rules budget") |
-| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `budget` (the caps) |
+| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `budget` (the caps), plus `indexes` (BE-7) |
 | `scripts/lib/core.js` | What `firebase/` reads from `packages/core`: permission sets, `Limits`, and the override PIN hash |
 | `scripts/budget.mjs` | `npm run budget`: prints the measured headroom of each cap case |
 
@@ -79,4 +79,21 @@ Measured on the emulator (BE-6):
 Access calls per document are at most 4 (the user and role docs, plus the doc a rule checks before and after the batch: the return, movement, audit or bill) and at most 8 distinct per batch (the complete return batch), against 10 and 20. The emulator doesn't count a call already made for an earlier document in the same batch, so the spare calls `npm run budget` reports depend on the order it evaluates documents in; the lowest it reports is 6 (a PRODUCE stock doc).
 
 Production is assumed to count like the emulator; nobody guarantees it (CR-001).
+
+## Indexes
+`firestore.indexes.json` holds the composite indexes of 02-DATA-MODEL and the queries behind `packages/data/lib/src/api/`:
+
+| Collection | Index | Query |
+|---|---|---|
+| `bills` | `businessDate DESC, clientCreatedAt DESC` | A day's bills newest first (`watchBills`), and bills paged by date |
+| `returns` | `businessDate DESC, clientCreatedAt DESC` | A day's returns (`watchReturns`) |
+| `returns` | `billId ASC, clientCreatedAt ASC` | The returns of one bill (`returnsForBill`) |
+| `auditLog` | `locationId ASC, at DESC`; `action ASC, at DESC`; `by ASC, at DESC` | `AuditQuery` by location, action or user, newest first, with a date range. Two or three of these filters together are served by index merging, so they need no index of their own |
+| `expenses` | `locationId ASC, date DESC` | One location's expenses for a month (`watchExpenses`) |
+| `products` | `status ASC, sortOrder ASC` | Pending suggestions (`watchPending`) |
+| `products` | `status ASC, scope ASC, sortOrder ASC` | Sellable products: ACTIVE, scope `GLOBAL` or the location (`watchSellable`) |
+
+`findByBillNo` needs no index: a bill number is `{loc}-{billId}`, which names the doc. Single-field queries (users by location, expenses of a month across locations, all products by `sortOrder`) use Firestore's automatic indexes, and summaries are read by doc ID.
+
+The emulator serves every query without indexes and doesn't read the file, so `test/indexes.test.js` checks it instead: it passes the Firebase CLI's own validation (the step `firebase deploy --only firestore:indexes` runs before calling the API), it holds exactly the indexes above, and each of those queries runs on the emulator under the rules as the user who makes it. Deploy with `firebase deploy --only firestore:indexes --project prod`; Firestore builds the indexes in a few minutes.
 
