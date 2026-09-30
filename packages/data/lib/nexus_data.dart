@@ -43,6 +43,7 @@ export 'src/plans/stock_plans.dart';
 export 'src/plans/write_plan.dart';
 export 'src/sync/connectivity.dart';
 export 'src/sync/firestore_sync_service.dart';
+export 'src/sync/local_offline_guard.dart';
 export 'src/sync/local_sync_state.dart';
 export 'src/sync/sync_ledger.dart';
 export 'src/write/firestore_admin_services.dart';
