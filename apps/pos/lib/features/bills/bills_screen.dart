@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexus_core/nexus_core.dart';
+import 'package:nexus_data/nexus_data.dart';
 
 import '../../app/providers.dart';
 import '../../app/router.dart';
@@ -12,6 +13,9 @@ import '../../widgets/pos_scaffold.dart';
 /// (POS-7). Tapping a bill opens its detail.
 class BillsScreen extends ConsumerStatefulWidget {
   const BillsScreen({super.key});
+
+  /// When the data layer refuses a bill number from another location.
+  static const String otherStoreMessage = 'That bill is from another store.';
 
   @override
   ConsumerState<BillsScreen> createState() => _BillsScreenState();
@@ -71,7 +75,12 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
         error = '$billNo is from another store.';
         bill = null;
       }
-    } catch (_) {
+    } on DataFailure catch (e) {
+      // The rules refuse another location's bills (04-PERMISSIONS #3).
+      error = e.reason == FailureReason.notPermitted
+          ? BillsScreen.otherStoreMessage
+          : "Couldn't search for $billNo. Please try again.";
+    } on Object {
       error = "Couldn't search for $billNo. Please try again.";
     }
     if (!mounted) return;

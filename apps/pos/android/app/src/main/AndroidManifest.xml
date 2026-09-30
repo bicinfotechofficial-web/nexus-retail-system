@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Firestore and Firebase Auth. The Firebase libraries declare it too;
+         it is stated here so a release build never depends on the merge. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Caramel Cottage POS"
         android:name="${applicationName}"

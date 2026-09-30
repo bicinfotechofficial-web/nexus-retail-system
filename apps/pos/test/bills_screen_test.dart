@@ -124,6 +124,29 @@ void main() {
       await tapKey(tester, 'bill-search-go');
       expect(textOf(tester, 'find-error'), contains('from another store'));
     });
+
+    testWidgets('a bill the rules refuse is from another store', (
+      tester,
+    ) async {
+      final b = fakeBackend();
+      await pumpPos(tester, backend: b);
+      await openNav(tester, 'Bills');
+
+      // The Firestore repository throws notPermitted for another location.
+      b.bills.findFailure = const DataFailure(FailureReason.notPermitted);
+      await enterKey(tester, 'bill-search', 'MNJ-D01-000001');
+      await tapKey(tester, 'bill-search-go');
+      expect(textOf(tester, 'find-error'), 'That bill is from another store.');
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+
+      // Any other failure is a plain retry message.
+      b.bills.findFailure = const DataFailure(FailureReason.offline);
+      await tapKey(tester, 'bill-search-go');
+      expect(
+        textOf(tester, 'find-error'),
+        "Couldn't search for MNJ-D01-000001. Please try again.",
+      );
+    });
   });
 
   group('bill detail and cancel', () {

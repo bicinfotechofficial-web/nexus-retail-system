@@ -1,43 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'data/emulator_switch.dart';
-import 'router.dart';
+import 'emulator_switch.dart';
+import 'theme.dart';
 
-class AdminApp extends ConsumerWidget {
-  const AdminApp({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp.router(
-      title: 'Caramel Cottage Admin',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8D5524)),
-      ),
-      routerConfig: ref.watch(routerProvider),
-    );
-  }
-}
-
-/// Shown while Firebase starts and a saved sign-in is restored.
-class StartingApp extends StatelessWidget {
-  const StartingApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Caramel Cottage Admin',
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(child: CircularProgressIndicator(key: Key('starting'))),
-      ),
-    );
-  }
-}
-
-/// Shown instead of the console when Firebase or the data layer can't
-/// start. Says what to do, with the technical detail underneath.
+/// Shown instead of the POS when Firebase or the data layer can't start.
+/// Says what to do in shop terms, with the technical detail underneath for
+/// whoever supports the device.
 class StartupErrorApp extends StatelessWidget {
   const StartupErrorApp({required this.error, this.onRetry, super.key});
 
@@ -48,26 +16,23 @@ class StartupErrorApp extends StatelessWidget {
 
   /// The headline for [error].
   static String messageFor(Object error) => error is EmulatorInReleaseError
-      ? 'This build of the console was made for testing against the local '
-            'emulator and cannot be used. Deploy a build made without '
-            'USE_EMULATOR.'
-      : "The console couldn't start. Check the internet connection and try "
-            'again. If it keeps happening, reload the page later.';
+      ? 'This copy of the app was built for testing and cannot be used in '
+            'the shop. Ask the Admin for the shop version.'
+      : "The app couldn't start. Check that the phone is connected to the "
+            'internet, then tap Try again. If it keeps happening, call the '
+            'Admin.';
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Caramel Cottage Admin',
+      title: 'Caramel Cottage POS',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8D5524)),
-      ),
+      theme: PosTheme.light(),
       home: Builder(
         builder: (context) => Scaffold(
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -95,7 +60,7 @@ class StartupErrorApp extends StatelessWidget {
                         ),
                       ),
                     const SizedBox(height: 32),
-                    SelectableText(
+                    Text(
                       '$error',
                       key: const Key('startup-error-detail'),
                       textAlign: TextAlign.center,

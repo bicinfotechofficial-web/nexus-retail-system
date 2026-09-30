@@ -10,13 +10,13 @@ import '../features/login/login_screen.dart';
 import '../features/offline/sync_health_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
-import '../features/placeholder_screen.dart';
 import '../features/returns/return_screen.dart';
 import '../features/setup/device_setup_screen.dart';
 import '../features/stock/movement_screens.dart';
 import '../features/stock/stock_screen.dart';
 import '../features/suggest/suggest_screen.dart';
 import '../features/summary/day_summary_screen.dart';
+import '../widgets/message_screen.dart';
 import 'destinations.dart';
 import 'providers.dart';
 

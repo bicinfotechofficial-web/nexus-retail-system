@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
-import '../data/providers.dart';
+import '../data/services.dart';
 import 'fake_expenses.dart';
 import 'fake_repositories.dart';
 import 'fake_services.dart';
@@ -155,21 +155,25 @@ final class FakeBackend {
   /// Replaceable, so a test can swap in a failing service.
   late ExpenseService expenseService;
 
-  List<Override> get overrides => [
-    authServiceProvider.overrideWithValue(auth),
-    locationRepositoryProvider.overrideWithValue(locations),
-    summaryRepositoryProvider.overrideWithValue(summaries),
-    stockRepositoryProvider.overrideWithValue(stock),
-    catalogRepositoryProvider.overrideWithValue(catalog),
-    catalogServiceProvider.overrideWithValue(catalogService),
-    locationServiceProvider.overrideWithValue(locationService),
-    userRepositoryProvider.overrideWithValue(users),
-    userServiceProvider.overrideWithValue(userService),
-    deviceServiceProvider.overrideWithValue(devices),
-    expenseRepositoryProvider.overrideWithValue(expenses),
-    expenseServiceProvider.overrideWithValue(expenseService),
-    auditRepositoryProvider.overrideWithValue(audit),
-  ];
+  /// The fakes under the same interfaces the real backend fills.
+  AdminServices get services => AdminServices(
+    auth: auth,
+    locationRepo: locations,
+    locations: locationService,
+    summaries: summaries,
+    stockRepo: stock,
+    catalogRepo: catalog,
+    catalog: catalogService,
+    userRepo: users,
+    users: userService,
+    devices: devices,
+    expenseRepo: expenses,
+    expenses: expenseService,
+    audit: audit,
+  );
+
+  /// The same overrides as the real backend's.
+  List<Override> get overrides => services.overrides;
 
   static const Role adminRole = Role(
     id: SeedRoles.adminId,

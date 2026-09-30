@@ -500,6 +500,10 @@ final class FakeSalesRepository implements SalesRepository {
   final Map<String, List<SaleReturn>> _returns = {};
   final StreamController<void> _changes = StreamController<void>.broadcast();
 
+  /// When set, [findByBillNo] throws it, as the Firestore repository does
+  /// when the rules refuse another location's bill (`notPermitted`).
+  DataFailure? findFailure;
+
   List<Bill> all(String locationId) =>
       List.unmodifiable(_byLocation[locationId]?.values ?? const <Bill>[]);
 
@@ -537,6 +541,8 @@ final class FakeSalesRepository implements SalesRepository {
 
   @override
   Future<Bill?> findByBillNo(String billNo) async {
+    final f = findFailure;
+    if (f != null) throw f;
     for (final bills in _byLocation.values) {
       for (final b in bills.values) {
         if (b.billNo == billNo) return b;

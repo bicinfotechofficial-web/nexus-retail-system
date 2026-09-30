@@ -4,6 +4,8 @@ import 'package:nexus_admin/fakes/fake_backend.dart';
 import 'package:nexus_admin/fakes/fake_repositories.dart';
 import 'package:nexus_admin/financials/financials.dart';
 import 'package:nexus_admin/financials/financials_screen.dart';
+import 'package:nexus_admin/shell/destinations.dart';
+import 'package:nexus_admin/shell/permission_guard.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
@@ -293,10 +295,31 @@ void main() {
       expect(text(tester, 'fin-2026-09-expenses'), '₹21,500.00');
     });
 
-    testWidgets('a Store Manager sees only their own location', (tester) async {
+    testWidgets('a Store Manager may not open it: it shows salaries', (
+      tester,
+    ) async {
       await open(tester, backend(), email: FakeBackend.storeManagerEmail);
-      expect(text(tester, 'kpi-profit'), '₹22,000.00');
-      expect(find.byKey(const Key('financials-matrix')), findsNothing);
+      expect(find.byType(NotPermitted), findsOneWidget);
+      expect(find.byKey(const Key('kpi-profit')), findsNothing);
+      expect(find.text('Financials'), findsNothing);
+    });
+
+    test('the page needs expense.manage, not a report permission', () {
+      expect(destinationFor('/financials').anyOf, [Permission.expenseManage]);
+      expect(
+        hasAnyPermission(
+          FakeBackend.storeManagerSession('PTB'),
+          destinationFor('/financials').anyOf,
+        ),
+        isFalse,
+      );
+      expect(
+        hasAnyPermission(
+          FakeBackend.adminSession(),
+          destinationFor('/financials').anyOf,
+        ),
+        isTrue,
+      );
     });
   });
 }

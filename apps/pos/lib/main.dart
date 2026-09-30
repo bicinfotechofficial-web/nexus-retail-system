@@ -1,11 +1,12 @@
-import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart';
 
 import 'app/app.dart';
+import 'app/emulator_switch.dart';
+import 'app/firebase_start.dart';
+import 'app/startup_error.dart';
 import 'fakes/fake_backend.dart';
-import 'firebase_options.dart';
 
 /// `--dart-define=FAKE_DATA=true` runs on in-memory fakes, without Firebase.
 const bool useFakeData = bool.fromEnvironment('FAKE_DATA');
@@ -17,22 +18,33 @@ const bool fakeFirstRun = bool.fromEnvironment('FAKE_FIRST_RUN');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final List<Override> overrides;
   if (useFakeData) {
     final fake = FakeBackend(
       signedIn: !fakeFirstRun,
       registered: !fakeFirstRun,
     );
     await fake.seedDemo();
-    overrides = fake.overrides;
-  } else {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    // The nexus_data and nexus_printer implementations are overridden here
-    // once they are merged (BE-8…BE-13, PR-5). Until then the providers
-    // report that they aren't configured.
-    overrides = const [];
+    runApp(ProviderScope(overrides: fake.overrides, child: const PosApp()));
+    return;
   }
-  runApp(ProviderScope(overrides: overrides, child: const PosApp()));
+  await startPos();
+}
+
+/// Starts on the real data layer: the project in `firebase_options.dart`,
+/// or the emulators with USE_EMULATOR in a debug build. The router then
+/// goes from a restored session (or sign-in) to device setup or billing.
+Future<void> startPos() async {
+  try {
+    final emulator = resolveEmulator(
+      requested: useEmulatorDefine,
+      releaseBuild: kReleaseMode,
+      host: emulatorHostDefine,
+    );
+    if (emulator != null) debugPrint('POS: using the emulators at $emulator');
+    final services = await startFirebase(emulator);
+    runApp(ProviderScope(overrides: services.overrides, child: const PosApp()));
+  } on Object catch (e, st) {
+    debugPrint('POS: startup failed: $e\n$st');
+    runApp(StartupErrorApp(error: e, onRetry: startPos));
+  }
 }

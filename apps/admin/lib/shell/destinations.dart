@@ -33,7 +33,9 @@ const List<Destination> destinations = [
     path: '/financials',
     label: 'Financials',
     icon: Icons.account_balance_outlined,
-    anyOf: [Permission.reportOwn, Permission.reportAll],
+    // Profit includes salaries, so only roles that manage expenses (Admin)
+    // see it, not every role with a report permission (fourth review).
+    anyOf: [Permission.expenseManage],
   ),
   Destination(
     path: '/stock',
