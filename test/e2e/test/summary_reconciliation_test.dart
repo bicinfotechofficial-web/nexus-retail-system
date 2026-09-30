@@ -10,8 +10,8 @@
 /// bill and return documents alone, using the definitions in
 /// 02-DATA-MODEL and 00-DECISIONS.
 ///
-/// Scope today: `nexus_core` only. When the backend's `WritePlan` builders
-/// land (BE-10), the same oracle runs against the plans (see PLAN.md, P-01).
+/// Scope: `nexus_core` only. `plan_fixtures_test.dart` (PLAN P-03) runs the
+/// same oracle over the backend's `WritePlan` fixtures.
 library;
 
 import 'dart:math';
