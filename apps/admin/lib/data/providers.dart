@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
-/// The `nexus_data` interfaces the console uses. Each one must be overridden
-/// at startup: with the fakes (`--dart-define=FAKE_DATA=true`) or with the
-/// Firestore implementations from `nexus_data`.
+/// The `nexus_data` interfaces the console uses. Each one is overridden at
+/// startup through `AdminServices` (services.dart): with the Firestore
+/// implementations from `nexus_data`, or with the fakes
+/// (`--dart-define=FAKE_DATA=true`).
 final authServiceProvider = Provider<AuthService>(
   (ref) => throw UnimplementedError('authServiceProvider is not overridden'),
 );
