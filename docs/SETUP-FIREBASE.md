@@ -74,3 +74,6 @@ Don't deploy yet. The production database is in deny-all mode, and stays that wa
 cd firebase
 firebase deploy --only firestore --project prod
 ```
+
+## 5. Running the apps
+The exact commands (against the emulator, against production, the device scenarios) are in [apps/pos/README.md](../apps/pos/README.md) and [apps/admin/README.md](../apps/admin/README.md).

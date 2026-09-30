@@ -395,6 +395,9 @@ final class FakeDeviceService implements DeviceService {
   String? get deviceId => null;
 
   @override
+  String? get locationId => null;
+
+  @override
   Stream<List<Device>> watchDevices(String locationId) => store.watch(
     (v) => [...?v[locationId]]..sort((a, b) => a.code.compareTo(b.code)),
   );

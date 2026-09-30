@@ -46,3 +46,7 @@ Fifth review (BE-6 to BE-11, QA-2/3/4/6 scenarios, QA-037 to QA-043):
 Sixth review (BE-9 to BE-13 services, sync and guard; QA-038 to QA-046):
 - **Data C:** the committer design is accepted: a non-blocking commit, local-commit detection, and the server outcome followed by sync. The rule that a sync pass needs one server read before `lastSyncAt` moves is accepted, and recorded in 03-SYNC §6. The committer, the sync pass after a restart and BE-12's done-check are proven by the QA device scenarios, which must run on Bicy's PC.
 - **Central fixes, now on main:** QA-044 (rule #10 ties each action to its ID shape; #9 checks that an expense ref is an EXPENSE_* audit; THRESHOLD_CHANGE is denied as reserved) and QA-045 (`StockItem` reads a missing `qty` as 0).
+
+Seventh review (C-7 integration):
+- **Integration:** accepted. The two emulator workarounds (the POS `pos-emulator` app with the demo project, and the admin's secondary Auth app on the emulator) are right. Profile builds must not be used against the emulator. D-033 is added from the integration report: a device code counts only at its registration location, and `DeviceService.locationId` is added to the contract.
+- **QA:** update `apps/pos/integration_test/README.md` now that the scenarios run (backendSkip is null), and add a D-033 scenario (sign in at another store on a registered phone → device setup → a new code).

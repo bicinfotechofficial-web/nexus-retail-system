@@ -88,6 +88,7 @@ final class FirestoreDeviceService implements DeviceService {
   }
 
   /// The location this install registered at, or null.
+  @override
   String? get locationId {
     final v = _local.read(locationIdKey);
     return v is String ? v : null;

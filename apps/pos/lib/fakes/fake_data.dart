@@ -774,10 +774,14 @@ final class FakeOfflineGuard implements OfflineGuard {
 }
 
 final class FakeDeviceService implements DeviceService {
-  FakeDeviceService([this.deviceId = Seed.deviceId]);
+  FakeDeviceService([this.deviceId = Seed.deviceId])
+    : locationId = deviceId == null ? null : Seed.locationId;
 
   @override
   String? deviceId;
+
+  @override
+  String? locationId;
 
   /// Whether registration can reach the server (it is online only).
   bool online = true;
@@ -800,6 +804,7 @@ final class FakeDeviceService implements DeviceService {
     }
     // The fake sales service bills as Seed.deviceId, so hand out that code.
     deviceId = Seed.deviceId;
+    this.locationId = locationId;
     onRegistered?.call();
     return Device(
       code: Seed.deviceId,

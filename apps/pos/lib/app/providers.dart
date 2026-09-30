@@ -170,13 +170,20 @@ final pendingSuggestionsProvider = StreamProvider<List<Product>>((ref) {
       .map((all) => all.where((p) => p.scope == loc).toList());
 });
 
-/// This install's device code, or null before registration (D-004). The
-/// setup screen reports a new registration here so the router moves on.
+/// This install's device code, or null before registration (D-004), or
+/// when the install was registered at another location than the signed-in
+/// user's (D-033): the router then sends the user to device setup, which
+/// registers a new code here. The setup screen reports a new registration
+/// so the router moves on.
 class DeviceIdNotifier extends Notifier<String?> {
   @override
   String? build() {
     try {
-      return ref.watch(deviceServiceProvider).deviceId;
+      final devices = ref.watch(deviceServiceProvider);
+      final here = ref.watch(locationCodeProvider);
+      if (devices.deviceId == null) return null;
+      if (here != null && devices.locationId != here) return null;
+      return devices.deviceId;
     } on UnimplementedError {
       // No data layer configured: startup reports that via the session.
       return null;
