@@ -4,10 +4,12 @@ import 'package:nexus_data/nexus_data.dart';
 import 'package:nexus_printer/nexus_printer.dart';
 
 /// The data and printer interfaces the app builds against (D-026). Each is
-/// overridden at startup: with fakes under `FAKE_DATA=true`, and with the
-/// `nexus_data` and `nexus_printer` implementations once they are merged.
+/// overridden at startup through `PosServices` (services.dart): with the
+/// `nexus_data` and `nexus_printer` implementations, or with the fakes
+/// under `FAKE_DATA=true`.
 Never _notConfigured(String what) => throw UnimplementedError(
-  '$what has no implementation yet. Run with --dart-define=FAKE_DATA=true.',
+  '$what is not overridden. Start the app through main.dart, or override '
+  'it with PosServices.overrides.',
 );
 
 final authServiceProvider = Provider<AuthService>(

@@ -3,6 +3,7 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 import '../app/providers.dart';
+import '../app/services.dart';
 import 'fake_data.dart';
 import 'fake_printer.dart';
 import 'fake_stock.dart';
@@ -60,19 +61,25 @@ final class FakeBackend {
   final FakeDeviceService device;
   final FakePrinterService printer = FakePrinterService();
 
+  /// The fakes under the same interfaces the real backend fills.
+  PosServices get services => PosServices(
+    auth: auth,
+    devices: device,
+    catalogRepo: catalog,
+    catalog: catalogService,
+    salesRepo: bills,
+    sales: sales,
+    summaries: summaries,
+    stockRepo: stock,
+    stock: stock,
+    sync: sync,
+    offlineGuard: offline,
+    printer: printer,
+  );
+
+  /// The same overrides as the real backend's, plus the fake clock.
   List<Override> get overrides => [
-    authServiceProvider.overrideWithValue(auth),
-    catalogRepositoryProvider.overrideWithValue(catalog),
-    salesServiceProvider.overrideWithValue(sales),
-    salesRepositoryProvider.overrideWithValue(bills),
-    summaryRepositoryProvider.overrideWithValue(summaries),
-    syncServiceProvider.overrideWithValue(sync),
-    offlineGuardProvider.overrideWithValue(offline),
-    deviceServiceProvider.overrideWithValue(device),
-    printerServiceProvider.overrideWithValue(printer),
-    catalogServiceProvider.overrideWithValue(catalogService),
-    stockRepositoryProvider.overrideWithValue(stock),
-    stockServiceProvider.overrideWithValue(stock),
+    ...services.overrides,
     clockProvider.overrideWithValue(_now),
   ];
 

@@ -4,4 +4,9 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Debug builds only: the Firebase Auth emulator is plain HTTP, which
+         Android 9+ blocks unless cleartext traffic is allowed (QA-043).
+         USE_EMULATOR runs and the device scenarios need it. Release builds
+         keep the default (HTTPS only). -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>
