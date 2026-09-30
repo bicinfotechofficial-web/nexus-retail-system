@@ -140,4 +140,14 @@ describe('raw materials', () => {
     await assertSucceeds(getDocs(collection(t.db('smMnj'), 'rawMaterials')));
     await assertFails(getDoc(materialRef(t.db('disabled'))));
   });
+
+  it('needs catalog.view: a role with only it reads, one with rawMaterial.create and no catalog.view does not (QA-042)', async () => {
+    await t.arrange((db) => setDoc(materialRef(db), material()));
+    await t.withPermissions('smPtb', ['catalog.view']);
+    await assertSucceeds(getDoc(materialRef(t.db('smPtb'))));
+    await assertSucceeds(getDocs(collection(t.db('smPtb'), 'rawMaterials')));
+    await t.withPermissions('smPtb', ['rawMaterial.create', 'stock.move', 'report.own']);
+    await assertFails(getDoc(materialRef(t.db('smPtb'))));
+    await assertFails(getDocs(collection(t.db('smPtb'), 'rawMaterials')));
+  });
 });

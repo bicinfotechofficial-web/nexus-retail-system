@@ -383,6 +383,10 @@ service cloud.firestore {
         && r.clientCreatedAt is timestamp
         && r.serverCreatedAt == request.time
         && getAfter(billPath(loc, r.billId)).data.lastReturnId == returnId
+        // No refund above the bill's total (QA-040, D-024). A bill's total
+        // never changes after create, so this reads the same doc as the
+        // line above and costs no extra access call.
+        && r.refundTotal <= getAfter(billPath(loc, r.billId)).data.total
         && existsAfter(auditPath(loc + '-' + returnId));
     }
 
@@ -431,6 +435,15 @@ service cloud.firestore {
         // Wastage and adjustments are audited (#10, D-028).
         && (t in ['WASTAGE_RAW', 'WASTAGE_FG', 'ADJUST']
           ? existsAfter(auditPath(loc + '-' + id))
+          : true)
+        // SALE, RETURN and CANCEL move stock only as part of their bill,
+        // return or cancellation, in the same batch (QA-038): a new bill or
+        // return with the movement's ID, or the bill named by refId going
+        // COMPLETED -> CANCELLED.
+        && (t == 'SALE' ? !exists(billPath(loc, id)) && existsAfter(billPath(loc, id))
+          : t == 'RETURN' ? !exists(returnPath(loc, id)) && existsAfter(returnPath(loc, id))
+          : t == 'CANCEL' ? get(billPath(loc, m.refId)).data.status == 'COMPLETED'
+            && getAfter(billPath(loc, m.refId)).data.status == 'CANCELLED'
           : true)
         && isBusinessDate(m.businessDate)
         && m.clientCreatedAt is timestamp
@@ -482,7 +495,8 @@ service cloud.firestore {
     }
 
     // #9. Every summary write names, in lastWriteRef, the doc that caused
-    // it: a bill, return or CANCEL movement at this location, or an expense
+    // it: a bill, return or CANCEL movement (`{billId}-X`; no other
+    // movement, QA-039) at this location, or an expense
     // audit doc (`{loc}-EXP-...`, D-032; an edit that moves an expense to
     // another location ties both summaries to the one audit doc). That doc must be new in this batch, which ties each
     // increment to exactly one business event. The numbers themselves are
@@ -492,7 +506,7 @@ service cloud.firestore {
       return activeAt(loc)
         && incoming().keys().hasOnly(summaryKeys())
         && ref is string
-        && (ref.matches('^locations/' + loc + '/(bills|returns|movements)/[A-Za-z0-9-]+$')
+        && (ref.matches('^locations/' + loc + '/((bills|returns)/[A-Za-z0-9-]+|movements/D[0-9]{2}-[0-9]{6}-X)$')
           || ref.matches('^auditLog/[A-Z]{2,4}-EXP-[A-Za-z0-9_-]+$'))
         && !exists(path('/databases/' + database + '/documents/' + ref))
         && existsAfter(path('/databases/' + database + '/documents/' + ref));

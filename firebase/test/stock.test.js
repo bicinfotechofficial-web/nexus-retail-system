@@ -15,8 +15,18 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { ACTORS, LOC } from './support/fixtures.js';
-import { makeBill, makeMovement, manyLines, movementId, stockWrite } from './support/builders.js';
-import { arrangeDevice, billBatch, stockBatch } from './support/batches.js';
+import {
+  billId,
+  makeBill,
+  makeMovement,
+  makeReturn,
+  manyLines,
+  movementId,
+  returnId,
+  stockWrite,
+  storedBill,
+} from './support/builders.js';
+import { arrangeDevice, billBatch, cancelBatch, returnBatch, stockBatch } from './support/batches.js';
 import { assertFails, assertSucceeds, useRulesEnv } from './support/env.js';
 
 const t = useRulesEnv();
@@ -25,6 +35,11 @@ const M1 = movementId('D01', 1);
 const stockRef = (db, key, loc = LOC.PTB) => doc(db, 'locations', loc, 'stock', key);
 const movementRef = (db, id = M1, loc = LOC.PTB) => doc(db, 'locations', loc, 'movements', id);
 const arrangeAudit = (id, loc = LOC.PTB) => t.arrange((db) => setDoc(doc(db, 'auditLog', `${loc}-${id}`), { x: 1 }));
+const billRef = (db, id, loc = LOC.PTB) => doc(db, 'locations', loc, 'bills', id);
+const returnRef = (db, id, loc = LOC.PTB) => doc(db, 'locations', loc, 'returns', id);
+/** Arranges bill `seq` on D01 (rules off), COMPLETED unless `fields` say otherwise. */
+const arrangeBill = (seq, fields = {}) =>
+  t.arrange((db) => setDoc(billRef(db, billId('D01', seq)), { ...storedBill(makeBill({ seq })), ...fields }));
 
 /** Arranges an existing stock doc (rules off). */
 const arrangeStock = (key, qty, extra = {}) =>
@@ -109,9 +124,10 @@ describe('#7 movements: create', () => {
     await assertSucceeds(create('counterPtb', counter({ type: 'ADJUST', reason: 'Count' })));
   });
 
-  it('lets the Cashier (bill.create) write a SALE movement but no stock movement', async () => {
-    const sale = makeMovement({ type: 'SALE', lines: [['FG_cake', -1]], refId: 'D01-000001', uid: ACTORS.cashierPtb.uid });
-    await assertSucceeds(create('cashierPtb', sale, 'D01-000001'));
+  it('lets the Cashier (bill.create) write a SALE movement in its bill batch but no stock movement', async () => {
+    await arrangeDevice(t);
+    const bill = makeBill({ uid: ACTORS.cashierPtb.uid, userName: 'Cashier PTB' });
+    await assertSucceeds(billBatch(t.db('cashierPtb'), bill).commit());
     await assertFails(create('cashierPtb', makeMovement({ uid: ACTORS.cashierPtb.uid })));
   });
 
@@ -129,22 +145,35 @@ describe('#7 movements: create', () => {
   });
 
   it('requires bill.create for SALE, bill.cancel for CANCEL and return.create for RETURN', async () => {
-    const sale = makeMovement({ type: 'SALE', lines: [['FG_cake', -1]], refId: 'D01-000001' });
-    const cancel = makeMovement({ type: 'CANCEL', lines: [['FG_cake', 1]], refId: 'D01-000001', reason: 'Wrong item' });
-    const ret = makeMovement({ type: 'RETURN', lines: [['FG_cake', 1]], refId: 'D01-R000001' });
+    // Each in its whole batch (QA-038): bill 1 is new, bill 2 is cancelled
+    // and bill 3 has a return.
+    await arrangeDevice(t);
+    await arrangeBill(2);
+    await arrangeBill(3);
+    const sale = () => billBatch(t.db('smPtb'), makeBill({ seq: 1 })).commit();
+    const cancel = () => cancelBatch(t.db('smPtb'), makeBill({ seq: 2 })).commit();
+    const ret = () =>
+      returnBatch(t.db('smPtb'), {
+        rid: returnId('D01', 1),
+        ret: makeReturn({ billId: billId('D01', 3) }),
+        returnedQty: { 'puff-veg': 1 },
+        seq: 1,
+        full: true,
+      }).commit();
     await withRole(['stock.move', 'stock.adjust']);
-    await assertFails(create('smPtb', sale, 'D01-000001'));
-    await assertFails(create('smPtb', cancel, 'D01-000001-X'));
-    await assertFails(create('smPtb', ret, 'D01-R000001'));
+    await assertFails(sale());
+    await assertFails(cancel());
+    await assertFails(ret());
     await withRole(['bill.create', 'bill.cancel', 'return.create']);
-    await assertSucceeds(create('smPtb', sale, 'D01-000001'));
-    await assertSucceeds(create('smPtb', cancel, 'D01-000001-X'));
-    await assertSucceeds(create('smPtb', ret, 'D01-R000001'));
+    await assertSucceeds(sale());
+    await assertSucceeds(cancel());
+    await assertSucceeds(ret());
   });
 
   it('lets another device cancel a bill (CANCEL keeps the bill ID)', async () => {
-    const cancel = makeMovement({ type: 'CANCEL', lines: [['FG_cake', 1]], refId: 'D01-000001', reason: 'x', deviceId: 'D02' });
-    await assertSucceeds(create('smPtb', cancel, 'D01-000001-X'));
+    await arrangeDevice(t);
+    await arrangeBill(1);
+    await assertSucceeds(cancelBatch(t.db('smPtb'), makeBill(), { deviceId: 'D02' }).commit());
   });
 
   it('denies an ID that does not fit the type, device or refId', async () => {
@@ -186,6 +215,64 @@ describe('#7 movements: create', () => {
     await t.arrange((db) => setDoc(movementRef(db), { ...makeMovement(), serverCreatedAt: new Date() }));
     await assertFails(updateDoc(movementRef(t.db('admin')), { reason: 'x' }));
     await assertFails(deleteDoc(movementRef(t.db('admin'))));
+  });
+});
+
+describe('#7 movements: SALE, RETURN and CANCEL belong to their batch (QA-038)', () => {
+  const B1 = billId('D01', 1);
+  const R1 = returnId('D01', 1);
+  const sale = (uid = ACTORS.smPtb.uid) => makeMovement({ type: 'SALE', lines: [['FG_cake', -1]], refId: B1, uid });
+  const ret = () => makeMovement({ type: 'RETURN', lines: [['FG_cake', 1]], refId: R1 });
+  const cancel = () => makeMovement({ type: 'CANCEL', lines: [['FG_cake', 1]], refId: B1, reason: 'Wrong item' });
+
+  /** The movement plus one stock write naming it: all rule #8 asks for a qty change. */
+  const withStock = (actor, id, movement, itemKey = 'FG_cake', delta = 1) => {
+    const db = t.db(actor);
+    const b = writeBatch(db);
+    b.set(movementRef(db, id), movement);
+    b.set(stockRef(db, itemKey), stockWrite(itemKey, delta, id), { merge: true });
+    return b.commit();
+  };
+
+  it("denies the Cashier's standalone SALE movement that adds 1,00,000 g of flour (the QA-038 exploit)", async () => {
+    await assertFails(withStock('cashierPtb', B1, sale(ACTORS.cashierPtb.uid), 'RM_flour', 100000));
+    await assertFails(setDoc(movementRef(t.db('cashierPtb'), B1), sale(ACTORS.cashierPtb.uid)));
+  });
+
+  it('denies a SALE movement for a bill that already existed', async () => {
+    await arrangeBill(1);
+    await assertFails(withStock('smPtb', B1, sale()));
+  });
+
+  it('denies a RETURN movement without its return, or for a return that already existed', async () => {
+    await assertFails(withStock('smPtb', R1, ret()));
+    await t.arrange((db) => setDoc(returnRef(db, R1), { ...makeReturn(), serverCreatedAt: new Date() }));
+    await assertFails(withStock('smPtb', R1, ret()));
+  });
+
+  it('denies a standalone CANCEL movement, and the real cancel still goes through (the QA-038 exploit)', async () => {
+    await arrangeDevice(t);
+    await arrangeBill(1);
+    await assertFails(withStock('smPtb', `${B1}-X`, cancel()));
+    await assertSucceeds(cancelBatch(t.db('smPtb'), makeBill()).commit());
+  });
+
+  it('denies a CANCEL movement for a bill that does not exist or was already cancelled', async () => {
+    await assertFails(withStock('smPtb', `${B1}-X`, cancel()));
+    await arrangeBill(1, { status: 'CANCELLED' });
+    await assertFails(withStock('smPtb', `${B1}-X`, cancel()));
+  });
+
+  it('denies a CANCEL movement whose refId names another bill than the one being cancelled', async () => {
+    // Bill 2 goes COMPLETED -> CANCELLED properly; a second CANCEL movement
+    // for bill 1 can't ride on it.
+    await arrangeDevice(t);
+    await arrangeBill(1);
+    await arrangeBill(2);
+    const db = t.db('smPtb');
+    const b = cancelBatch(db, makeBill({ seq: 2 }));
+    b.set(movementRef(db, `${B1}-X`), cancel());
+    await assertFails(b.commit());
   });
 });
 
@@ -301,6 +388,16 @@ describe('#8 stock: read', () => {
     await arrangeStock('RM_flour', 5000);
     await assertFails(getDoc(stockRef(t.db('smMnj'), 'RM_flour')));
     await assertFails(getDoc(stockRef(t.db('disabled'), 'RM_flour')));
+  });
+
+  it('needs catalog.view: a role with only it reads, one with every other stock permission does not (QA-042)', async () => {
+    await arrangeStock('RM_flour', 5000);
+    await withRole(['catalog.view']);
+    await assertSucceeds(getDoc(stockRef(t.db('smPtb'), 'RM_flour')));
+    await assertSucceeds(getDocs(collection(t.db('smPtb'), 'locations', LOC.PTB, 'stock')));
+    await withRole(['stock.move', 'stock.adjust', 'stock.threshold', 'report.own']);
+    await assertFails(getDoc(stockRef(t.db('smPtb'), 'RM_flour')));
+    await assertFails(getDocs(collection(t.db('smPtb'), 'locations', LOC.PTB, 'stock')));
   });
 });
 

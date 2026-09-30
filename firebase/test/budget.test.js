@@ -9,7 +9,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CAP_CASES, largestBill, largestFirstReturn, largestProduce, largestSecondReturn, overCapBill } from './support/caps.js';
-import { EXPRESSION_LIMIT, calibrate, comparisonsFor, probe } from './support/budget.js';
+import { ACCESS_LIMIT_DOC, EXPRESSION_LIMIT, calibrate, comparisonsFor, probe } from './support/budget.js';
 import { assertFails, assertSucceeds, useRulesEnv } from './support/env.js';
 
 const t = useRulesEnv();
@@ -65,8 +65,15 @@ describe(`rules budget: every cap case keeps ${MIN_SPARE_EXPRESSIONS} of ${EXPRE
     expect(await probe(scenario, { target, calls: MIN_SPARE_CALLS })).toBe(true);
   }, 60_000);
 
-  it('the probes do bite: the largest return update is denied with 400 more expressions or 10 more calls', async () => {
+  // The access-call bite pads past the per-document limit on its own. The
+  // emulator doesn't count a call an earlier document in the same batch
+  // already made, and the order it evaluates a batch's documents in changes
+  // from one emulator start to the next: when the summaries (which read the
+  // same return doc, #9) go first, the bill update's own calls are only
+  // the padding, and 10 more calls fit. Eleven never do. The expression
+  // count doesn't depend on that order.
+  it(`the probes do bite: the largest return update is denied with 400 more expressions or ${ACCESS_LIMIT_DOC + 1} more calls`, async () => {
     expect(await probe(largestFirstReturn, { target: 'billUpdate', exprs: comparisonsFor(400, capacity) })).toBe(false);
-    expect(await probe(largestFirstReturn, { target: 'billUpdate', calls: 10 })).toBe(false);
+    expect(await probe(largestFirstReturn, { target: 'billUpdate', calls: ACCESS_LIMIT_DOC + 1 })).toBe(false);
   }, 60_000);
 });

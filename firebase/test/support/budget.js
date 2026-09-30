@@ -12,6 +12,10 @@
 //   many fit in the whole budget, so n comparisons ≈ n × 1000 / capacity
 //   expressions.
 // - Access padding is `k` exists() calls on distinct docs that never exist.
+//   The emulator doesn't count a call an earlier document in the same batch
+//   already made, and its evaluation order varies between emulator starts,
+//   so a rule's own count can drop to the padding alone. Only `k` above the
+//   per-document limit is denied every time.
 //
 // Each probe loads its own copy of the rules into a separate emulator
 // project, so it never disturbs the suite's `demo-caramel-cottage`.
