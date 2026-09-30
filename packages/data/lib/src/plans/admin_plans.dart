@@ -359,8 +359,8 @@ abstract final class AdminPlans {
     return {for (final f in editableLocationFields) f: m[f]};
   }
 
-  /// Enables or disables a user (`user.manage`, D-018). Disabling writes a
-  /// USER_DISABLE audit; there is no audit action for enabling. Nobody
+  /// Enables or disables a user (`user.manage`, D-018), with a USER_DISABLE
+  /// or USER_ENABLE audit (`Ids.userAuditId`, D-032, QA-046). Nobody
   /// changes their own `active` (04-PERMISSIONS #3).
   static PlannedWrite<AppUser> setUserActive({
     required PlanContext ctx,
@@ -385,21 +385,17 @@ abstract final class AdminPlans {
     );
     final path = FirestorePaths.user(user.uid);
     final b = PlanBuilder()..update(path, {'active': active});
-    if (!active) {
-      b.create(
-        FirestorePaths.audit(
-          PlanAuditIds.userDisable(user.uid, user.locationId, ctx.now),
-        ),
-        auditDoc(
-          action: AuditAction.userDisable,
-          entityPath: path,
-          ctx: ctx,
-          locationId: user.locationId,
-          before: {'active': user.active},
-          after: {'active': false},
-        ),
-      );
-    }
+    b.create(
+      FirestorePaths.audit(Ids.userAuditId(user.locationId, user.uid, ctx.now)),
+      auditDoc(
+        action: active ? AuditAction.userEnable : AuditAction.userDisable,
+        entityPath: path,
+        ctx: ctx,
+        locationId: user.locationId,
+        before: {'active': user.active},
+        after: {'active': active},
+      ),
+    );
     return PlannedWrite(updated, b.build());
   }
 }

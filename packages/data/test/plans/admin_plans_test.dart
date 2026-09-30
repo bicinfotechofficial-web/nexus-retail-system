@@ -582,13 +582,31 @@ void main() {
       expect(p.value.active, isFalse);
     });
 
-    test('enable: no audit; nobody changes their own flag', () {
+    test('enable: USER_ENABLE {loc}-USR-{uid}-{millis} (QA-046); nobody '
+        'changes their own flag', () {
+      final disabled = AppUser(
+        uid: sm.uid,
+        name: sm.name,
+        email: sm.email,
+        roleId: sm.roleId,
+        locationId: sm.locationId,
+        active: false,
+        createdBy: sm.createdBy,
+      );
       final p = AdminPlans.setUserActive(
         ctx: Fx.admin(),
-        user: sm,
+        user: disabled,
         active: true,
       );
-      expect(p.plan.paths, ['users/sm-ptb']);
+      final auditPath = 'auditLog/PTB-USR-sm-ptb-$_millis';
+      expect(p.plan.paths, ['users/sm-ptb', auditPath]);
+      final audit = p.plan.opAt(auditPath)!;
+      expect(audit.kind, WriteKind.create);
+      expect(audit.data['action'], 'USER_ENABLE');
+      expect(audit.data['locationId'], 'PTB');
+      expect(audit.data['before'], {'active': false});
+      expect(audit.data['after'], {'active': true});
+      expect(p.value.active, isTrue);
       expect(
         () => AdminPlans.setUserActive(
           ctx: PlanContext(uid: 'sm-ptb', now: Fx.now),

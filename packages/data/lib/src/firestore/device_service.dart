@@ -6,6 +6,7 @@ import 'package:nexus_core/nexus_core.dart';
 
 import '../api/device.dart';
 import '../api/failures.dart';
+import '../api/session.dart';
 import '../counters/durable_store.dart';
 import '../plans/device_plans.dart';
 import '../plans/plan_support.dart';
@@ -40,13 +41,15 @@ abstract interface class DeviceBackend {
 /// winner's `nextDeviceNo` and come back PERMISSION_DENIED instead of
 /// ABORTED (seen on the emulator), which the SDK doesn't retry; so a
 /// `notPermitted` is retried a few times with a growing random pause,
-/// re-reading the new value. A user who really lacks `device.register`
-/// just gets `notPermitted` after the last attempt.
+/// re-reading the new value. A user whose session lacks `device.register`
+/// at the location gets `notPermitted` at once, before any attempt.
 final class FirestoreDeviceService implements DeviceService {
   FirestoreDeviceService({
     required DeviceBackend backend,
     required DurableStore local,
     required String? Function() uid,
+    SessionContext? Function()? session,
+    this.onRegistered,
     DateTime Function()? clock,
     this.attempts = 8,
     Future<void> Function(Duration)? sleep,
@@ -54,6 +57,7 @@ final class FirestoreDeviceService implements DeviceService {
   }) : _backend = backend,
        _local = local,
        _uid = uid,
+       _session = session,
        _clock = clock ?? DateTime.now,
        _sleep = sleep ?? Future<void>.delayed,
        _random = random ?? Random();
@@ -64,7 +68,13 @@ final class FirestoreDeviceService implements DeviceService {
   final DeviceBackend _backend;
   final DurableStore _local;
   final String? Function() _uid;
+  final SessionContext? Function()? _session;
   final DateTime Function() _clock;
+
+  /// Called after a registration is stored locally: registration is a
+  /// server round trip, so the sync service moves `lastSyncAt` (03-SYNC
+  /// §6.4).
+  final FutureOr<void> Function(Device device)? onRegistered;
   final Future<void> Function(Duration) _sleep;
   final Random _random;
 
@@ -95,7 +105,26 @@ final class FirestoreDeviceService implements DeviceService {
     if (!Ids.isLocationCode(locationId)) {
       throw DataFailure(FailureReason.notFound, 'location $locationId');
     }
+    final session = _session?.call();
+    if (_session != null &&
+        (session == null ||
+            !session.canAt(Permission.deviceRegister, locationId))) {
+      throw DataFailure(
+        FailureReason.notPermitted,
+        '${Permission.deviceRegister} at $locationId',
+      );
+    }
     final ctx = PlanContext(uid: uid, locationId: locationId, now: _clock());
+    final device = await _registerWithRetry(ctx, locationId, label);
+    await onRegistered?.call(device);
+    return device;
+  }
+
+  Future<Device> _registerWithRetry(
+    PlanContext ctx,
+    String locationId,
+    String label,
+  ) async {
     for (var attempt = 1; ; attempt++) {
       try {
         final device = await _backend.transaction((tx) async {

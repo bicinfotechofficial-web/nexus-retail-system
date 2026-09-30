@@ -239,6 +239,63 @@ void main() {
     },
   );
 
+  test('without device.register in the session it fails at once, with no '
+      'attempt (BE-9 review)', () async {
+    final backend = _withPtb();
+    var attempts = 0;
+    final s = FirestoreDeviceService(
+      backend: backend,
+      local: MemoryDurableStore(),
+      uid: () => 'sm-ptb',
+      session: () => _session(const []),
+      clock: () => DateTime.utc(2026, 9, 26, 4, 30),
+      sleep: (_) async => attempts++,
+    );
+    await expectLater(
+      s.register(locationId: 'PTB', label: 'x'),
+      throwsA(
+        isA<DataFailure>().having(
+          (f) => f.reason,
+          'r',
+          FailureReason.notPermitted,
+        ),
+      ),
+    );
+    expect(backend.commits, 0);
+    expect(attempts, 0);
+    expect(backend.docs['locations/PTB']!['nextDeviceNo'], 0);
+
+    // With the permission, but at another location: also at once.
+    final other = FirestoreDeviceService(
+      backend: backend,
+      local: MemoryDurableStore(),
+      uid: () => 'sm-ptb',
+      session: () => _session(const [Permission.deviceRegister]),
+    );
+    await expectLater(
+      other.register(locationId: 'MNJ', label: 'x'),
+      throwsA(isA<DataFailure>()),
+    );
+    expect(backend.commits, 0);
+  });
+
+  test('a registration calls onRegistered once it is stored', () async {
+    final registered = <String>[];
+    final local = MemoryDurableStore();
+    final s = FirestoreDeviceService(
+      backend: _withPtb(),
+      local: local,
+      uid: () => 'sm-ptb',
+      session: () => _session(const [Permission.deviceRegister]),
+      onRegistered: (d) {
+        expect(local.disk[FirestoreDeviceService.deviceIdKey], d.code);
+        registered.add(d.code);
+      },
+    );
+    await s.register(locationId: 'PTB', label: 'x');
+    expect(registered, ['D01']);
+  });
+
   test('watchDevices lists the location devices', () async {
     final backend = _withPtb();
     await _service(backend).register(locationId: 'PTB', label: 'A');
@@ -253,3 +310,22 @@ void main() {
     expect(failureReasonOf('internal'), FailureReason.unknown);
   });
 }
+
+SessionContext _session(List<String> permissions) => SessionContext(
+  user: const AppUser(
+    uid: 'sm-ptb',
+    name: 'Store Manager',
+    email: 'sm@example.com',
+    roleId: SeedRoles.storeManagerId,
+    locationId: 'PTB',
+    active: true,
+    createdBy: 'admin',
+  ),
+  role: Role(
+    id: SeedRoles.storeManagerId,
+    name: 'Store Manager',
+    permissions: permissions,
+    allLocations: false,
+  ),
+  location: null,
+);
