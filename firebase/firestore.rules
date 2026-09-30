@@ -509,7 +509,10 @@ service cloud.firestore {
         && (ref.matches('^locations/' + loc + '/((bills|returns)/[A-Za-z0-9-]+|movements/D[0-9]{2}-[0-9]{6}-X)$')
           || ref.matches('^auditLog/[A-Z]{2,4}-EXP-[A-Za-z0-9_-]+$'))
         && !exists(path('/databases/' + database + '/documents/' + ref))
-        && existsAfter(path('/databases/' + database + '/documents/' + ref));
+        && existsAfter(path('/databases/' + database + '/documents/' + ref))
+        && (!ref.matches('^auditLog/.*$')
+          || getAfter(path('/databases/' + database + '/documents/' + ref)).data.action
+               in ['EXPENSE_CREATE', 'EXPENSE_UPDATE']);
     }
 
     // ---- #10 auditLog ------------------------------------------------------
@@ -533,6 +536,19 @@ service cloud.firestore {
         : 'location.manage';
     }
 
+    // The ID shape after `{loc}-` for each location-scoped action, from the
+    // D-032 table in 02-DATA-MODEL. Tying action to shape stops an audit doc
+    // of one action from taking another action's ID (QA-044).
+    function auditIdShape(action) {
+      return action == 'BILL_CANCEL' ? 'D[0-9]{2}-[0-9]{6}-X'
+        : action == 'RETURN' ? 'D[0-9]{2}-R[0-9]{6}'
+        : action in ['STOCK_ADJUST', 'WASTAGE'] ? 'D[0-9]{2}-M[0-9]{6}'
+        : action == 'OFFLINE_OVERRIDE' ? 'D[0-9]{2}-OVR-[0-9]+'
+        : action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'EXP-[A-Za-z0-9_-]+-[0-9]+'
+        : action == 'LOCATION_UPDATE' ? 'LOC-[0-9]+'
+        : 'USR-[A-Za-z0-9_-]+-[0-9]+';
+    }
+
     // IDs (D-028, D-032): a location-scoped event is `{loc}-...` with
     // locationId set; PRICE_CHANGE and PRODUCT_APPROVE are global
     // (`PRICE-...`, `APPROVE-...`, locationId null); a user event is
@@ -544,13 +560,13 @@ service cloud.firestore {
       let global = a.action in ['PRICE_CHANGE', 'PRODUCT_APPROVE'];
       let userEvent = a.action in ['USER_CREATE', 'USER_DISABLE', 'USER_ENABLE'];
       let scoped = a.locationId is string && isLocationCode(a.locationId)
-        && canAt(p, a.locationId) && auditId.matches('^' + a.locationId + '-.+$');
+        && canAt(p, a.locationId)
+        && auditId.matches('^' + a.locationId + '-' + auditIdShape(a.action) + '$');
       return a.keys().hasOnly(keys)
         && a.keys().size() == keys.size()
         && a.action in ['STOCK_ADJUST', 'WASTAGE', 'BILL_CANCEL', 'RETURN', 'EXPENSE_CREATE',
                         'EXPENSE_UPDATE', 'PRICE_CHANGE', 'PRODUCT_APPROVE', 'USER_CREATE',
-                        'USER_DISABLE', 'USER_ENABLE', 'OFFLINE_OVERRIDE', 'THRESHOLD_CHANGE',
-                        'LOCATION_UPDATE']
+                        'USER_DISABLE', 'USER_ENABLE', 'OFFLINE_OVERRIDE', 'LOCATION_UPDATE']
         && a.by == request.auth.uid
         && a.at == request.time
         && a.clientAt is timestamp

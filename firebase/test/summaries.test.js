@@ -69,6 +69,15 @@ describe('#9 summaries in the complete batches', () => {
 });
 
 describe('#9 summaries: lastWriteRef', () => {
+  it('denies an expense-style ref to an audit that is not an expense (QA-044)', async () => {
+    const db = t.db('admin');
+    const auditId = 'PTB-EXP-e9-1790000000000';
+    const b = writeBatch(db);
+    b.set(monthlyRef(db), summaryWrite(`auditLog/${auditId}`, { netSales: -10000000 }), { merge: true });
+    b.set(doc(db, 'auditLog', auditId), makeAudit({ action: 'LOCATION_UPDATE', entityPath: 'locations/PTB', uid: ACTORS.admin.uid, deviceId: null }));
+    await assertFails(b.commit());
+  });
+
   it('denies a summary increment without a new doc', async () => {
     await assertFails(setDoc(dailyRef(t.db('smPtb')), summaryWrite(BILL_PATH), { merge: true }));
   });

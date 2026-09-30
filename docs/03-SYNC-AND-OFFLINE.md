@@ -46,7 +46,7 @@ The local ledger (Hive box `pending`) holds `{path, createdAt}` for every bill, 
   1. `await firestore.waitForPendingWrites()` (timeout 30 s).
   2. For each ledger entry, run `get(GetOptions(source: Source.server))`. If the doc exists, remove it from the ledger.
   3. If a doc is **missing** after the pending writes flushed, the server rejected it: show it as a **Sync error** on the sync-health screen with the bill details so the SM can re-enter it. This should never happen, and each one is treated as a bug.
-  4. When `waitForPendingWrites` finished and every ledger entry was resolved (confirmed, or moved to sync errors), set `lastSyncAt = now` (local) and update `devices/{id}.lastSeenAt` (at most every 5 minutes). A sync error does not hold `lastSyncAt` back. It is first set by an interactive, online sign-in or by device registration. Restoring a saved session when the app starts does **not** set it.
+  4. When `waitForPendingWrites` finished and every ledger entry was resolved (confirmed, or moved to sync errors), set `lastSyncAt = now` (local) and update `devices/{id}.lastSeenAt` (at most every 5 minutes). A sync error does not hold `lastSyncAt` back, but a pass must make at least one successful server read before it can move `lastSyncAt`, so an empty ledger offline never resets the timer. It is first set by an interactive, online sign-in or by device registration. Restoring a saved session when the app starts does **not** set it.
 - `lastSyncAt` and any active override end time are stored in the device's local store (Hive) and survive app restarts and reboots (QA-025).
 - UI: a status chip in the app bar showing ● Online / ◐ Syncing (n pending) / ○ Offline since HH:MM.
 

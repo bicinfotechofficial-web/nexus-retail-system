@@ -349,6 +349,18 @@ void main() {
       );
     });
 
+    test('StockItem without qty reads as 0 (QA-045)', () {
+      final s = StockItem.fromMap('FG_x', {
+        'kind': 'FINISHED',
+        'refId': 'x',
+        'name': 'x',
+        'unit': 'PCS',
+        'lowThreshold': 2,
+      });
+      expect(s.qty, 0);
+      expect(s.isLow, isTrue);
+    });
+
     test('StockItem.isLow', () {
       StockItem s(int qty, int? low) => StockItem(
         itemKey: 'FG_x',

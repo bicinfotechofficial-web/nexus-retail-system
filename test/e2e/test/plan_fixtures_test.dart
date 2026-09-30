@@ -98,10 +98,6 @@ void main() {
         test(
           'every stock doc it leaves reads as a StockItem',
           () => expectStockReadable(after, f.name),
-          skip: f.name == 'threshold_set'
-              ? 'QA-045: a threshold on an item with no stock doc leaves '
-                    'a doc without qty, which StockItem.fromMap rejects'
-              : null,
         );
       });
     }

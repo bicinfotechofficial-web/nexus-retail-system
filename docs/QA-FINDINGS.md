@@ -143,3 +143,11 @@ Checked on main at `fe5a5d9` with QA's own emulator. The rules suite passes (14 
 |---|---|
 | QA-037 | Closed. `validNewAudit` requires a location event to have `locationId` set, pass `canAt(permission, loc)` and start with `{loc}-` (`firebase/firestore.rules:526-552`); only PRICE_CHANGE, PRODUCT_APPROVE and user events for a user with no location may have `locationId: null`, each with its own prefix. The exploit rerun on the emulator: a PTB Store Manager and a PTB Cashier creating `auditLog/MNJ-D01-000001-X` with `locationId: null` are denied for each of the 11 actions, and with `locationId: MNJ` too; MNJ's complete cancel batch then passes. Tests `audit.test.js:59-68`. The same-location remainder is QA-044. PLAN R-10 |
 | QA-041 | Closed. `Ids` has a builder per action (`packages/core/lib/src/ids.dart`: `auditId`, `overrideAuditId`, `expenseAuditId`, `locationAuditId`, `userAuditId`, `priceChangeAuditId`, `productApproveAuditId`), 02-DATA-MODEL auditLog lists them, D-032 records them, and THRESHOLD_CHANGE is reserved and never written. Every audit write in `packages/data` uses them (`sales_plans.dart:168`, `:262`, `stock_plans.dart:217`, `admin_plans.dart:56`, `plan_support.dart:127-139`, `firestore_user_service.dart:55`), and every audit doc in the 25 plan fixtures has the ID shape of its action (`test/e2e/test/plan_fixtures_test.dart`). USER_ENABLE is never written (QA-046). PLAN R-10, P-03 |
+
+### Central outcomes, seventh review
+| ID | Outcome | Where |
+|---|---|---|
+| QA-038 to QA-040, QA-042 | Fixed by the rules worker (`8556c33`, `b041dd7`, `1e7a281`, `9c15ec2`). QA to re-verify. | firestore.rules, tests |
+| QA-044 | Fixed on main by the central agent: `auditIdShape` per action in #10, the #9 expense ref must be an EXPENSE_* audit, THRESHOLD_CHANGE denied. Regression tests added. | firestore.rules #9/#10, audit.test.js, summaries.test.js |
+| QA-045 | Fixed on main: `StockItem.fromMap` reads a missing `qty` as 0, and the `threshold_set` fixture test is un-skipped and passes. | core `StockItem` |
+| QA-046 | Fixed by data C (`19a8649`): re-enabling a user writes USER_ENABLE. | packages/data |

@@ -66,6 +66,17 @@ describe('#10 auditLog: create', () => {
     await assertSucceeds(create('smPtb', 'PTB-D01-M000001', adjust));
   });
 
+  it('ties each action to its ID shape (QA-044)', async () => {
+    const override = { action: 'OFFLINE_OVERRIDE', entityPath: 'locations/PTB/devices/D01', locationId: 'PTB', deviceId: 'D01', uid: 'cashier-ptb' };
+    // An override can't take a cancellation's or an expense's ID.
+    await assertFails(create('cashierPtb', 'PTB-D01-000001-X', override));
+    await assertFails(create('cashierPtb', 'PTB-EXP-e1-1790000000000', override));
+    await assertSucceeds(create('cashierPtb', 'PTB-D01-OVR-1790000000000', override));
+    // THRESHOLD_CHANGE is reserved (D-032).
+    const threshold = { action: 'THRESHOLD_CHANGE', entityPath: 'locations/PTB/stock/FG_x', locationId: 'PTB', deviceId: 'D01' };
+    await assertFails(create('smPtb', 'PTB-D01-M000001', threshold));
+  });
+
   it('denies a disabled user and an anonymous user', async () => {
     await assertFails(create('disabled', 'PTB-D01-000001-X', { action: 'BILL_CANCEL', entityPath: 'x' }));
     await assertFails(setDoc(auditRef(t.db('anonymous'), 'PTB-D01-000001-X'), makeAudit({ action: 'BILL_CANCEL', entityPath: 'x' })));

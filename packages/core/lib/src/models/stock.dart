@@ -24,7 +24,9 @@ final class StockItem {
       refId: r.string('refId'),
       name: r.string('name'),
       unit: r.enumValue('unit', StockUnit.fromWire),
-      qty: r.integer('qty'),
+      // A doc made by a threshold edit before any stock moved has no qty
+      // yet; it reads as 0 (QA-045).
+      qty: r.integerOr('qty', 0),
       lowThreshold: r.integerOrNull('lowThreshold'),
       lastMovementId: r.stringOrNull('lastMovementId'),
       updatedAt: r.dateTimeOrNull('updatedAt'),
