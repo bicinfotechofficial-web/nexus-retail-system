@@ -3,7 +3,8 @@
 ///
 /// `src/api/` is the contract the apps build against; the central agent owns
 /// it, and changes go through docs/CHANGE-REQUESTS.md. The backend agent
-/// implements it (BE-8 to BE-13).
+/// implements it (BE-8 to BE-13). The apps build everything with
+/// [NexusBackend.firebase]; device scenarios use `package:nexus_data/testing.dart`.
 library;
 
 export 'src/api/admin.dart';
@@ -15,6 +16,7 @@ export 'src/api/sales.dart';
 export 'src/api/session.dart';
 export 'src/api/stock.dart';
 export 'src/api/sync.dart';
+export 'src/backend.dart';
 export 'src/convert/firestore_values.dart';
 export 'src/counters/counter_store.dart';
 export 'src/counters/durable_store.dart';
