@@ -202,15 +202,24 @@ void main() {
       expect(entry.entityPath, 'users/sm1');
     });
 
-    test('enabling sets active true without an audit entry', () async {
-      await db.doc(FirestorePaths.user('sm1')).update({'active': false});
-      await service.setActive('sm1', active: true);
-      expect((await doc(FirestorePaths.user('sm1')))!['active'], true);
-      expect(
-        (await db.collection(FirestorePaths.auditLog).get()).docs,
-        isEmpty,
-      );
-    });
+    test(
+      'enabling sets active true with a USER_ENABLE entry (QA-046)',
+      () async {
+        await db.doc(FirestorePaths.user('sm1')).update({'active': false});
+        await service.setActive('sm1', active: true);
+        expect((await doc(FirestorePaths.user('sm1')))!['active'], true);
+        final id = FirestoreUserService.userAuditId('PTB', 'sm1', now);
+        final entry = AuditEntry.fromMap(
+          id,
+          plainFromFirestore((await doc(FirestorePaths.audit(id)))!),
+        );
+        expect(entry.action, AuditAction.userEnable);
+        expect(entry.before, {'active': false});
+        expect(entry.after, {'active': true});
+        expect(entry.locationId, 'PTB');
+        expect(entry.by, isNotEmpty);
+      },
+    );
 
     test('the value it already has writes nothing', () async {
       await service.setActive('sm1', active: true);

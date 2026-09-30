@@ -137,9 +137,8 @@ final class FirestoreUserService implements UserService {
     return user;
   }
 
-  /// Sets `active`. Disabling writes a USER_DISABLE audit entry in the same
-  /// batch; enabling is not audited, because there is no action for it
-  /// (proposed in CHANGE-REQUESTS). The Admin can't change their own
+  /// Sets `active`, with a USER_DISABLE or USER_ENABLE audit entry in the
+  /// same batch (D-032, QA-046). The Admin can't change their own
   /// `active` (04-PERMISSIONS #3). Setting the value it already has writes
   /// nothing.
   @override
@@ -161,24 +160,22 @@ final class FirestoreUserService implements UserService {
     if (wasActive == active) return;
 
     final batch = _db.batch()..update(ref, {'active': active});
-    if (!active) {
-      final now = _now();
-      final locationId = data['locationId'] as String?;
-      final audit = AuditEntry(
-        id: userAuditId(locationId, uid, now),
-        action: AuditAction.userDisable,
-        entityPath: FirestorePaths.user(uid),
-        locationId: locationId,
-        before: {'active': wasActive},
-        after: {'active': false},
-        by: adminUid,
-        clientAt: now,
-      );
-      batch.set(_db.doc(FirestorePaths.audit(audit.id)), {
-        ...audit.toMap(),
-        'at': FieldValue.serverTimestamp(),
-      });
-    }
+    final now = _now();
+    final locationId = data['locationId'] as String?;
+    final audit = AuditEntry(
+      id: userAuditId(locationId, uid, now),
+      action: active ? AuditAction.userEnable : AuditAction.userDisable,
+      entityPath: FirestorePaths.user(uid),
+      locationId: locationId,
+      before: {'active': wasActive},
+      after: {'active': active},
+      by: adminUid,
+      clientAt: now,
+    );
+    batch.set(_db.doc(FirestorePaths.audit(audit.id)), {
+      ...audit.toMap(),
+      'at': FieldValue.serverTimestamp(),
+    });
     await guardFirestore(batch.commit);
   }
 
