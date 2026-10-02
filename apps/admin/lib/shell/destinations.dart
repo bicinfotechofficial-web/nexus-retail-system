@@ -30,6 +30,19 @@ const List<Destination> destinations = [
     anyOf: [Permission.reportOwn, Permission.reportAll],
   ),
   Destination(
+    path: '/bills',
+    label: 'Bills',
+    icon: Icons.point_of_sale_outlined,
+    anyOf: [Permission.reportOwn, Permission.reportAll],
+  ),
+  Destination(
+    path: '/customers',
+    label: 'Customers',
+    icon: Icons.groups_outlined,
+    // Every location's customers, read only (D-037): the Admin.
+    anyOf: [Permission.reportAll],
+  ),
+  Destination(
     path: '/financials',
     label: 'Financials',
     icon: Icons.account_balance_outlined,

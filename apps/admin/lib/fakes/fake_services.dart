@@ -153,6 +153,8 @@ final class FakeCatalogService implements CatalogService {
       status: ProductStatus.active,
       price: price,
       updatedAt: _now(),
+      reviewedBy: _uidOf(auth),
+      reviewedAt: _now(),
     );
     catalog.put(approved);
     audit.add(
@@ -164,6 +166,39 @@ final class FakeCatalogService implements CatalogService {
       by: _uidOf(auth),
     );
     return approved;
+  }
+
+  @override
+  Future<Product> decline({
+    required String productId,
+    required String note,
+  }) async {
+    final p = catalog.byId(productId);
+    if (p == null) throw const DataFailure(FailureReason.notFound);
+    if (p.status != ProductStatus.pending) {
+      throw const DataFailure(FailureReason.ruleViolation, 'not pending');
+    }
+    final text = note.trim();
+    if (text.isEmpty || text.length > Limits.reviewNoteMax) {
+      throw const DataFailure(FailureReason.ruleViolation, 'note length');
+    }
+    final declined = p.copyWith(
+      status: ProductStatus.inactive,
+      updatedAt: _now(),
+      reviewedBy: _uidOf(auth),
+      reviewNote: text,
+      reviewedAt: _now(),
+    );
+    catalog.put(declined);
+    audit.add(
+      AuditAction.productDecline,
+      productId,
+      entityPath: FirestorePaths.product(productId),
+      before: {'status': p.status.wire},
+      after: {'status': declined.status.wire, 'reviewNote': text},
+      by: _uidOf(auth),
+    );
+    return declined;
   }
 
   @override

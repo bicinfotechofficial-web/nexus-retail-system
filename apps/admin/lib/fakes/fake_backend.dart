@@ -22,7 +22,10 @@ final class FakeBackend {
     FakeDeviceService? devices,
     FakeAuditTrail? audit,
     List<Expense> expenses = const [],
-  }) : users = users ?? FakeUserRepository(const []),
+    Map<String, List<Bill>> bills = const {},
+  }) : sales = FakeSalesRepository(bills),
+       customers = FakeCustomerRepository.fromBills(bills),
+       users = users ?? FakeUserRepository(const []),
        devices = devices ?? FakeDeviceService(const {}, locations),
        audit = audit ?? FakeAuditTrail() {
     this.expenses = FakeExpenses(
@@ -130,7 +133,94 @@ final class FakeBackend {
       devices: FakeDeviceService(_seedDevices(today), locations),
       audit: FakeAuditTrail(seeded: _seedAudit(today)),
       expenses: expenses,
+      bills: seedBills(today),
     );
+  }
+
+  /// A few bills on [today] at PTB and MNJ. Most carry a customer (D-034);
+  /// one PTB bill predates it and has none. The Customers screen is built
+  /// from these bills, like the real records the bills' batches write.
+  static Map<String, List<Bill>> seedBills(String today) {
+    final start = BusinessDate.startOf(today);
+    Bill bill(
+      String loc,
+      String id,
+      int hour,
+      int rupees,
+      BillCustomer? customer,
+    ) => Bill(
+      id: id,
+      billNo: '$loc-$id',
+      deviceId: id.substring(0, 3),
+      seq: int.parse(id.substring(4)),
+      lines: [
+        BillLine(
+          productId: 'brownie',
+          name: 'Brownie',
+          qty: 1,
+          unitPrice: Money.rupees(rupees),
+          lineTotal: Money.rupees(rupees),
+        ),
+      ],
+      subtotal: Money.rupees(rupees),
+      taxableValue: Money.rupees(rupees),
+      roundOff: Money.zero,
+      total: Money.rupees(rupees),
+      payments: [Payment(mode: PaymentMode.cash, amount: Money.rupees(rupees))],
+      status: BillStatus.completed,
+      servedBy: ServedBy(uid: 'sm-$loc', name: 'Store Manager $loc'),
+      businessDate: today,
+      clientCreatedAt: start.add(Duration(hours: hour)),
+      createdBy: 'sm-$loc',
+      customer: customer,
+    );
+    return {
+      'PTB': [
+        bill(
+          'PTB',
+          'D01-000001',
+          9,
+          80,
+          BillCustomer(
+            name: 'Test Customer',
+            phone: '9876543210',
+            whatsapp: '9876543210',
+          ),
+        ),
+        bill(
+          'PTB',
+          'D01-000002',
+          11,
+          240,
+          BillCustomer(
+            name: 'Test Customer',
+            phone: '9876543210',
+            whatsapp: '9876543210',
+          ),
+        ),
+        bill(
+          'PTB',
+          'D02-000003',
+          13,
+          60,
+          BillCustomer(name: 'Sample Buyer', phone: '9123456780'),
+        ),
+        bill('PTB', 'D02-000004', 14, 25, null),
+      ],
+      'MNJ': [
+        bill(
+          'MNJ',
+          'D01-000007',
+          10,
+          350,
+          BillCustomer(
+            name: 'Another Customer',
+            phone: '8800112233',
+            whatsapp: '9000011111',
+          ),
+        ),
+      ],
+    };
   }
 
   static const String adminEmail = 'admin@caramelcottage.in';
@@ -142,6 +232,8 @@ final class FakeBackend {
   final FakeSummaryRepository summaries;
   final FakeStockRepository stock;
   final FakeCatalogRepository catalog;
+  final FakeSalesRepository sales;
+  final FakeCustomerRepository customers;
   final FakeUserRepository users;
   final FakeDeviceService devices;
   final FakeAuditTrail audit;
@@ -163,6 +255,8 @@ final class FakeBackend {
     summaries: summaries,
     stockRepo: stock,
     catalogRepo: catalog,
+    salesRepo: sales,
+    customerRepo: customers,
     catalog: catalogService,
     userRepo: users,
     users: userService,
@@ -280,6 +374,18 @@ final class FakeBackend {
       sortOrder: 0,
       createdBy: 'sm-PTB',
       proposedPrice: Money.rupees(110),
+    ),
+    Product(
+      id: 'sugdeclined',
+      name: 'Mango Mousse Jar',
+      category: 'Desserts',
+      scope: 'PTB',
+      status: ProductStatus.inactive,
+      sortOrder: 0,
+      createdBy: 'sm-PTB',
+      proposedPrice: Money.rupees(95),
+      reviewedBy: 'admin-0001',
+      reviewNote: 'Too close to a cake we sell',
     ),
     Product(
       id: 'fruitcake',
@@ -739,6 +845,18 @@ final class FakeBackend {
         after: {'refundTotal': 6000, 'lines': 1},
         reason: 'Pastry was stale',
         deviceId: 'D01',
+      ),
+      entry(
+        AuditAction.productDecline,
+        null,
+        FirestorePaths.product('sugdeclined'),
+        'admin-0001',
+        day * 60,
+        before: {'status': 'PENDING'},
+        after: {
+          'status': 'INACTIVE',
+          'reviewNote': 'Too close to a cake we sell',
+        },
       ),
     ];
   }

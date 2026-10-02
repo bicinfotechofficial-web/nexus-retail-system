@@ -49,7 +49,7 @@ void main() {
   ) async {
     await _open(tester, backend);
 
-    expect(_rows(tester), [for (var i = 12; i >= 0; i--) '$i']);
+    expect(_rows(tester), [for (var i = 12; i >= 0; i--) '$i', '13']);
     expect(_text(tester, 'audit-action-seed-audit-12'), 'Return');
     expect(find.text('Store Manager PTB'), findsWidgets);
     expect(find.text('26 Sep 2026, 5:00 AM'), findsOneWidget);
@@ -72,7 +72,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('audit-clear')));
     await tester.pumpAndSettle();
-    expect(_rows(tester), hasLength(13));
+    expect(_rows(tester), hasLength(14));
     expect(find.byKey(const Key('audit-clear')), findsNothing);
   });
 

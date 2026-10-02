@@ -120,6 +120,7 @@ String auditActionLabel(AuditAction a) => switch (a) {
   AuditAction.expenseUpdate => 'Expense edited',
   AuditAction.priceChange => 'Price change',
   AuditAction.productApprove => 'Product approved',
+  AuditAction.productDecline => 'Product declined',
   AuditAction.userCreate => 'User created',
   AuditAction.userDisable => 'User disabled',
   AuditAction.userEnable => 'User enabled',
