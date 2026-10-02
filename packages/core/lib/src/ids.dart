@@ -99,6 +99,10 @@ abstract final class Ids {
   static String productApproveAuditId(String productId, DateTime at) =>
       'APPROVE-${_key(productId)}-${at.millisecondsSinceEpoch}';
 
+  /// `DECLINE-{productId}-{millis}`: a pending product declined (D-038).
+  static String productDeclineAuditId(String productId, DateTime at) =>
+      'DECLINE-${_key(productId)}-${at.millisecondsSinceEpoch}';
+
   /// `RM_{materialId}`.
   static String rawItemKey(String materialId) => 'RM_${_key(materialId)}';
 

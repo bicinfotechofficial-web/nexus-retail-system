@@ -130,6 +130,7 @@ enum AuditAction {
   expenseUpdate('EXPENSE_UPDATE'),
   priceChange('PRICE_CHANGE'),
   productApprove('PRODUCT_APPROVE'),
+  productDecline('PRODUCT_DECLINE'),
   userCreate('USER_CREATE'),
   userDisable('USER_DISABLE'),
   userEnable('USER_ENABLE'),

@@ -32,6 +32,7 @@ void main() {
       expect(Ids.userAuditId(null, 'u9', t5), 'USR-u9-5');
       expect(Ids.priceChangeAuditId('bf', t5), 'PRICE-bf-5');
       expect(Ids.productApproveAuditId('bf', t5), 'APPROVE-bf-5');
+      expect(Ids.productDeclineAuditId('bf', t5), 'DECLINE-bf-5');
     });
 
     test('bill IDs sort in sequence order', () {

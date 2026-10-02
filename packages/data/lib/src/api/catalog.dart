@@ -11,6 +11,10 @@ abstract interface class CatalogRepository {
   Stream<List<Product>> watchPending();
 
   Stream<List<RawMaterial>> watchRawMaterials();
+
+  /// The signed-in user's own suggestions at [locationId], newest first, in
+  /// any status (D-038). The POS "My suggestions" list and its badge.
+  Stream<List<Product>> watchMySuggestions(String locationId, String uid);
 }
 
 abstract interface class CatalogService {
@@ -31,7 +35,14 @@ abstract interface class CatalogService {
 
   /// Sets the price and makes a PENDING product ACTIVE, with a
   /// PRODUCT_APPROVE audit entry (`catalog.manage`).
+  ///
+  /// Also sets `reviewedBy` and `reviewedAt` (D-038).
   Future<Product> approve({required String productId, required Money price});
+
+  /// Declines a PENDING suggestion: it becomes INACTIVE with `reviewNote` set
+  /// to [note] (1 to 200 characters) and `reviewedBy`/`reviewedAt` (D-038),
+  /// with a PRODUCT_DECLINE audit entry (`catalog.manage`).
+  Future<Product> decline({required String productId, required String note});
 
   /// `rawMaterial.create`.
   Future<RawMaterial> addRawMaterial({

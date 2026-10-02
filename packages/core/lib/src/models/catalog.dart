@@ -17,6 +17,9 @@ final class Product {
     this.unit = StockUnit.pcs,
     this.gstRate,
     this.recipe,
+    this.reviewedBy,
+    this.reviewNote,
+    this.reviewedAt,
     this.createdAt,
     this.updatedAt,
   });
@@ -38,6 +41,9 @@ final class Product {
       recipe: r.objectsOrNull('recipe', RecipeLine._fromReader),
       sortOrder: r.integerOr('sortOrder', 0),
       createdBy: r.string('createdBy'),
+      reviewedBy: r.stringOrNull('reviewedBy'),
+      reviewNote: r.stringOrNull('reviewNote'),
+      reviewedAt: r.dateTimeOrNull('reviewedAt'),
       createdAt: r.dateTimeOrNull('createdAt'),
       updatedAt: r.dateTimeOrNull('updatedAt'),
     );
@@ -46,7 +52,11 @@ final class Product {
   /// [scope] value for products sold at every location.
   static const String globalScope = 'GLOBAL';
 
-  static const Set<String> serverTimestampFields = {'createdAt', 'updatedAt'};
+  static const Set<String> serverTimestampFields = {
+    'createdAt',
+    'updatedAt',
+    'reviewedAt',
+  };
 
   final String id;
   final String name;
@@ -70,8 +80,20 @@ final class Product {
   final List<RecipeLine>? recipe;
   final int sortOrder;
   final String createdBy;
+
+  /// Set when the Admin approves or declines a suggestion (D-038). `reviewedAt`
+  /// is a server timestamp, so it is null until the write reaches the server.
+  final String? reviewedBy;
+
+  /// The reason, when declined.
+  final String? reviewNote;
+  final DateTime? reviewedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  /// A suggestion the Admin declined: inactive, never priced, with a reviewer.
+  bool get wasDeclined =>
+      status == ProductStatus.inactive && price == null && reviewedBy != null;
 
   /// Can be put on a bill at [locationId]: active, priced and in scope.
   bool isSellableAt(String locationId) =>
@@ -91,6 +113,8 @@ final class Product {
     'recipe': recipe?.map((l) => l.toMap()).toList(),
     'sortOrder': sortOrder,
     'createdBy': createdBy,
+    if (reviewedBy != null) 'reviewedBy': reviewedBy,
+    if (reviewNote != null) 'reviewNote': reviewNote,
   };
 }
 

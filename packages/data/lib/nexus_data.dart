@@ -9,6 +9,7 @@ library;
 
 export 'src/api/admin.dart';
 export 'src/api/catalog.dart';
+export 'src/api/customers.dart';
 export 'src/api/device.dart';
 export 'src/api/failures.dart';
 export 'src/api/reports.dart';

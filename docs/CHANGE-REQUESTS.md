@@ -60,3 +60,12 @@ Seventh review (C-7 integration):
 ## CR-pilot-2 (from Bicy, second round)
 - **Accepted:** the WhatsApp number is only needed when it differs from the mobile (D-034 revised); customers are stored, one per mobile and name, per location (D-037); a Store Manager sees the Admin's decision on a suggestion inside the app (D-038); the bill review can be switched off with a box on the review and in Settings (D-035 revised); a Finished / Raw filter on the stock list and a stock history with In / Out (D-039).
 - **Answered, no change to the data:** the -1 on a cake is the stock level, not a movement. See D-039.
+
+## Contract change for pilot feedback (central, from CR-pilot-1 and CR-pilot-2)
+Already on main in `packages/core` and `packages/data/lib/src/api/`. The data package and both apps stay red until their lanes catch up, which is expected:
+- `NewBill.customer` (a `BillCustomer`, required). `createBill` also writes `locations/{loc}/customers/{customerId}` in the same batch: a create when missing, otherwise only increments of `billCount` and `totalSpend`, `lastBillAt`, `lastWriteRef` (D-037).
+- New `CustomerRepository` (`watchByPhone`, `watchAll`, `watchAllLocations`).
+- `CatalogRepository.watchMySuggestions`, `CatalogService.decline`, and `approve` also sets `reviewedBy` and `reviewedAt`. New `Product.reviewedBy`, `reviewNote`, `reviewedAt` and `wasDeclined`. New `AuditAction.productDecline` and `Ids.productDeclineAuditId` (rule #10 needs `catalog.manage` for it).
+- `StockRepository.watchMovements(locationId, businessDate)`.
+- Core: `CustomerValidator`, `CustomerId`, `BillCustomer`, `Customer`, `WhatsappReceipt` (text and `wa.me` link).
+- Note for the POS agent: `CatalogService.addRawMaterial` already exists, so the "New raw material" button on the POS stock-in screen needs only the UI.

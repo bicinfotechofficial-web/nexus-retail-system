@@ -5,6 +5,7 @@ final class NewBill {
   const NewBill({
     required this.cart,
     required this.payments,
+    required this.customer,
     this.discount,
     this.cashTendered,
   });
@@ -13,6 +14,10 @@ final class NewBill {
   final DiscountInput? discount;
   final List<Payment> payments;
   final Money? cashTendered;
+
+  /// Who bought (D-034). Required: build it with `BillCustomer(...)`, which
+  /// throws on a bad name or number, after checking with `CustomerValidator`.
+  final BillCustomer customer;
 }
 
 /// Bills and returns. All writes use the signed-in user's location and this
@@ -24,7 +29,9 @@ final class NewBill {
 abstract interface class SalesService {
   /// Computes totals with `BillCalculator`, validates the payments, allocates
   /// the next bill number (persisted before the batch is built), and writes
-  /// the bill, stock, SALE movement, summaries and `lastBillSeq`.
+  /// the bill with its customer fields, the customer record (created on the
+  /// first bill, otherwise only incremented, D-037), stock, SALE movement,
+  /// summaries and `lastBillSeq`.
   ///
   /// Throws the calculator's exceptions, or `DataFailure` with
   /// billingBlocked, deviceNotRegistered, notPermitted, or ruleViolation when
