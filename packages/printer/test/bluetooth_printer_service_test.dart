@@ -4,7 +4,6 @@ import 'package:nexus_printer/src/bluetooth_printer_service.dart';
 import 'package:nexus_printer/src/escpos/escpos_encoder.dart';
 import 'package:nexus_printer/src/layout/print_line.dart';
 import 'package:nexus_printer/src/layout/receipt_layout.dart';
-import 'package:nexus_printer/src/receipt/receipt_document.dart';
 import 'package:nexus_printer/src/transport/printer_link.dart';
 import 'package:nexus_printer/src/transport/printer_transport.dart';
 

@@ -14,4 +14,14 @@ library;
 export 'src/api.dart';
 export 'src/bluetooth_printer_service.dart' show BluetoothPrinterService;
 export 'src/escpos/code_page.dart' show CodePage;
+export 'src/image/receipt_image.dart'
+    show
+        receiptGlyphWidth,
+        receiptRowHeight,
+        renderReceiptPng,
+        renderReturnSlipPng;
+export 'src/image/receipt_sharer.dart'
+    show ReceiptSharer, SharePlusReceiptSharer;
+export 'src/receipt/receipt_document.dart'
+    show ReceiptDocument, ReturnSlipDocument;
 export 'src/widgets/printer_test_screen.dart' show PrinterTestScreen;
