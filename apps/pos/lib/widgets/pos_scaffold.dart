@@ -6,6 +6,7 @@ import '../app/destinations.dart';
 import '../app/providers.dart';
 import '../app/router.dart';
 import '../features/billing/cart.dart';
+import '../features/suggest/decisions.dart';
 import 'offline_banner.dart';
 import 'sync_chip.dart';
 
@@ -31,6 +32,9 @@ class PosScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final low = showDrawer ? ref.watch(_visibleLowStockProvider) : 0;
+    final decisions = showDrawer
+        ? ref.watch(unseenDecisionsProvider).length
+        : 0;
     return Scaffold(
       appBar: AppBar(
         leading: showDrawer
@@ -40,8 +44,10 @@ class PosScaffold extends ConsumerWidget {
                   onPressed: () => Scaffold.of(context).openDrawer(),
                   icon: Badge(
                     key: const Key('menu-badge'),
-                    isLabelVisible: low > 0,
-                    label: Text('$low'),
+                    // A count for low stock, otherwise a plain dot for a new
+                    // decision on a suggestion.
+                    isLabelVisible: low > 0 || decisions > 0,
+                    label: low > 0 ? Text('$low') : null,
                     child: const Icon(Icons.menu),
                   ),
                 ),
@@ -86,13 +92,25 @@ class PosDrawer extends ConsumerWidget {
     final selected = items.indexWhere((d) => d.path == here);
     final low = ref.watch(_visibleLowStockProvider);
     final errors = ref.watch(syncErrorsProvider).value?.length ?? 0;
+    final decisions = ref.watch(unseenDecisionsProvider).length;
     final syncIndex = session == null ? null : items.length;
     final onSync = here == Routes.syncHealth;
+    final onSettings = here == Routes.settings;
     return NavigationDrawer(
-      selectedIndex: onSync ? syncIndex : (selected < 0 ? null : selected),
+      selectedIndex: onSync
+          ? syncIndex
+          : onSettings
+          ? (syncIndex == null ? null : syncIndex + 1)
+          : (selected < 0 ? null : selected),
       onDestinationSelected: (i) {
         Navigator.of(context).pop();
-        context.go(i < items.length ? items[i].path : Routes.syncHealth);
+        context.go(
+          i < items.length
+              ? items[i].path
+              : i == items.length
+              ? Routes.syncHealth
+              : Routes.settings,
+        );
       },
       children: [
         Padding(
@@ -119,6 +137,12 @@ class PosDrawer extends ConsumerWidget {
                     label: Text('$low'),
                     child: Icon(d.icon),
                   )
+                : d == Destinations.suggest && decisions > 0
+                ? Badge(
+                    key: const Key('suggestions-badge'),
+                    label: Text('$decisions'),
+                    child: Icon(d.icon),
+                  )
                 : Icon(d.icon),
             label: Text(d.label),
           ),
@@ -134,6 +158,11 @@ class PosDrawer extends ConsumerWidget {
                   )
                 : const Icon(Icons.sync),
             label: const Text('Sync health'),
+          ),
+          const NavigationDrawerDestination(
+            key: Key('nav-Settings'),
+            icon: Icon(Icons.settings),
+            label: Text('Settings'),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),

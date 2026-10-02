@@ -20,6 +20,9 @@ class StockScreen extends ConsumerStatefulWidget {
 class _StockScreenState extends ConsumerState<StockScreen> {
   bool _lowOnly = false;
 
+  /// Null shows finished goods and raw materials together (D-039).
+  StockKind? _kind;
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider).value;
@@ -36,6 +39,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       ],
       if (can(Permission.stockAdjust))
         ('op-adjust', 'Adjust', Icons.fact_check, Routes.stockAdjust),
+      ('op-history', 'History', Icons.history, Routes.stockHistory),
     ];
 
     return PosScaffold(
@@ -67,7 +71,29 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: SegmentedButton<StockKind?>(
+              segments: const [
+                ButtonSegment(
+                  value: null,
+                  label: Text('All', key: Key('kind-all')),
+                ),
+                ButtonSegment(
+                  value: StockKind.finished,
+                  label: Text('Finished goods', key: Key('kind-finished')),
+                ),
+                ButtonSegment(
+                  value: StockKind.raw,
+                  label: Text('Raw materials', key: Key('kind-raw')),
+                ),
+              ],
+              selected: {_kind},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => setState(() => _kind = s.single),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: SegmentedButton<bool>(
               segments: [
                 const ButtonSegment(
@@ -92,13 +118,18 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text("Couldn't load stock.\n$e")),
               data: (all) {
-                final shown = _lowOnly ? low : all;
+                final shown = [
+                  for (final i in _lowOnly ? low : all)
+                    if (_kind == null || i.kind == _kind) i,
+                ];
                 if (shown.isEmpty) {
                   return Center(
                     child: Text(
                       _lowOnly
                           ? 'Nothing is running low.'
-                          : 'No stock recorded here yet.',
+                          : _kind == null
+                          ? 'No stock recorded here yet.'
+                          : 'No ${_kind == StockKind.raw ? 'raw materials' : 'finished goods'} here yet.',
                     ),
                   );
                 }
@@ -124,6 +155,11 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   }
 }
 
+/// Why a quantity can be below zero (D-039).
+const String negativeStockNote =
+    'Negative means cakes were sold before they were recorded as made. '
+    'Record Produce or Adjust to correct it.';
+
 class _StockTile extends StatelessWidget {
   const _StockTile({required this.item, required this.onTap});
 
@@ -143,11 +179,24 @@ class _StockTile extends StatelessWidget {
         color: item.isLow ? const Color(0xFFB26A00) : null,
       ),
       title: Text(item.name),
-      subtitle: Text(
-        [
-          if (item.kind == StockKind.raw) 'Raw material' else 'Finished',
-          if (threshold != null) 'alert at ${formatQty(threshold, item.unit)}',
-        ].join(' · '),
+      isThreeLine: negative,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            [
+              if (item.kind == StockKind.raw) 'Raw material' else 'Finished',
+              if (threshold != null)
+                'alert at ${formatQty(threshold, item.unit)}',
+            ].join(' · '),
+          ),
+          if (negative)
+            Text(
+              negativeStockNote,
+              key: Key('negative-note-${item.itemKey}'),
+              style: theme.textTheme.bodySmall,
+            ),
+        ],
       ),
       trailing: Text(
         formatQty(item.qty, item.unit),

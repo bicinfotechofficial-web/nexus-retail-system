@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 import '../../app/messages.dart';
 import '../../app/providers.dart';
+import '../../app/router.dart';
 import '../../widgets/pos_scaffold.dart';
 import '../../widgets/section_card.dart';
+import 'decisions.dart';
 
 /// A Store Manager's local special (POS-10, `catalog.suggest`). It is saved
 /// as PENDING with a proposed price, and can't be sold until an Admin
@@ -93,6 +96,7 @@ class _SuggestScreenState extends ConsumerState<SuggestScreen> {
         p.category,
     };
     final pending = ref.watch(pendingSuggestionsProvider).value ?? const [];
+    final decisions = ref.watch(unseenDecisionsProvider).length;
 
     final name = _name.text.trim();
     final category = _category.text.trim();
@@ -140,6 +144,27 @@ class _SuggestScreenState extends ConsumerState<SuggestScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              key: const Key('open-my-suggestions'),
+              leading: decisions > 0
+                  ? Badge(
+                      key: const Key('my-suggestions-badge'),
+                      label: Text('$decisions'),
+                      child: const Icon(Icons.fact_check_outlined),
+                    )
+                  : const Icon(Icons.fact_check_outlined),
+              title: const Text('My suggestions'),
+              subtitle: Text(
+                decisions > 0
+                    ? 'The Admin has decided on $decisions of them.'
+                    : 'See what the Admin decided.',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(Routes.mySuggestions),
+            ),
+          ),
           SectionCard(
             title: 'New local special',
             children: [

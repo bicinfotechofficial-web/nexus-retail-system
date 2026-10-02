@@ -21,6 +21,8 @@ dependencies:
     path: ../../packages/data
   nexus_printer:
     path: ../../packages/printer
+  shared_preferences: ^2.5.5
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

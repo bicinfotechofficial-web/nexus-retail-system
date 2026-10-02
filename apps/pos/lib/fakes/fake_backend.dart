@@ -1,18 +1,32 @@
 import 'package:flutter_riverpod/misc.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
+import 'package:nexus_printer/nexus_printer.dart';
 
+import '../app/phone_store.dart';
 import '../app/providers.dart';
 import '../app/services.dart';
+import '../app/share.dart';
+import 'fake_customers.dart';
 import 'fake_data.dart';
 import 'fake_printer.dart';
+import 'fake_share.dart';
 import 'fake_stock.dart';
 import 'seed.dart';
 
+export 'fake_customers.dart';
 export 'fake_data.dart';
 export 'fake_printer.dart';
+export 'fake_share.dart';
 export 'fake_stock.dart';
 export 'seed.dart';
+
+/// Made-up customers for the demo bills: name, mobile, WhatsApp.
+const List<(String, String, String?)> _demoCustomers = [
+  ('Test Customer', '9876543210', '9876543210'),
+  ('Sample Buyer', '9123456780', null),
+  ('Demo Visitor', '9988776655', '9812345678'),
+];
 
 /// Every fake, wired together, plus the provider overrides that install
 /// them. Used by `FAKE_DATA=true` and by the widget tests.
@@ -23,7 +37,15 @@ final class FakeBackend {
     SyncStatus syncStatus = const Online(),
     DateTime Function()? now,
     bool registered = true,
-  }) : auth = FakeAuthService(
+    PhoneStore? phoneStore,
+    LinkLauncher? linkLauncher,
+    ReceiptSharer? receiptSharer,
+    ReceiptImageRenderer? renderer,
+  }) : phoneStore = phoneStore ?? MemoryPhoneStore(),
+       _linkLauncher = linkLauncher,
+       _receiptSharer = receiptSharer,
+       _renderer = renderer,
+       auth = FakeAuthService(
          session ?? (signedIn ? FakeAuthService.storeManagerSession : null),
        ),
        device = FakeDeviceService(registered ? Seed.deviceId : null),
@@ -41,9 +63,14 @@ final class FakeBackend {
       auth: auth,
       bills: bills,
       summaries: summaries,
+      customers: customers,
       now: _now,
     );
-    catalogService = FakeCatalogService(auth: auth, catalog: catalog);
+    catalogService = FakeCatalogService(
+      auth: auth,
+      catalog: catalog,
+      now: _now,
+    );
     stock = FakeStock(auth: auth, catalog: catalog, now: _now)
       ..seed(Seed.locationId, Seed.stock);
   }
@@ -53,6 +80,7 @@ final class FakeBackend {
   final FakeCatalogRepository catalog = FakeCatalogRepository();
   final FakeSalesRepository bills = FakeSalesRepository();
   final FakeSummaryRepository summaries = FakeSummaryRepository();
+  final FakeCustomerRepository customers = FakeCustomerRepository();
   late final FakeSalesService sales;
   late final FakeStock stock;
   late final FakeCatalogService catalogService;
@@ -60,6 +88,23 @@ final class FakeBackend {
   late final FakeOfflineGuard offline;
   final FakeDeviceService device;
   final FakePrinterService printer = FakePrinterService();
+
+  /// Settings on the phone. Pass the same store to a second backend to
+  /// restart the app on the same phone.
+  final PhoneStore phoneStore;
+
+  /// What the WhatsApp buttons use. The fakes record their calls, unless
+  /// `FAKE_DATA` on a real phone passes the real ones.
+  final FakeLinkLauncher fakeLinks = FakeLinkLauncher();
+  final FakeReceiptSharer fakeShares = FakeReceiptSharer();
+  final FakeReceiptRenderer fakeRenders = FakeReceiptRenderer();
+  final LinkLauncher? _linkLauncher;
+  final ReceiptSharer? _receiptSharer;
+  final ReceiptImageRenderer? _renderer;
+
+  LinkLauncher get linkLauncher => _linkLauncher ?? fakeLinks;
+  ReceiptSharer get receiptSharer => _receiptSharer ?? fakeShares;
+  ReceiptImageRenderer get renderer => _renderer ?? fakeRenders.call;
 
   /// The fakes under the same interfaces the real backend fills.
   PosServices get services => PosServices(
@@ -75,12 +120,17 @@ final class FakeBackend {
     sync: sync,
     offlineGuard: offline,
     printer: printer,
+    customers: customers,
+    phoneStore: phoneStore,
+    linkLauncher: linkLauncher,
+    receiptSharer: receiptSharer,
   );
 
   /// The same overrides as the real backend's, plus the fake clock.
   List<Override> get overrides => [
     ...services.overrides,
     clockProvider.overrideWithValue(_now),
+    receiptImageRendererProvider.overrideWithValue(renderer),
   ];
 
   /// A few bills from today and yesterday, one returned and one cancelled,
@@ -113,12 +163,19 @@ final class FakeBackend {
       );
     }
 
+    var n = 0;
+    BillCustomer nextCustomer() {
+      final c = _demoCustomers[n++ % _demoCustomers.length];
+      return BillCustomer(name: c.$1, phone: c.$2, whatsapp: c.$3);
+    }
+
     Future<Bill> bill(DateTime when, List<CartLine> cart, PaymentMode mode) {
       final total = BillCalculator.compute(cart).total;
       return sales.createBillAt(
         NewBill(
           cart: cart,
           payments: [Payment(mode: mode, amount: total)],
+          customer: nextCustomer(),
         ),
         when,
       );

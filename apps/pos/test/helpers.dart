@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 import 'package:nexus_pos/app/app.dart';
+import 'package:nexus_pos/app/phone_store.dart';
 import 'package:nexus_pos/fakes/fake_backend.dart';
 
 /// 10:30 IST on 2026-09-26, as a UTC instant.
@@ -24,10 +25,12 @@ FakeBackend fakeBackend({
   SessionContext? session,
   SyncStatus syncStatus = const Online(),
   TestClock? clock,
+  PhoneStore? phoneStore,
 }) => FakeBackend(
   session: session,
   syncStatus: syncStatus,
   now: clock?.call ?? () => testNow,
+  phoneStore: phoneStore,
 );
 
 /// A Store Manager session whose role has only [permissions].
@@ -66,6 +69,15 @@ Future<void> tapKey(WidgetTester tester, String key) async {
   await tester.pumpAndSettle();
 }
 
+/// Taps the widget with [text], scrolling it into view first.
+Future<void> tapText(WidgetTester tester, String text) async {
+  final f = find.text(text);
+  await tester.ensureVisible(f);
+  await tester.pumpAndSettle();
+  await tester.tap(f);
+  await tester.pumpAndSettle();
+}
+
 Future<void> enterKey(WidgetTester tester, String key, String text) async {
   final f = find.byKey(Key(key));
   await tester.ensureVisible(f);
@@ -90,6 +102,45 @@ bool isEnabled(WidgetTester tester, String key) {
   return w.onPressed != null;
 }
 
+/// A made-up customer on WhatsApp at the same number.
+BillCustomer testCustomer({
+  String name = 'Test Customer',
+  String phone = '9876543210',
+  String? whatsapp = '9876543210',
+}) => BillCustomer(name: name, phone: phone, whatsapp: whatsapp);
+
+/// Opens the payment page for one Black Forest 500 g (₹450.00), on a fresh
+/// backend unless [backend] is given.
+Future<FakeBackend> openPaymentPage(
+  WidgetTester tester, {
+  FakeBackend? backend,
+}) async {
+  final b = await pumpPos(tester, backend: backend);
+  await tapKey(tester, 'product-bf-500');
+  await tapKey(tester, 'charge');
+  expect(find.widgetWithText(AppBar, 'Payment'), findsOneWidget);
+  return b;
+}
+
+/// Fills the Customer section on the payment page: a valid name and mobile,
+/// WhatsApp the same as the mobile.
+Future<void> fillCustomer(
+  WidgetTester tester, {
+  String name = 'Test Customer',
+  String phone = '9876543210',
+}) async {
+  await enterKey(tester, 'customer-name', name);
+  await enterKey(tester, 'customer-phone', phone);
+}
+
+/// Fills the customer, then Review and Confirm: the whole way from the
+/// payment page to the saved bill.
+Future<void> saveWithReview(WidgetTester tester, {bool fill = true}) async {
+  if (fill) await fillCustomer(tester);
+  await tapKey(tester, 'save');
+  await tapKey(tester, 'confirm');
+}
+
 /// Saves a bill of [items] (productId → qty from the seed catalog) through
 /// the fake service, paid in full with [mode], at [at] (default: now).
 Future<Bill> addBill(
@@ -98,6 +149,7 @@ Future<Bill> addBill(
   DateTime? at,
   PaymentMode mode = PaymentMode.cash,
   DiscountInput? discount,
+  BillCustomer? customer,
 }) {
   final cart = [
     for (final e in items.entries)
@@ -121,6 +173,7 @@ Future<Bill> addBill(
       cart: cart,
       discount: discount,
       payments: [Payment(mode: mode, amount: total)],
+      customer: customer ?? testCustomer(),
     ),
     at ?? testNow,
   );

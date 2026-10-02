@@ -99,6 +99,7 @@ NewBill paidBill(
       discount: discount,
       payments: [Payment(mode: PaymentMode.cash, amount: total)],
       cashTendered: total,
+      customer: _customer,
     );
   }
   final cash = Money.rupees(total.paise ~/ 200);
@@ -110,8 +111,16 @@ NewBill paidBill(
       Payment(mode: PaymentMode.upi, amount: total - cash),
     ],
     cashTendered: cash,
+    customer: _customer,
   );
 }
+
+/// The customer on every scenario bill.
+final BillCustomer _customer = BillCustomer(
+  name: 'Test Customer',
+  phone: '9876543210',
+  whatsapp: '9876543210',
+);
 
 /// Refunds for returning [qty] of [bill], all in cash.
 List<Payment> cashRefund(Bill bill, Map<String, int> qty) {

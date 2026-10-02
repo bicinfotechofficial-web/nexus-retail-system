@@ -89,6 +89,15 @@ final class LineDraft {
   String? itemKey;
   final TextEditingController qty = TextEditingController();
 
+  /// Bumped when the item is chosen by code (a new raw material), so the
+  /// item picker is rebuilt with it; picking in the menu doesn't need it.
+  int generation = 0;
+
+  void select(String key) {
+    itemKey = key;
+    generation++;
+  }
+
   void dispose() => qty.dispose();
 }
 
@@ -147,7 +156,7 @@ class LinesEditor extends StatelessWidget {
       children: [
         for (var i = 0; i < lines.length; i++)
           Padding(
-            key: ObjectKey(lines[i]),
+            key: ValueKey((lines[i], lines[i].generation)),
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

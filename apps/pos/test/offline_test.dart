@@ -166,6 +166,7 @@ void main() {
       final b = await pumpAt(tester, clock);
       await tapKey(tester, 'product-bf-500');
       await tapKey(tester, 'charge');
+      await fillCustomer(tester);
       expect(isEnabled(tester, 'save'), isTrue);
 
       await moveClock(tester, b, clock, _limit);
@@ -175,9 +176,12 @@ void main() {
 
       await enterKey(tester, 'override-pin', FakeOfflineGuard.defaultPin);
       await tapKey(tester, 'override-submit');
+      // The customer entered before the block is still there.
       expect(isEnabled(tester, 'save'), isTrue);
       await tapKey(tester, 'save');
+      await tapKey(tester, 'confirm');
       expect(b.sales.createCalls, hasLength(1));
+      expect(b.sales.createCalls.single.customer.name, 'Test Customer');
     });
   });
 

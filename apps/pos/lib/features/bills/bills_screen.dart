@@ -172,6 +172,7 @@ class BillTile extends StatelessWidget {
       title: Text(bill.billNo),
       subtitle: Text(
         [
+          ?bill.customer?.name,
           formatIstTime(bill.clientCreatedAt),
           '$items item${items == 1 ? '' : 's'}',
           if (cancelled) 'Cancelled',

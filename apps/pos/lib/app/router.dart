@@ -10,10 +10,14 @@ import '../features/login/login_screen.dart';
 import '../features/offline/sync_health_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
+import '../features/payment/review_screen.dart';
 import '../features/returns/return_screen.dart';
+import '../features/settings/settings_screen.dart';
 import '../features/setup/device_setup_screen.dart';
 import '../features/stock/movement_screens.dart';
+import '../features/stock/stock_history_screen.dart';
 import '../features/stock/stock_screen.dart';
+import '../features/suggest/my_suggestions_screen.dart';
 import '../features/suggest/suggest_screen.dart';
 import '../features/summary/day_summary_screen.dart';
 import '../widgets/message_screen.dart';
@@ -26,6 +30,19 @@ abstract final class Routes {
   static const String noAccess = '/no-access';
   static const String payment = '/payment';
   static const String billSaved = '/bill-saved';
+
+  /// The read-only review before a bill is committed (D-035), opened from
+  /// the payment page.
+  static const String paymentReview = '/payment/review';
+
+  /// Settings kept on this phone (D-035).
+  static const String settings = '/settings';
+
+  /// The Store Manager's own suggestions and the Admin's decisions (D-038).
+  static const String mySuggestions = '/suggest/mine';
+
+  /// Movements of one day, with In / Out (D-039).
+  static const String stockHistory = '/stock/history';
 
   /// Any signed-in user with a POS screen may open it.
   static const String syncHealth = '/sync';
@@ -55,6 +72,13 @@ abstract final class Routes {
   /// them (any one of).
   static const Map<String, List<String>> _extra = {
     payment: [Permission.billCreate],
+    paymentReview: [Permission.billCreate],
+    mySuggestions: [Permission.catalogSuggest],
+    stockHistory: [
+      Permission.stockMove,
+      Permission.stockAdjust,
+      Permission.stockThreshold,
+    ],
     billSaved: [Permission.billCreate],
     stockIn: [Permission.stockMove],
     stockOut: [Permission.stockMove],
@@ -123,6 +147,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.payment,
         builder: (context, state) => const PaymentScreen(),
+        routes: [
+          GoRoute(
+            path: 'review',
+            redirect: (context, state) =>
+                state.extra is ReviewArgs ? null : Routes.payment,
+            builder: (context, state) =>
+                ReviewScreen(args: state.extra! as ReviewArgs),
+          ),
+        ],
       ),
       GoRoute(
         path: Routes.billSaved,
@@ -175,6 +208,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 AdjustScreen(itemKey: state.uri.queryParameters['item']),
           ),
           GoRoute(
+            path: 'history',
+            builder: (context, state) => const StockHistoryScreen(),
+          ),
+          GoRoute(
             path: 'threshold/:itemKey',
             builder: (context, state) =>
                 ThresholdScreen(itemKey: state.pathParameters['itemKey']!),
@@ -184,6 +221,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Destinations.suggest.path,
         builder: (context, state) => const SuggestScreen(),
+        routes: [
+          GoRoute(
+            path: 'mine',
+            builder: (context, state) => const MySuggestionsScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: Routes.settings,
+        builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
         path: Routes.setup,

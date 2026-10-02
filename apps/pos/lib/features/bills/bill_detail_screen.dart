@@ -12,6 +12,7 @@ import '../../widgets/pos_scaffold.dart';
 import '../../widgets/print_panel.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_row.dart';
+import '../../widgets/whatsapp_actions.dart';
 
 /// One bill: lines, totals, payments, returns, and the actions the session
 /// may take on it: reprint, same-day cancel with a reason (D-009, D-025),
@@ -144,6 +145,27 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
               ),
             ),
           SectionCard(
+            title: 'Customer',
+            children: [
+              TotalRow(
+                'Name',
+                bill.customer?.name ?? '—',
+                key: const Key('detail-customer-name'),
+              ),
+              TotalRow(
+                'Mobile',
+                bill.customer?.phone ?? '—',
+                key: const Key('detail-customer-phone'),
+              ),
+              if (bill.customer != null)
+                TotalRow(
+                  'WhatsApp',
+                  bill.customer?.whatsapp ?? 'No WhatsApp',
+                  key: const Key('detail-customer-whatsapp'),
+                ),
+            ],
+          ),
+          SectionCard(
             title: 'Items',
             children: [
               for (final l in bill.lines)
@@ -211,6 +233,10 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                   icon: const Icon(Icons.receipt_long),
                   label: const Text('Receipt preview'),
                 ),
+                if (bill.customer?.whatsapp != null) ...[
+                  const SizedBox(height: 8),
+                  WhatsappActions(bill: bill),
+                ],
               ],
             ],
           ),

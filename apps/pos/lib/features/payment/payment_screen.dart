@@ -7,11 +7,15 @@ import 'package:nexus_data/nexus_data.dart';
 import '../../app/messages.dart';
 import '../../app/providers.dart';
 import '../../app/router.dart';
+import '../../app/settings.dart';
 import '../../widgets/pos_scaffold.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_row.dart';
 import '../billing/cart.dart';
 import '../offline/billing_blocked.dart';
+import 'customer_section.dart';
+import 'review_screen.dart';
+import 'submit.dart';
 
 enum _DiscountKind { none, flat, percent }
 
@@ -23,10 +27,11 @@ class _PaymentRow {
   final TextEditingController amount;
 }
 
-/// Discount, round-off, split payment, cash tendered and change, then Save
-/// (POS-5). Every amount comes from `BillCalculator`; Save is enabled only
-/// when `checkPayments(...).isValid`, and disables on the first tap
-/// (03-SYNC §4).
+/// Customer, discount, round-off, split payment, cash tendered and change,
+/// then Review (or Save, when the review is switched off) (POS-5, POS-13).
+/// Every amount comes from `BillCalculator`; the button is enabled only when
+/// `checkPayments(...).isValid` and the customer is valid, and the save
+/// disables on the first tap (03-SYNC §4).
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({super.key});
 
@@ -44,12 +49,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   final _discount = TextEditingController();
   final _tendered = TextEditingController();
   final List<_PaymentRow> _rows = [];
+  final CustomerForm _customer = CustomerForm();
 
   /// While false, the single payment row follows the bill total.
   bool _amountsEdited = false;
 
   /// Set on the first Save tap and never cleared on success.
   bool _saving = false;
+
+  /// True while the review page is open, so a double tap opens it once.
+  bool _reviewing = false;
 
   /// Set when a save failed in a way that leaves it unclear whether the bill
   /// was written; retrying could then create a second bill.
@@ -67,6 +76,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   void dispose() {
+    _customer.dispose();
     _discount.dispose();
     _tendered.dispose();
     for (final r in _rows) {
@@ -199,45 +209,66 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     });
   }
 
+  /// The primary button: opens the review, or saves straight away when the
+  /// review is switched off in Settings.
   Future<void> _save(_Form form) async {
     // Guard before any await: a second tap in the same frame still sees the
     // old, enabled button (03-SYNC §4).
-    if (_saving || _locked) return;
+    if (_saving || _locked || _reviewing) return;
     final totals = form.totals;
-    if (totals == null || !form.canSave) return;
+    final check = form.check;
+    final customer = _customer.customer;
+    if (totals == null || check == null || customer == null || !form.canSave) {
+      return;
+    }
+    final bill = NewBill(
+      cart: _cart,
+      discount: form.discount,
+      payments: form.payments,
+      cashTendered: form.tendered,
+      customer: customer,
+    );
+    if (reviewIsOn(ref)) {
+      setState(() {
+        _reviewing = true;
+        _error = null;
+      });
+      await context.push(
+        Routes.paymentReview,
+        extra: ReviewArgs(
+          bill: bill,
+          totals: totals,
+          check: check,
+          maxDiscountPct: _location?.maxDiscountPct,
+          onLocked: (message) {
+            if (mounted) {
+              setState(() {
+                _locked = true;
+                _error = message;
+              });
+            }
+          },
+        ),
+      );
+      if (mounted) setState(() => _reviewing = false);
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
-    final Bill bill;
-    try {
-      bill = await ref
-          .read(salesServiceProvider)
-          .createBill(
-            NewBill(
-              cart: _cart,
-              discount: form.discount,
-              payments: form.payments,
-              cashTendered: form.tendered,
-            ),
-          );
-    } on BillValidationException catch (e) {
-      _failed(
-        Messages.billError(e.error, maxDiscountPct: _location?.maxDiscountPct),
-      );
-      return;
-    } on DataFailure catch (e) {
-      _failed(Messages.failure(e), lock: e.reason == FailureReason.unknown);
-      return;
-    } catch (_) {
-      _failed(
-        Messages.failure(const DataFailure(FailureReason.unknown)),
-        lock: true,
-      );
+    final result = await submitBill(
+      ref,
+      bill,
+      maxDiscountPct: _location?.maxDiscountPct,
+    );
+    final saved = result.bill;
+    if (saved == null) {
+      _failed(result.message!, lock: result.lock);
       return;
     }
     if (!mounted) return;
-    context.go(Routes.billSaved, extra: bill);
+    context.go(Routes.billSaved, extra: saved);
     ref.read(cartProvider.notifier).clear();
   }
 
@@ -246,10 +277,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     setState(() {
       _saving = false;
       _locked = lock;
-      _error = lock
-          ? "$message\nThe bill may have been saved. Check today's bills "
-                'before billing these items again.'
-          : message;
+      _error = message;
     });
   }
 
@@ -286,6 +314,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
     final check = form.check!;
     final cap = location.maxDiscountPct;
+    final review = reviewIsOn(ref);
     final hasCash = _rows.any((r) => r.mode == PaymentMode.cash);
 
     return PosScaffold(
@@ -308,7 +337,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
             FilledButton.icon(
               key: const Key('save'),
-              onPressed: form.canSave && !_saving && !_locked
+              onPressed:
+                  form.canSave &&
+                      _customer.customer != null &&
+                      !_saving &&
+                      !_locked
                   ? () => _save(form)
                   : null,
               icon: _saving
@@ -317,7 +350,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.check),
-              label: Text('Save ${totals.total.format()}'),
+              label: Text(
+                '${review ? 'Review' : 'Save'} ${totals.total.format()}',
+              ),
             ),
           ],
         ),
@@ -353,6 +388,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
               ],
             ),
+            CustomerSection(form: _customer, onChanged: () => setState(() {})),
             SectionCard(
               title: 'Discount',
               children: [

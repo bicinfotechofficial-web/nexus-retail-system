@@ -5,6 +5,7 @@ import 'dart:core';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
+import 'fake_customers.dart';
 import 'latest.dart';
 import 'seed.dart';
 
@@ -135,15 +136,31 @@ final class FakeCatalogRepository implements CatalogRepository {
 
   @override
   Stream<List<RawMaterial>> watchRawMaterials() => _materials.stream;
+
+  @override
+  Stream<List<Product>> watchMySuggestions(String locationId, String uid) =>
+      _products.stream.map(
+        (all) =>
+            all
+                .where((p) => p.createdBy == uid && p.scope == locationId)
+                .toList()
+              // Newest first: suggestions get rising sort orders.
+              ..sort((a, b) => b.sortOrder.compareTo(a.sortOrder)),
+      );
 }
 
 /// Catalog writes in memory. Only [suggest] is used by the POS; the rest
 /// keep the interface complete.
 final class FakeCatalogService implements CatalogService {
-  FakeCatalogService({required this.auth, required this.catalog});
+  FakeCatalogService({
+    required this.auth,
+    required this.catalog,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   final FakeAuthService auth;
   final FakeCatalogRepository catalog;
+  final DateTime Function() _now;
   int _n = 0;
 
   /// Every [suggest] call's name, including failed ones.
@@ -212,25 +229,68 @@ final class FakeCatalogService implements CatalogService {
     required String productId,
     required Money price,
   }) async {
-    _check(Permission.catalogManage);
+    final session = _check(Permission.catalogManage);
+    final p = _find(productId);
+    return save(
+      _decided(
+        p,
+        status: ProductStatus.active,
+        price: price,
+        reviewedBy: session.user.uid,
+      ),
+    );
+  }
+
+  @override
+  Future<Product> decline({
+    required String productId,
+    required String note,
+  }) async {
+    final session = _check(Permission.catalogManage);
+    final p = _find(productId);
+    final n = note.trim();
+    if (n.isEmpty || n.length > 200) {
+      throw const DataFailure(FailureReason.ruleViolation, 'note');
+    }
+    return save(
+      _decided(
+        p,
+        status: ProductStatus.inactive,
+        reviewedBy: session.user.uid,
+        reviewNote: n,
+      ),
+    );
+  }
+
+  Product _find(String productId) {
     final p = catalog.products.where((p) => p.id == productId).firstOrNull;
     if (p == null) throw DataFailure(FailureReason.notFound, productId);
-    final approved = Product(
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      price: price,
-      proposedPrice: p.proposedPrice,
-      unit: p.unit,
-      gstRate: p.gstRate,
-      scope: p.scope,
-      status: ProductStatus.active,
-      recipe: p.recipe,
-      sortOrder: p.sortOrder,
-      createdBy: p.createdBy,
-    );
-    return save(approved);
+    return p;
   }
+
+  Product _decided(
+    Product p, {
+    required ProductStatus status,
+    required String reviewedBy,
+    Money? price,
+    String? reviewNote,
+  }) => Product(
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    price: price,
+    proposedPrice: p.proposedPrice,
+    unit: p.unit,
+    gstRate: p.gstRate,
+    scope: p.scope,
+    status: status,
+    recipe: p.recipe,
+    sortOrder: p.sortOrder,
+    createdBy: p.createdBy,
+    reviewedBy: reviewedBy,
+    reviewNote: reviewNote,
+    reviewedAt: _now(),
+  );
 
   @override
   Future<RawMaterial> addRawMaterial({
@@ -259,6 +319,7 @@ final class FakeSalesService implements SalesService {
     required this.auth,
     required this.bills,
     required this.summaries,
+    required this.customers,
     DateTime Function()? now,
     this.deviceId = Seed.deviceId,
   }) : _now = now ?? DateTime.now;
@@ -266,6 +327,7 @@ final class FakeSalesService implements SalesService {
   final FakeAuthService auth;
   final FakeSalesRepository bills;
   final FakeSummaryRepository summaries;
+  final FakeCustomerRepository customers;
   final String deviceId;
   final DateTime Function() _now;
   int _seq = 0;
@@ -357,8 +419,16 @@ final class FakeSalesService implements SalesService {
       businessDate: BusinessDate.of(at),
       clientCreatedAt: at,
       createdBy: session.user.uid,
+      customer: input.customer,
     );
     bills.put(location.code, bill);
+    customers.recordBill(
+      location.code,
+      input.customer,
+      total: bill.total,
+      billId: bill.id,
+      at: at,
+    );
     summaries.apply(
       location.code,
       bill.businessDate,
@@ -492,6 +562,7 @@ final class FakeSalesService implements SalesService {
     clientCreatedAt: b.clientCreatedAt,
     serverCreatedAt: b.serverCreatedAt,
     createdBy: b.createdBy,
+    customer: b.customer,
   );
 }
 

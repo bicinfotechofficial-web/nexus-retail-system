@@ -65,6 +65,10 @@ PosServices servicesOf(FakeBackend b, {AuthService? auth}) {
     sync: s.sync,
     offlineGuard: s.offlineGuard,
     printer: s.printer,
+    customers: s.customers,
+    phoneStore: s.phoneStore,
+    linkLauncher: s.linkLauncher,
+    receiptSharer: s.receiptSharer,
   );
 }
 
@@ -171,6 +175,10 @@ void main() {
       'syncServiceProvider': () => c.read(syncServiceProvider),
       'offlineGuardProvider': () => c.read(offlineGuardProvider),
       'printerServiceProvider': () => c.read(printerServiceProvider),
+      'customerRepositoryProvider': () => c.read(customerRepositoryProvider),
+      'phoneStoreProvider': () => c.read(phoneStoreProvider),
+      'linkLauncherProvider': () => c.read(linkLauncherProvider),
+      'receiptSharerProvider': () => c.read(receiptSharerProvider),
     };
     for (final e in reads.entries) {
       expect(e.value, returnsNormally, reason: e.key);

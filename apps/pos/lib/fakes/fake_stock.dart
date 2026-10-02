@@ -26,6 +26,8 @@ final class FakeStock implements StockRepository, StockService {
 
   /// Every movement written, oldest first.
   final List<Movement> movements = [];
+  final Map<String, String> _movementLocation = {};
+  final Latest<int> _movementVersion = Latest(0);
 
   /// Every [setThreshold] call as (itemKey, threshold).
   final List<(String, int?)> thresholdCalls = [];
@@ -57,6 +59,22 @@ final class FakeStock implements StockRepository, StockService {
   Stream<List<StockItem>> watchLowStock(String locationId) => _docs(
     locationId,
   ).stream.map((m) => _sorted(m.values.where((i) => i.isLow)));
+
+  @override
+  Stream<List<Movement>> watchMovements(
+    String locationId,
+    String businessDate,
+  ) => _movementVersion.stream.map(
+    (_) =>
+        movements
+            .where(
+              (m) =>
+                  _movementLocation[m.id] == locationId &&
+                  m.businessDate == businessDate,
+            )
+            .toList()
+          ..sort((a, b) => b.clientCreatedAt.compareTo(a.clientCreatedAt)),
+  );
 
   String _location(String permission) {
     final session = auth.current;
@@ -175,6 +193,8 @@ final class FakeStock implements StockRepository, StockService {
     }
     _docs(locationId).value = docs;
     movements.add(movement);
+    _movementLocation[movement.id] = locationId;
+    _movementVersion.value++;
     return movement;
   }
 

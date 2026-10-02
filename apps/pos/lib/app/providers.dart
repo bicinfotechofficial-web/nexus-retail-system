@@ -3,6 +3,9 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 import 'package:nexus_printer/nexus_printer.dart';
 
+import 'phone_store.dart';
+import 'share.dart';
+
 /// The data and printer interfaces the app builds against (D-026). Each is
 /// overridden at startup through `PosServices` (services.dart): with the
 /// `nexus_data` and `nexus_printer` implementations, or with the fakes
@@ -48,6 +51,23 @@ final stockRepositoryProvider = Provider<StockRepository>(
 final stockServiceProvider = Provider<StockService>(
   (ref) => _notConfigured('StockService'),
 );
+final customerRepositoryProvider = Provider<CustomerRepository>(
+  (ref) => _notConfigured('CustomerRepository'),
+);
+final phoneStoreProvider = Provider<PhoneStore>(
+  (ref) => _notConfigured('PhoneStore'),
+);
+final linkLauncherProvider = Provider<LinkLauncher>(
+  (ref) => _notConfigured('LinkLauncher'),
+);
+final receiptSharerProvider = Provider<ReceiptSharer>(
+  (ref) => _notConfigured('ReceiptSharer'),
+);
+
+/// Makes the receipt PNG for sharing. Tests override it.
+final receiptImageRendererProvider = Provider<ReceiptImageRenderer>(
+  (ref) => renderReceiptImage,
+);
 
 /// The device clock. Tests override it.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
@@ -69,6 +89,11 @@ final sellableProductsProvider = StreamProvider<List<Product>>((ref) {
   if (locationId == null) return Stream.value(const []);
   return ref.watch(catalogRepositoryProvider).watchSellable(locationId);
 });
+
+/// The signed-in user's id, or null when signed out.
+final uidProvider = Provider<String?>(
+  (ref) => ref.watch(sessionProvider.select((s) => s.value?.user.uid)),
+);
 
 /// The session's location code, or null (signed out, or an all-locations
 /// role with no own store).
@@ -196,3 +221,27 @@ class DeviceIdNotifier extends Notifier<String?> {
 final deviceIdProvider = NotifierProvider<DeviceIdNotifier, String?>(
   DeviceIdNotifier.new,
 );
+
+/// Saved customers at the session's location whose mobile starts with
+/// [phonePrefix] (3 or more digits), at most 10. Served from the cache
+/// offline (POS-15).
+final customerSuggestionsProvider = StreamProvider.autoDispose
+    .family<List<Customer>, String>((ref, phonePrefix) {
+      final loc = ref.watch(locationCodeProvider);
+      if (loc == null) return Stream.value(const []);
+      return ref
+          .watch(customerRepositoryProvider)
+          .watchByPhone(loc, phonePrefix)
+          .map((all) => all.take(10).toList());
+    });
+
+/// The movements of one business day at the session's location, newest
+/// first (D-039).
+final movementsForDayProvider = StreamProvider.autoDispose
+    .family<List<Movement>, String>((ref, businessDate) {
+      final loc = ref.watch(locationCodeProvider);
+      if (loc == null) return Stream.value(const []);
+      return ref
+          .watch(stockRepositoryProvider)
+          .watchMovements(loc, businessDate);
+    });

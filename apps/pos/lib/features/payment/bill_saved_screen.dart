@@ -7,9 +7,11 @@ import '../../app/providers.dart';
 import '../../widgets/pos_scaffold.dart';
 import '../../widgets/print_panel.dart';
 import '../../widgets/total_row.dart';
+import '../../widgets/whatsapp_actions.dart';
 
-/// Shown after Save. The bill is already stored, so it prints the receipt
-/// and, if printing fails, offers a retry rather than an error (POS-6). The
+/// Shown after the bill is saved (D-035). The bill is already stored, so
+/// Print and the WhatsApp buttons are optional follow-ups: a printer fault
+/// offers a retry, never an error (POS-6), and Done is always available. The
 /// receipt preview below is the exact text sent to the printer.
 class BillSavedScreen extends ConsumerWidget {
   const BillSavedScreen({required this.bill, super.key});
@@ -34,7 +36,7 @@ class BillSavedScreen extends ConsumerWidget {
           key: const Key('new-bill'),
           onPressed: () => context.go('/'),
           icon: const Icon(Icons.add_shopping_cart),
-          label: const Text('New bill'),
+          label: const Text('Done'),
         ),
       ),
       body: ListView(
@@ -64,12 +66,15 @@ class BillSavedScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           PrintPanel(
             label: 'Print receipt',
-            autoStart: true,
             // A retry after a failure is still the first copy; printing
             // again after it came out is a reprint.
             job: (printer, location, {required printedBefore}) =>
                 printer.printBill(bill, location, reprint: printedBefore),
           ),
+          if (bill.customer?.whatsapp != null) ...[
+            const SizedBox(height: 12),
+            WhatsappActions(bill: bill),
+          ],
           if (location != null) ...[
             const SizedBox(height: 24),
             Text('Receipt preview', style: theme.textTheme.titleMedium),

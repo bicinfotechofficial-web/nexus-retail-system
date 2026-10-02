@@ -5,11 +5,13 @@ import 'package:nexus_printer/nexus_printer.dart';
 
 import 'helpers.dart';
 
-/// Rings up a Black Forest 500 g and saves it with the whole amount in cash.
+/// Rings up a Black Forest 500 g, saves it with the whole amount in cash
+/// and prints it from the result screen.
 Future<void> saveOneBill(WidgetTester tester) async {
   await tapKey(tester, 'product-bf-500');
   await tapKey(tester, 'charge');
-  await tapKey(tester, 'save');
+  await saveWithReview(tester);
+  await tapKey(tester, 'print-button');
 }
 
 void main() {

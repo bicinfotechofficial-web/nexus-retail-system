@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus_core/nexus_core.dart';
+import 'package:nexus_data/nexus_data.dart';
 
+import '../../app/messages.dart';
 import '../../app/providers.dart';
 import '../../widgets/section_card.dart';
 import 'stock_common.dart';
@@ -43,9 +45,50 @@ class StockInScreen extends ConsumerStatefulWidget {
 }
 
 class _StockInScreenState extends _LinesPageState<StockInScreen> {
+  /// Materials added on this page. They are offered at once, before the
+  /// catalog stream has caught up with the write.
+  final List<StockOption> _added = [];
+
+  Future<void> _newMaterial() async {
+    final made = await showDialog<RawMaterial>(
+      context: context,
+      builder: (_) => const _NewMaterialDialog(),
+    );
+    if (made == null || !mounted) return;
+    final option = StockOption(
+      itemKey: Ids.rawItemKey(made.id),
+      name: made.name,
+      kind: StockKind.raw,
+      unit: made.unit,
+      qty: 0,
+    );
+    setState(() {
+      _added.add(option);
+      // The first empty line, otherwise a new one.
+      var line = lines.where((l) => l.itemKey == null).firstOrNull;
+      if (line == null && lines.length < Limits.maxMovementLines) {
+        line = LineDraft();
+        lines.add(line);
+      }
+      line?.select(option.itemKey);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final options = ref.watch(stockOptionsProvider).ofKind(StockKind.raw);
+    final fromCatalog = ref.watch(stockOptionsProvider).ofKind(StockKind.raw);
+    final options = [
+      ...fromCatalog,
+      for (final a in _added)
+        if (!fromCatalog.any((o) => o.itemKey == a.itemKey)) a,
+    ];
+    final canCreate =
+        ref.watch(
+          sessionProvider.select(
+            (s) => s.value?.can(Permission.rawMaterialCreate),
+          ),
+        ) ??
+        false;
     final parsed = parseLines(lines);
     final ready = parsed.lines;
     return StockForm(
@@ -61,13 +104,132 @@ class _StockInScreenState extends _LinesPageState<StockInScreen> {
               return 'Stock In saved.';
             },
       children: [
-        SectionCard(title: 'Received', children: [editor(options)]),
+        SectionCard(
+          title: 'Received',
+          children: [
+            editor(options),
+            if (canCreate)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('new-raw-material'),
+                  onPressed: _newMaterial,
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('New raw material'),
+                ),
+              ),
+          ],
+        ),
         TextFieldRow(
           fieldKey: 'note',
           controller: text,
           label: 'Note (optional)',
           helper: 'For example, the supplier or invoice number.',
           onChanged: changed,
+        ),
+      ],
+    );
+  }
+}
+
+/// Asks for the name and unit of a raw material that isn't in the list yet,
+/// adds it (`rawMaterial.create`) and pops with it.
+class _NewMaterialDialog extends ConsumerStatefulWidget {
+  const _NewMaterialDialog();
+
+  @override
+  ConsumerState<_NewMaterialDialog> createState() => _NewMaterialDialogState();
+}
+
+class _NewMaterialDialogState extends ConsumerState<_NewMaterialDialog> {
+  final _name = TextEditingController();
+  StockUnit _unit = StockUnit.g;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final name = _name.text.trim();
+    if (_saving || name.isEmpty) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final made = await ref
+          .read(catalogServiceProvider)
+          .addRawMaterial(name: name, unit: _unit);
+      if (mounted) Navigator.of(context).pop(made);
+    } on DataFailure catch (e) {
+      _failed(Messages.failure(e));
+    } on Object {
+      _failed(Messages.failure(const DataFailure(FailureReason.unknown)));
+    }
+  }
+
+  void _failed(String message) {
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _error = message;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New raw material'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            key: const Key('new-material-name'),
+            controller: _name,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(labelText: 'Name'),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<StockUnit>(
+            segments: [
+              for (final u in StockUnit.values)
+                ButtonSegment(
+                  value: u,
+                  label: Text(unitLabel(u), key: Key('new-material-${u.name}')),
+                ),
+            ],
+            selected: {_unit},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => setState(() => _unit = s.single),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                key: const Key('new-material-error'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const Key('new-material-cancel'),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('new-material-save'),
+          onPressed: _saving || _name.text.trim().isEmpty ? null : _add,
+          child: const Text('Add'),
         ),
       ],
     );

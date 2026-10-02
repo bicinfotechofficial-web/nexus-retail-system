@@ -24,11 +24,14 @@ Future<FakeBackend> openStock(WidgetTester tester, {FakeBackend? b}) async {
 
 /// Scrolls the stock list until the row of [itemKey] is built.
 Future<void> showRow(WidgetTester tester, String itemKey) async {
-  await tester.dragUntilVisible(
-    find.byKey(Key('stock-$itemKey')),
-    find.byKey(const Key('stock-list')),
-    const Offset(0, -100),
-  );
+  final list = find.byKey(const Key('stock-list'));
+  final row = find.byKey(Key('stock-$itemKey'));
+  if (row.evaluate().isEmpty) {
+    // The row may be above the visible part: start from the top.
+    await tester.fling(list, const Offset(0, 3000), 3000);
+    await tester.pumpAndSettle();
+  }
+  await tester.dragUntilVisible(row, list, const Offset(0, -100));
   await tester.pumpAndSettle();
 }
 

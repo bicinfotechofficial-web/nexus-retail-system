@@ -14,6 +14,7 @@ import 'helpers.dart';
 Future<FakeBackend> openPayment(
   WidgetTester tester, {
   FakeBackend? backend,
+  bool customer = true,
 }) async {
   final b = await pumpPos(tester, backend: backend);
   await tapKey(tester, 'product-bf-500');
@@ -22,6 +23,7 @@ Future<FakeBackend> openPayment(
   await tapKey(tester, 'product-brownie');
   await tapKey(tester, 'charge');
   expect(find.widgetWithText(AppBar, 'Payment'), findsOneWidget);
+  if (customer) await fillCustomer(tester);
   return b;
 }
 
@@ -60,6 +62,10 @@ void main() {
     expect(isEnabled(tester, 'save'), isTrue);
 
     await tapKey(tester, 'save');
+    // The review comes first; nothing is saved until Confirm.
+    expect(b.sales.createCalls, isEmpty);
+    expect(textOf(tester, 'review-total'), contains('₹648.00'));
+    await tapKey(tester, 'confirm');
 
     expect(b.sales.createCalls, hasLength(1));
     final sent = b.sales.createCalls.single;
@@ -76,16 +82,18 @@ void main() {
     ]);
     expect(sent.cashTendered, const Money(50000));
 
-    // Saved, then printed.
+    // Saved, then printed when the cashier asks.
     expect(textOf(tester, 'bill-no'), 'PTB-D01-000001');
     expect(textOf(tester, 'saved-change'), contains('₹100.00'));
+    expect(b.printer.printedBills, isEmpty);
+    await tapKey(tester, 'print-button');
     expect(b.printer.printedBills, hasLength(1));
     expect(b.printer.printedBills.single.id, 'D01-000001');
     expect(b.printer.printedBills.single.total, const Money(64800));
     expect(find.byKey(const Key('print-ok')), findsOneWidget);
 
     // New bill starts with an empty cart.
-    await tapKey(tester, 'new-bill');
+    await tapKey(tester, 'new-bill'); // Done
     expect(find.widgetWithText(AppBar, 'Billing'), findsOneWidget);
     expect(isEnabled(tester, 'charge'), isFalse);
   });
@@ -123,18 +131,17 @@ void main() {
 
   testWidgets('a double tap saves once', (tester) async {
     final b = await openPayment(tester);
+    await tapKey(tester, 'save'); // the review
     final gate = Completer<void>();
     b.sales.gate = gate;
 
-    final save = find.byKey(const Key('save'));
-    await tester.ensureVisible(save);
-    await tester.pumpAndSettle();
+    final confirm = find.byKey(const Key('confirm'));
     // Two taps in the same frame: the second still hits the enabled button.
-    await tester.tap(save);
-    await tester.tap(save);
+    await tester.tap(confirm);
+    await tester.tap(confirm);
     await tester.pump();
-    expect(isEnabled(tester, 'save'), isFalse);
-    await tester.tap(save, warnIfMissed: false);
+    expect(isEnabled(tester, 'confirm'), isFalse);
+    await tester.tap(confirm, warnIfMissed: false);
     await tester.pump();
 
     gate.complete();
@@ -142,8 +149,9 @@ void main() {
 
     expect(b.sales.createCalls, hasLength(1));
     expect(b.bills.all(Seed.locationId), hasLength(1));
-    expect(b.printer.printedBills, hasLength(1));
     expect(textOf(tester, 'bill-no'), 'PTB-D01-000001');
+    await tapKey(tester, 'print-button');
+    expect(b.printer.printedBills, hasLength(1));
   });
 
   testWidgets("the discount cap is the location's maxDiscountPct", (
@@ -178,6 +186,7 @@ void main() {
     expect(isEnabled(tester, 'save'), isTrue);
 
     await tapKey(tester, 'save');
+    await tapKey(tester, 'confirm');
     expect(b.sales.createCalls.single.discount?.type, DiscountType.flat);
     expect(b.sales.createCalls.single.discount?.value, 6800);
   });
@@ -214,11 +223,12 @@ void main() {
     final b = await openPayment(tester);
     b.sales.failNext = const DataFailure(FailureReason.billingBlocked);
     await tapKey(tester, 'save');
+    await tapKey(tester, 'confirm');
     expect(textOf(tester, 'save-error'), contains('Billing is paused'));
-    expect(isEnabled(tester, 'save'), isTrue);
+    expect(isEnabled(tester, 'confirm'), isTrue);
     expect(b.printer.printedBills, isEmpty);
 
-    await tapKey(tester, 'save');
+    await tapKey(tester, 'confirm');
     expect(b.sales.createCalls, hasLength(2));
     expect(textOf(tester, 'bill-no'), 'PTB-D01-000001');
   });
@@ -232,6 +242,7 @@ void main() {
       'over',
     );
     await tapKey(tester, 'save');
+    await tapKey(tester, 'confirm');
     expect(
       textOf(tester, 'save-error'),
       "The discount is over this store's limit of 10%.",
@@ -245,14 +256,22 @@ void main() {
     final b = await openPayment(tester);
     b.sales.failNext = const DataFailure(FailureReason.unknown);
     await tapKey(tester, 'save');
+    await tapKey(tester, 'confirm');
+    expect(textOf(tester, 'save-error'), contains("Check today's bills"));
+    expect(isEnabled(tester, 'confirm'), isFalse);
+
+    // Back on the payment page the way to a second bill is closed too.
+    await tapKey(tester, 'review-back');
     expect(textOf(tester, 'save-error'), contains("Check today's bills"));
     expect(isEnabled(tester, 'save'), isFalse);
+    expect(b.sales.createCalls, hasLength(1));
   });
 
   testWidgets('a print failure offers a retry, not an error', (tester) async {
     final b = await openPayment(tester);
     b.printer.nextResults.add(const PrintFailed('Printer is off'));
-    await tapKey(tester, 'save');
+    await saveWithReview(tester, fill: false);
+    await tapKey(tester, 'print-button');
 
     expect(textOf(tester, 'bill-no'), 'PTB-D01-000001');
     expect(textOf(tester, 'print-failed'), contains('The bill is saved'));

@@ -144,6 +144,8 @@ void main() {
     expect(isEnabled(tester, 'charge'), isTrue);
     await tapKey(tester, 'charge');
     expect(find.widgetWithText(AppBar, 'Payment'), findsOneWidget);
+    expect(isEnabled(tester, 'save'), isFalse); // no customer yet
+    await fillCustomer(tester);
     expect(isEnabled(tester, 'save'), isTrue);
   });
 
