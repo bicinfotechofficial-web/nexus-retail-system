@@ -59,9 +59,8 @@ final class FirestoreCustomerRepository implements CustomerRepository {
 
   /// A collection-group query over every location's `customers`, most
   /// recent first. Needs the collection-group index on `lastBillAt`
-  /// (`firestore.indexes.json`) and `report.all` (rule #14). Customers of
-  /// different locations carry no location field: they are told apart by
-  /// their phone and name only, so a person who bought at two locations
+  /// (`firestore.indexes.json`) and `report.all` (rule #14). Each
+  /// customer carries its `locationId`. A person who bought at two locations
   /// appears twice.
   @override
   Stream<List<Customer>> watchAllLocations({int limit = 500}) => _db
@@ -72,13 +71,21 @@ final class FirestoreCustomerRepository implements CustomerRepository {
       .map(_toCustomers)
       .mapFirestoreErrors();
 
-  List<Customer> _toCustomers(QuerySnapshot<Map<String, dynamic>> s) =>
-      modelsOf(
-        s,
-        Customer.fromMap,
-        serverTimestampFields: Customer.serverTimestampFields,
-        now: _now,
-      );
+  /// Each customer also gets its `locationId`, read from the document path
+  /// (`locations/{loc}/customers/{id}`), which is what tells the Admin's
+  /// all-locations list which store a record belongs to.
+  List<Customer> _toCustomers(QuerySnapshot<Map<String, dynamic>> s) => [
+    for (final d in s.docs)
+      Customer.fromMap(d.id, {
+        ...plainFromFirestore(
+          d.data(),
+          serverTimestampFields: Customer.serverTimestampFields,
+          hasPendingWrites: d.metadata.hasPendingWrites,
+          now: _now,
+        ),
+        'locationId': d.reference.parent.parent?.id,
+      }),
+  ];
 
   static final RegExp _digits = RegExp(r'^[0-9]+$');
 }

@@ -180,6 +180,11 @@ void main() {
       };
       final c = Customer.fromMap('9876543210_aaaaaaaaaa', map);
       expect(c.lastBillAt, t0);
+      expect(c.locationId, isNull);
+      expect(
+        Customer.fromMap('x', {...map, 'locationId': 'PTB'}).locationId,
+        'PTB',
+      );
       expect(c.toMap(), {
         for (final e in map.entries)
           if (!Customer.serverTimestampFields.contains(e.key)) e.key: e.value,

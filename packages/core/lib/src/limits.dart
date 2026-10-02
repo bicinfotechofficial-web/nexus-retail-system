@@ -20,4 +20,7 @@ abstract final class Limits {
 
   /// Longest customer name, in characters (D-034).
   static const int customerNameMax = 60;
+
+  /// Longest note on a declined suggestion, in characters (D-038).
+  static const int reviewNoteMax = 200;
 }

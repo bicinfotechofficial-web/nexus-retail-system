@@ -28,6 +28,10 @@ abstract final class FirestorePaths {
   static String bills(String loc) => '${location(loc)}/bills';
   static String bill(String loc, String billId) => '${bills(loc)}/$billId';
 
+  static String customers(String loc) => '${location(loc)}/customers';
+  static String customer(String loc, String customerId) =>
+      '${customers(loc)}/$customerId';
+
   static String returns(String loc) => '${location(loc)}/returns';
   static String saleReturn(String loc, String returnId) =>
       '${returns(loc)}/$returnId';

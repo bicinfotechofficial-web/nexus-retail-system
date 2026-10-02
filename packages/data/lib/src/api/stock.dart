@@ -19,10 +19,7 @@ abstract interface class StockRepository {
   /// Every movement at [locationId] on [businessDate], newest first (D-039).
   /// The Stock history screen filters In / Out in the app: a movement is In
   /// when the sum of its line deltas is above zero and Out when it is below.
-  Stream<List<Movement>> watchMovements(
-    String locationId,
-    String businessDate,
-  );
+  Stream<List<Movement>> watchMovements(String locationId, String businessDate);
 }
 
 /// Stock operations at the signed-in user's location. Each is one movement

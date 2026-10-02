@@ -232,13 +232,12 @@ Map<String, Object?> movementDoc(
   Movement.serverTimestampFields,
 );
 
-/// `locations/{loc}/customers` (D-037). `FirestorePaths` in core has no
-/// customer paths yet.
-String customersPath(String loc) => '${FirestorePaths.location(loc)}/customers';
+/// `locations/{loc}/customers` (D-037).
+String customersPath(String loc) => FirestorePaths.customers(loc);
 
 /// `locations/{loc}/customers/{customerId}`.
 String customerPath(String loc, String customerId) =>
-    '${customersPath(loc)}/$customerId';
+    FirestorePaths.customer(loc, customerId);
 
 /// The customer record's write in a bill's batch (D-037), as `set(merge)`.
 /// A device can't know offline whether the record exists, so every bill
@@ -261,5 +260,5 @@ Map<String, Object?> customerWrite(
 };
 
 /// Longest `reviewNote` on a declined suggestion, in characters (D-038).
-/// Core's `Limits` has no constant for it yet; rule #11 repeats it.
-const int reviewNoteMax = 200;
+/// Rule #11 repeats it.
+const int reviewNoteMax = Limits.reviewNoteMax;

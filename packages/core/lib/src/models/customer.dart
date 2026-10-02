@@ -17,6 +17,7 @@ final class Customer {
     required this.lastWriteRef,
     this.whatsapp,
     this.lastBillAt,
+    this.locationId,
   });
 
   factory Customer.fromMap(String id, Map<String, Object?> map) {
@@ -26,6 +27,7 @@ final class Customer {
       name: r.string('name'),
       phone: r.string('phone'),
       whatsapp: r.stringOrNull('whatsapp'),
+      locationId: r.stringOrNull('locationId'),
       lastBillAt: r.dateTimeOrNull('lastBillAt'),
       billCount: r.integer('billCount'),
       totalSpend: Money(r.integer('totalSpend')),
@@ -53,6 +55,10 @@ final class Customer {
   final String id;
   final String name;
   final String phone;
+
+  /// Which location's record this is. Not stored: the repository fills it
+  /// from the document path, so the Admin's all-locations list can show it.
+  final String? locationId;
 
   /// The latest number used for WhatsApp, or null.
   final String? whatsapp;
