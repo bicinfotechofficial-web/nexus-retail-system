@@ -56,3 +56,7 @@ Seventh review (C-7 integration):
 - **Deferred:** the visual refresh (UX-1) until the functional changes are merged.
 - **Open:** Store Manager parity on the web console (WEB-1).
 - **Privacy:** the number is personal data. It is stored on the bill, readable by that location's staff and the Admin, not printed on the receipt, and not sent to any other service. Before the pilot, put a short notice at the counter saying why it is collected (India's DPDP Act applies to this. Bicy should confirm the wording with a lawyer, as this is not legal advice).
+
+## CR-pilot-2 (from Bicy, second round)
+- **Accepted:** the WhatsApp number is only needed when it differs from the mobile (D-034 revised); customers are stored, one per mobile and name, per location (D-037); a Store Manager sees the Admin's decision on a suggestion inside the app (D-038); the bill review can be switched off with a box on the review and in Settings (D-035 revised); a Finished / Raw filter on the stock list and a stock history with In / Out (D-039).
+- **Answered, no change to the data:** the -1 on a cake is the stock level, not a movement. See D-039.
