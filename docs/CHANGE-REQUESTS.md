@@ -50,3 +50,9 @@ Sixth review (BE-9 to BE-13 services, sync and guard; QA-038 to QA-046):
 Seventh review (C-7 integration):
 - **Integration:** accepted. The two emulator workarounds (the POS `pos-emulator` app with the demo project, and the admin's secondary Auth app on the emulator) are right. Profile builds must not be used against the emulator. D-033 is added from the integration report: a device code counts only at its registration location, and `DeviceService.locationId` is added to the contract.
 - **QA:** update `apps/pos/integration_test/README.md` now that the scenarios run (backendSkip is null), and add a D-033 scenario (sign in at another store on a registered phone → device setup → a new code).
+
+## CR-pilot-1 (from Bicy, after the first run on a Pixel 8)
+- **Accepted:** customer name and number on each bill (D-034), a review screen before commit and optional print (D-035), WhatsApp sharing by link and by image (D-036). Tasks C-10, BE-15, POS-13, POS-14, PR-7, AD-5, QA-9 in 06-TASKS.
+- **Deferred:** the visual refresh (UX-1) until the functional changes are merged.
+- **Open:** Store Manager parity on the web console (WEB-1).
+- **Privacy:** the number is personal data. It is stored on the bill, readable by that location's staff and the Admin, not printed on the receipt, and not sent to any other service. Before the pilot, put a short notice at the counter saying why it is collected (India's DPDP Act applies to this. Bicy should confirm the wording with a lawyer, as this is not legal advice).

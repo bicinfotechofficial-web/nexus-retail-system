@@ -119,6 +119,9 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | soldQty | map productId → int | The qty of each line, written at creation so the rules can cap returns (D-029) |
 | returnedQty | map productId → int | Starts empty. Incremented by returns, never with 0. Must stay ≤ `soldQty` |
 | lastReturnId | string \| null | The return that last raised `returnedQty`, written in the same batch |
+| customerName | string | Required, trimmed, 1–60 chars (D-034). Bills made before D-034 have none, and readers show "—" |
+| customerPhone | string | Required, 10 digits, `^[6-9][0-9]{9}$`, India only (D-034) |
+| customerWhatsapp | string \| null | Same shape as `customerPhone`, or null when the customer has no WhatsApp |
 | servedBy | `{uid, name}` | |
 | businessDate, clientCreatedAt, serverCreatedAt | | |
 

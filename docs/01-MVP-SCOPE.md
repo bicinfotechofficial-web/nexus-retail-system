@@ -34,7 +34,7 @@
 - Year-on-year comparison UI. The data is there through the monthly summaries, and this is the first thing added after the pilot
 - Push notifications, cold backup, recipe/BOM auto-deduction, store-wide bill sequence
 - Multiple languages (English only)
-- Barcode scanning, customer records, loyalty
+- Barcode scanning, customer records, loyalty. (A name and number are captured on each bill for WhatsApp, D-034, but there is no customer list, search or history.)
 
 ## Acceptance for pilot sign-off
 1. Two devices at the same location bill offline at the same time, then sync, with zero duplicate bill numbers and stock that is exactly correct.
