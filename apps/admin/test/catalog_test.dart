@@ -130,7 +130,7 @@ void main() {
       tester,
     ) async {
       await _openCatalog(tester, backend);
-      expect(find.text('11 of 11 products'), findsOneWidget);
+      expect(find.text('12 of 12 products'), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(const Key('status-fruitcake'))).data,
         'Inactive',
@@ -144,7 +144,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Pending approval').last);
       await tester.pumpAndSettle();
-      expect(find.text('2 of 11 products'), findsOneWidget);
+      expect(find.text('2 of 12 products'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('filter-status')));
       await tester.pumpAndSettle();
@@ -154,12 +154,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Pastries').last);
       await tester.pumpAndSettle();
-      expect(find.text('2 of 11 products'), findsOneWidget);
+      expect(find.text('2 of 12 products'), findsOneWidget);
       expect(find.text('Chocolate Pastry'), findsOneWidget);
 
       await tester.enterText(find.byKey(const Key('product-search')), 'choc');
       await tester.pumpAndSettle();
-      expect(find.text('1 of 11 products'), findsOneWidget);
+      expect(find.text('1 of 12 products'), findsOneWidget);
       expect(find.text('Pineapple Pastry'), findsNothing);
     });
 
@@ -197,7 +197,7 @@ void main() {
       expect(created.status, ProductStatus.active);
       expect(created.scope, Product.globalScope);
       expect(created.createdBy, 'admin-0001');
-      expect(find.text('12 of 12 products'), findsOneWidget);
+      expect(find.text('13 of 13 products'), findsOneWidget);
       // A new product is not a price change.
       expect(backend.audit.actions, isEmpty);
     });

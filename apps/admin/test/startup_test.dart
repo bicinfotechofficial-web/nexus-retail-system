@@ -127,6 +127,8 @@ void main() {
       'summaryRepositoryProvider': () => c.read(summaryRepositoryProvider),
       'stockRepositoryProvider': () => c.read(stockRepositoryProvider),
       'catalogRepositoryProvider': () => c.read(catalogRepositoryProvider),
+      'salesRepositoryProvider': () => c.read(salesRepositoryProvider),
+      'customerRepositoryProvider': () => c.read(customerRepositoryProvider),
       'catalogServiceProvider': () => c.read(catalogServiceProvider),
       'userRepositoryProvider': () => c.read(userRepositoryProvider),
       'userServiceProvider': () => c.read(userServiceProvider),

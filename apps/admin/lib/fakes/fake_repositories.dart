@@ -148,10 +148,24 @@ final class FakeSummaryRepository implements SummaryRepository {
 }
 
 final class FakeStockRepository implements StockRepository {
-  FakeStockRepository(this.stock);
+  FakeStockRepository(this.stock, {this.movements = const {}});
 
   /// Location code → its stock docs.
   final Map<String, List<StockItem>> stock;
+
+  /// Location code → its stock movements, any date.
+  final Map<String, List<Movement>> movements;
+
+  @override
+  Stream<List<Movement>> watchMovements(
+    String locationId,
+    String businessDate,
+  ) => Stream.value(
+    [
+      for (final m in movements[locationId] ?? const <Movement>[])
+        if (m.businessDate == businessDate) m,
+    ]..sort((a, b) => b.clientCreatedAt.compareTo(a.clientCreatedAt)),
+  );
 
   @override
   Stream<List<StockItem>> watchStock(String locationId) =>
@@ -214,4 +228,121 @@ final class FakeCatalogRepository implements CatalogRepository {
   @override
   Stream<List<RawMaterial>> watchRawMaterials() =>
       materialStore.watch((v) => v);
+
+  @override
+  Stream<List<Product>> watchMySuggestions(String locationId, String uid) =>
+      productStore.watch(
+        (v) => [
+          for (final p in v)
+            if (p.createdBy == uid && p.scope == locationId) p,
+        ]..sort((a, b) => _when(b).compareTo(_when(a))),
+      );
+
+  static DateTime _when(Product p) =>
+      p.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+}
+
+/// Bills by location. Seed them with [FakeBackend.seedBills]; the customers
+/// the Admin lists are built from the same bills ([FakeCustomerRepository]).
+final class FakeSalesRepository implements SalesRepository {
+  FakeSalesRepository(Map<String, List<Bill>> bills)
+    : bills = {for (final e in bills.entries) e.key: List.of(e.value)};
+
+  /// Location code → its bills.
+  final Map<String, List<Bill>> bills;
+
+  @override
+  Stream<List<Bill>> watchBills(String locationId, String businessDate) =>
+      Stream.value(
+        [
+          for (final b in bills[locationId] ?? const <Bill>[])
+            if (b.businessDate == businessDate) b,
+        ]..sort((a, b) => b.clientCreatedAt.compareTo(a.clientCreatedAt)),
+      );
+
+  @override
+  Future<Bill?> getBill(String locationId, String billId) async =>
+      (bills[locationId] ?? const <Bill>[])
+          .where((b) => b.id == billId)
+          .firstOrNull;
+
+  @override
+  Future<Bill?> findByBillNo(String billNo) async => [
+    for (final l in bills.values) ...l,
+  ].where((b) => b.billNo == billNo).firstOrNull;
+
+  @override
+  Stream<List<SaleReturn>> watchReturns(
+    String locationId,
+    String businessDate,
+  ) => Stream.value(const []);
+
+  @override
+  Future<List<SaleReturn>> returnsForBill(
+    String locationId,
+    String billId,
+  ) async => const [];
+}
+
+/// Customers by location, as the bills' batches would have written them
+/// (D-037): one record per mobile and name, with the bill count and the
+/// total as billed.
+final class FakeCustomerRepository implements CustomerRepository {
+  FakeCustomerRepository(this.customers);
+
+  /// Builds the records from [bills], skipping bills with no customer.
+  factory FakeCustomerRepository.fromBills(Map<String, List<Bill>> bills) {
+    final result = <String, List<Customer>>{};
+    for (final e in bills.entries) {
+      final byId = <String, Customer>{};
+      final ordered = [...e.value]
+        ..sort((a, b) => a.clientCreatedAt.compareTo(b.clientCreatedAt));
+      for (final b in ordered) {
+        final c = b.customer;
+        if (c == null) continue;
+        final before = byId[c.id];
+        byId[c.id] = Customer(
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          whatsapp: c.whatsapp,
+          locationId: e.key,
+          lastBillAt: b.clientCreatedAt,
+          billCount: (before?.billCount ?? 0) + 1,
+          totalSpend: (before?.totalSpend ?? Money.zero) + b.total,
+          lastWriteRef: b.id,
+        );
+      }
+      result[e.key] = byId.values.toList();
+    }
+    return FakeCustomerRepository(result);
+  }
+
+  /// Location code → its customers.
+  final Map<String, List<Customer>> customers;
+
+  static List<Customer> _recentFirst(Iterable<Customer> list, int limit) =>
+      ([...list]..sort(
+            (a, b) => (b.lastBillAt ?? DateTime(0)).compareTo(
+              a.lastBillAt ?? DateTime(0),
+            ),
+          ))
+          .take(limit)
+          .toList();
+
+  @override
+  Stream<List<Customer>> watchByPhone(String locationId, String phonePrefix) =>
+      Stream.value([
+        for (final c in customers[locationId] ?? const <Customer>[])
+          if (c.phone.startsWith(phonePrefix)) c,
+      ]);
+
+  @override
+  Stream<List<Customer>> watchAll(String locationId, {int limit = 200}) =>
+      Stream.value(_recentFirst(customers[locationId] ?? const [], limit));
+
+  @override
+  Stream<List<Customer>> watchAllLocations({int limit = 500}) => Stream.value(
+    _recentFirst([for (final l in customers.values) ...l], limit),
+  );
 }

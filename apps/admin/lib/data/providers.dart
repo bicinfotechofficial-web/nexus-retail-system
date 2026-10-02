@@ -32,6 +32,16 @@ final catalogRepositoryProvider = Provider<CatalogRepository>(
       throw UnimplementedError('catalogRepositoryProvider is not overridden'),
 );
 
+final salesRepositoryProvider = Provider<SalesRepository>(
+  (ref) =>
+      throw UnimplementedError('salesRepositoryProvider is not overridden'),
+);
+
+final customerRepositoryProvider = Provider<CustomerRepository>(
+  (ref) =>
+      throw UnimplementedError('customerRepositoryProvider is not overridden'),
+);
+
 final catalogServiceProvider = Provider<CatalogService>(
   (ref) => throw UnimplementedError('catalogServiceProvider is not overridden'),
 );

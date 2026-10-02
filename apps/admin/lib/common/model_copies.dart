@@ -11,6 +11,9 @@ extension ProductCopy on Product {
     int? sortOrder,
     Money? price,
     DateTime? updatedAt,
+    String? reviewedBy,
+    String? reviewNote,
+    DateTime? reviewedAt,
   }) => Product(
     id: id,
     name: name ?? this.name,
@@ -24,6 +27,9 @@ extension ProductCopy on Product {
     unit: unit,
     gstRate: gstRate,
     recipe: recipe,
+    reviewedBy: reviewedBy ?? this.reviewedBy,
+    reviewNote: reviewNote ?? this.reviewNote,
+    reviewedAt: reviewedAt ?? this.reviewedAt,
     createdAt: createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );

@@ -14,6 +14,8 @@ final class AdminServices {
     required this.summaries,
     required this.stockRepo,
     required this.catalogRepo,
+    required this.salesRepo,
+    required this.customerRepo,
     required this.catalog,
     required this.userRepo,
     required this.users,
@@ -31,6 +33,8 @@ final class AdminServices {
     summaries: b.summaries,
     stockRepo: b.stockRepo,
     catalogRepo: b.catalogRepo,
+    salesRepo: b.salesRepo,
+    customerRepo: b.customers,
     catalog: b.catalog,
     userRepo: b.userRepo,
     users: b.users,
@@ -46,6 +50,8 @@ final class AdminServices {
   final SummaryRepository summaries;
   final StockRepository stockRepo;
   final CatalogRepository catalogRepo;
+  final SalesRepository salesRepo;
+  final CustomerRepository customerRepo;
   final CatalogService catalog;
   final UserRepository userRepo;
   final UserService users;
@@ -63,6 +69,8 @@ final class AdminServices {
     summaryRepositoryProvider.overrideWithValue(summaries),
     stockRepositoryProvider.overrideWithValue(stockRepo),
     catalogRepositoryProvider.overrideWithValue(catalogRepo),
+    salesRepositoryProvider.overrideWithValue(salesRepo),
+    customerRepositoryProvider.overrideWithValue(customerRepo),
     catalogServiceProvider.overrideWithValue(catalog),
     userRepositoryProvider.overrideWithValue(userRepo),
     userServiceProvider.overrideWithValue(users),
