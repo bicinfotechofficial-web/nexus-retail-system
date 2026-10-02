@@ -34,7 +34,7 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 | `test/support/batches.js` | Whole business batches (bill, cancel, return, stock operation), with or without summaries and audit, until BE-10's plan fixtures replace them |
 | `test/support/caps.js` | The largest batches the list caps allow (D-030), with the caps read from `Limits` in `packages/core` |
 | `test/support/budget.js` | Probes that measure how far a rule is from Firestore's evaluation limits (see "Rules budget") |
-| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `budget` (the caps), plus `indexes` (BE-7) and `seed` (BE-14) |
+| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `customers` (#14 and the bill's customer fields, BE-15), `budget` (the caps), plus `indexes` (BE-7) and `seed` (BE-14) |
 | `scripts/lib/core.js` | What `firebase/` reads from `packages/core`: permission sets, `Limits`, and the override PIN hash |
 | `scripts/seed.mjs` | The seed script (see "Seeding") |
 | `scripts/budget.mjs` | `npm run budget`: prints the measured headroom of each cap case |
@@ -68,11 +68,13 @@ Neither count is visible from outside, so the probes measure headroom directly: 
 npm run budget
 ```
 
-Measured on the emulator (BE-6, re-measured after QA-038 to QA-040):
+Measured on the emulator (BE-6, re-measured after QA-038 to QA-040 and BE-15):
 
 | Case | Rule | Expressions used | Headroom |
 |---|---|---|---|
-| Bill, 15 lines, 4 payments | bill create | ~653 / 1000 | ~35% |
+| Bill, 15 lines, 4 payments | bill create | ~740 / 1000 | ~26% |
+| The same | customer create (#14) | ~260 / 1000 | ~74% |
+| The same by a repeat customer | customer update (#14) | ~301 / 1000 | ~70% |
 | Return of all 15 products, 4 refunds (first or second return) | bill update (#5(b)) | ~719 / 1000 | ~28% |
 | The same | return create | ~362 / 1000 (first), ~367 (second) | ~63% |
 | PRODUCE, 20 lines, 20 new stock docs | movement create | ~342 / 1000 | ~66% |

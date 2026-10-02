@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // Security rules for the Caramel Cottage retail system. The contract is
-// docs/04-PERMISSIONS.md; rule numbers (#1 ... #13) refer to it. Anything not
+// docs/04-PERMISSIONS.md; rule numbers (#1 ... #14) refer to it. Anything not
 // matched below is denied (#1).
 //
 // Two budgets apply to every rule evaluation:
