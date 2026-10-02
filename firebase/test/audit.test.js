@@ -48,6 +48,26 @@ describe('#10 auditLog: create', () => {
     await assertFails(create('admin', 'USR-sm-ptb-1790000000001', user));
   });
 
+  it('needs catalog.manage for PRODUCT_APPROVE and PRODUCT_DECLINE, global with the right ID (D-038)', async () => {
+    const decline = { action: 'PRODUCT_DECLINE', entityPath: 'products/p1', locationId: null, deviceId: null };
+    await assertSucceeds(create('admin', 'DECLINE-p1-1790000000000', decline));
+    await assertFails(create('smPtb', 'DECLINE-p1-1790000000001', decline));
+    // The ID shape is DECLINE-{productId}-{millis}: another prefix, a missing time or an APPROVE ID are denied.
+    await assertFails(create('admin', 'APPROVE-p1-1790000000002', decline));
+    await assertFails(create('admin', 'PRICE-p1-1790000000003', decline));
+    await assertFails(create('admin', 'DECLINE-p1', decline));
+    await assertFails(create('admin', 'DECLINE-p1-x', decline));
+    await assertFails(create('admin', 'p1-1790000000004', decline));
+    // Global: a location, or a location-prefixed ID, is not allowed.
+    await assertFails(create('admin', 'PTB-DECLINE-p1-1790000000005', { ...decline, locationId: 'PTB' }));
+    await assertFails(create('admin', 'DECLINE-p1-1790000000006', { ...decline, locationId: 'PTB' }));
+    // And a decline can't take an approval's ID shape in the other direction.
+    const approve = { action: 'PRODUCT_APPROVE', entityPath: 'products/p1', locationId: null, deviceId: null };
+    await assertSucceeds(create('admin', 'APPROVE-p1-1790000000007', approve));
+    await assertFails(create('admin', 'DECLINE-p1-1790000000008', approve));
+    await assertFails(create('smPtb', 'APPROVE-p1-1790000000009', approve));
+  });
+
   it('scopes expense audits to their location (D-032)', async () => {
     const expense = { action: 'EXPENSE_CREATE', entityPath: 'expenses/e1', locationId: 'PTB', deviceId: null };
     await assertSucceeds(create('admin', 'PTB-EXP-e1-1790000000000', expense));

@@ -8,7 +8,15 @@
 // test/support/budget.js for how the probes work).
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { CAP_CASES, largestBill, largestFirstReturn, largestProduce, largestSecondReturn, overCapBill } from './support/caps.js';
+import {
+  CAP_CASES,
+  largestBill,
+  largestFirstReturn,
+  largestProduce,
+  largestRepeatBill,
+  largestSecondReturn,
+  overCapBill,
+} from './support/caps.js';
 import { ACCESS_LIMIT_DOC, EXPRESSION_LIMIT, calibrate, comparisonsFor, probe } from './support/budget.js';
 import { assertFails, assertSucceeds, useRulesEnv } from './support/env.js';
 
@@ -22,6 +30,10 @@ async function accept(scenario) {
 describe('rules budget: the largest batches are accepted (D-030)', () => {
   it('accepts the complete bill batch with 15 lines and 4 payments', async () => {
     await assertSucceeds(accept(largestBill));
+  });
+
+  it('accepts the same bill by a repeat customer (the customer record is updated, not created)', async () => {
+    await assertSucceeds(accept(largestRepeatBill));
   });
 
   it('accepts the complete return batch that brings all 15 products into returnedQty, with 4 refunds', async () => {

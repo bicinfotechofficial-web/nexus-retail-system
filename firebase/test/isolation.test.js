@@ -23,6 +23,7 @@ import { ACTORS, LOC } from './support/fixtures.js';
 import {
   TODAY,
   billId,
+  customerFields,
   makeAudit,
   makeBill,
   makeMovement,
@@ -31,6 +32,7 @@ import {
   returnId,
   stockWrite,
   storedBill,
+  storedCustomer,
   summaryWrite,
 } from './support/builders.js';
 import { arrangeDevice, billBatch, cancelBatch, returnBatch, stockBatch } from './support/batches.js';
@@ -62,6 +64,7 @@ async function arrangeMnj() {
     await setDoc(at(db, 'stock', 'RM_flour'), { ...stockWrite('RM_flour', 0, M1), qty: 5000, updatedAt: new Date() });
     await setDoc(at(db, 'dailySummary', TODAY), { billCount: 1, lastWriteRef: `locations/${MNJ}/bills/${BILL}` });
     await setDoc(at(db, 'monthlySummary', MONTH), { billCount: 1, lastWriteRef: `locations/${MNJ}/bills/${BILL}` });
+    await setDoc(at(db, 'customers', customerFields().customerId), storedCustomer());
   });
 }
 
@@ -76,9 +79,10 @@ const DOCS = [
   ['a stock doc', ['stock', 'RM_flour']],
   ['a daily summary', ['dailySummary', TODAY]],
   ['a monthly summary', ['monthlySummary', MONTH]],
+  ['a customer', ['customers', customerFields().customerId]],
 ];
 
-const COLLECTIONS = ['devices', 'bills', 'returns', 'movements', 'stock', 'dailySummary', 'monthlySummary'];
+const COLLECTIONS = ['devices', 'bills', 'returns', 'movements', 'stock', 'dailySummary', 'monthlySummary', 'customers'];
 
 describe('#13 isolation: SM@PTB reads nothing at MNJ', () => {
   it.each(DOCS)('denies a get of %s', async (_, path) => {

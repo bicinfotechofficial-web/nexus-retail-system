@@ -52,6 +52,15 @@ export const TARGETS = {
     line: 'allow create: if validNewMovement(loc, movementId);',
     padded: (p) => `allow create: if validNewMovement(loc, movementId) && ${p};`,
   },
+  // The customer rules are several lines long, so their padding goes in front.
+  customerCreate: {
+    line: 'allow create: if validCustomerWrite(loc, customerId, customerBill(loc))',
+    padded: (p) => `allow create: if ${p} && validCustomerWrite(loc, customerId, customerBill(loc))`,
+  },
+  customerUpdate: {
+    line: 'allow update: if validCustomerWrite(loc, customerId, customerBill(loc))',
+    padded: (p) => `allow update: if ${p} && validCustomerWrite(loc, customerId, customerBill(loc))`,
+  },
   stockCreate: {
     line: 'allow create: if activeAt(loc) && validNewStock(loc, itemKey);',
     padded: (p) => `allow create: if activeAt(loc) && validNewStock(loc, itemKey) && ${p};`,

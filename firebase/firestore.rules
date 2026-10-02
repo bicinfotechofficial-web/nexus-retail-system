@@ -159,6 +159,41 @@ service cloud.firestore {
         && existsAfter(devicePath(loc, deviceCode(next)));
     }
 
+    // ---- #14 customers: the write helpers ---------------------------------
+
+    function customerKeys() {
+      return ['name', 'phone', 'whatsapp', 'lastBillAt', 'billCount', 'totalSpend', 'lastWriteRef'];
+    }
+    // The bill that caused this customer write: `lastWriteRef` is its ID, and
+    // the batch creates it. Same docs as the bill rules read, so no new access
+    // calls beyond the one for the new bill (exists, getAfter).
+    function customerBill(loc) {
+      return getAfter(billPath(loc, incoming().lastWriteRef)).data;
+    }
+    // Shared by create and update. The customer doc says what the new bill
+    // says (the same id, name, phone and WhatsApp number), the id's phone part
+    // is the phone field, and lastBillAt is the server time. A set(merge)
+    // always sends the name, so a later bill that spells the name in another
+    // letter case (the same customerId) is accepted and updates the name, while
+    // any other change of name is not (rule above, in update).
+    function validCustomerWrite(loc, customerId, b) {
+      let c = incoming();
+      let ref = c.lastWriteRef;
+      return canAt('bill.create', loc)
+        && c.keys().hasOnly(customerKeys())
+        && c.keys().hasAll(customerKeys())
+        && ref is string && ref.matches('^D[0-9]{2}-[0-9]{6}$')
+        && !exists(billPath(loc, ref))
+        && existsAfter(billPath(loc, ref))
+        && customerId.matches('^[6-9][0-9]{9}_[0-9a-f]{10}$')
+        && customerId.matches('^' + c.phone + '_.*')
+        && b.customerId == customerId
+        && c.name == b.customerName
+        && c.phone == b.customerPhone
+        && c.whatsapp == b.customerWhatsapp
+        && c.lastBillAt == request.time;
+    }
+
     // ---- #5-6 bills --------------------------------------------------------
     // The rules language has no loops, so per-line and per-key checks are
     // unrolled up to the caps in Limits (D-030): 15 lines, 4 payments.
@@ -242,7 +277,24 @@ service cloud.firestore {
       return ['billNo', 'deviceId', 'seq', 'lines', 'subtotal', 'discount', 'taxableValue',
               'taxLines', 'roundOff', 'total', 'payments', 'cashTendered', 'status', 'cancel',
               'returnedQty', 'soldQty', 'lastReturnId', 'servedBy', 'businessDate',
-              'clientCreatedAt', 'serverCreatedAt', 'createdBy'];
+              'clientCreatedAt', 'serverCreatedAt', 'createdBy',
+              'customerId', 'customerName', 'customerPhone', 'customerWhatsapp'];
+    }
+
+    // The customer on a new bill (D-034, D-037): a trimmed name of 1-60
+    // characters, a mobile number, a WhatsApp number that is null or a mobile
+    // number, and a customerId that starts with `{customerPhone}_`. The
+    // 10-hex name key after it is the client's (D-031); rule #14 checks the
+    // customer doc against these fields.
+    function validBillCustomer(b) {
+      return b.customerName is string && b.customerName.size() >= 1 && b.customerName.size() <= 60
+        && b.customerName == b.customerName.trim()
+        && b.customerPhone is string && b.customerPhone.matches('^[6-9][0-9]{9}$')
+        && (b.customerWhatsapp == null
+          || (b.customerWhatsapp is string && b.customerWhatsapp.matches('^[6-9][0-9]{9}$')))
+        && b.customerId is string
+        && b.customerId.matches('^[6-9][0-9]{9}_[0-9a-f]{10}$')
+        && b.customerId.matches('^' + b.customerPhone + '_.*');
     }
 
     // #6. billId is `D01-000123` and must agree with deviceId, seq and billNo.
@@ -262,6 +314,7 @@ service cloud.firestore {
         && b.returnedQty is map && b.returnedQty.size() == 0
         && b.lastReturnId == null
         && billLinesOk(b.lines, b.soldQty)
+        && validBillCustomer(b)
         && b.subtotal is int
         && (b.discount == null || b.discount is map)
         && b.taxableValue is int
@@ -531,7 +584,7 @@ service cloud.firestore {
         : action == 'OFFLINE_OVERRIDE' ? 'bill.create'
         : action == 'THRESHOLD_CHANGE' ? 'stock.threshold'
         : action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'expense.manage'
-        : action in ['PRICE_CHANGE', 'PRODUCT_APPROVE'] ? 'catalog.manage'
+        : action in ['PRICE_CHANGE', 'PRODUCT_APPROVE', 'PRODUCT_DECLINE'] ? 'catalog.manage'
         : action in ['USER_CREATE', 'USER_DISABLE', 'USER_ENABLE'] ? 'user.manage'
         : 'location.manage';
     }
@@ -550,14 +603,15 @@ service cloud.firestore {
     }
 
     // IDs (D-028, D-032): a location-scoped event is `{loc}-...` with
-    // locationId set; PRICE_CHANGE and PRODUCT_APPROVE are global
-    // (`PRICE-...`, `APPROVE-...`, locationId null); a user event is
+    // locationId set; PRICE_CHANGE, PRODUCT_APPROVE and PRODUCT_DECLINE are
+    // global (`PRICE-...`, `APPROVE-...`, `DECLINE-{productId}-{millis}`,
+    // locationId null); a user event is
     // `{loc}-USR-...` for a user with a location, or `USR-...` without.
     function validNewAudit(auditId) {
       let a = incoming();
       let keys = auditKeys();
       let p = auditPermission(a.action);
-      let global = a.action in ['PRICE_CHANGE', 'PRODUCT_APPROVE'];
+      let global = a.action in ['PRICE_CHANGE', 'PRODUCT_APPROVE', 'PRODUCT_DECLINE'];
       let userEvent = a.action in ['USER_CREATE', 'USER_DISABLE', 'USER_ENABLE'];
       let scoped = a.locationId is string && isLocationCode(a.locationId)
         && canAt(p, a.locationId)
@@ -565,7 +619,7 @@ service cloud.firestore {
       return a.keys().hasOnly(keys)
         && a.keys().size() == keys.size()
         && a.action in ['STOCK_ADJUST', 'WASTAGE', 'BILL_CANCEL', 'RETURN', 'EXPENSE_CREATE',
-                        'EXPENSE_UPDATE', 'PRICE_CHANGE', 'PRODUCT_APPROVE', 'USER_CREATE',
+                        'EXPENSE_UPDATE', 'PRICE_CHANGE', 'PRODUCT_APPROVE', 'PRODUCT_DECLINE', 'USER_CREATE',
                         'USER_DISABLE', 'USER_ENABLE', 'OFFLINE_OVERRIDE', 'LOCATION_UPDATE']
         && a.by == request.auth.uid
         && a.at == request.time
@@ -573,7 +627,9 @@ service cloud.firestore {
         && a.entityPath is string
         && (global
               ? a.locationId == null && can(p)
-                && auditId.matches('^' + (a.action == 'PRICE_CHANGE' ? 'PRICE' : 'APPROVE') + '-.+$')
+                && (a.action == 'PRODUCT_DECLINE'
+                  ? auditId.matches('^DECLINE-[A-Za-z0-9_-]+-[0-9]+$')
+                  : auditId.matches('^' + (a.action == 'PRICE_CHANGE' ? 'PRICE' : 'APPROVE') + '-.+$'))
             : userEvent
               ? (a.locationId == null
                   ? can(p) && auditId.matches('^USR-.+$')
@@ -586,6 +642,10 @@ service cloud.firestore {
     function productKeys() {
       return ['name', 'category', 'price', 'proposedPrice', 'unit', 'gstRate', 'scope', 'status',
               'recipe', 'sortOrder', 'createdBy', 'createdAt', 'updatedAt'];
+    }
+    // Set by an approval or a decline only (D-038).
+    function reviewKeys() {
+      return ['reviewedBy', 'reviewNote', 'reviewedAt'];
     }
     function isSafeKey(s) {
       return s.matches('^[A-Za-z0-9_-]{1,100}$');
@@ -622,6 +682,34 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // #11. The Admin's decision on a PENDING suggestion (D-038). Approve and
+    // decline are the only edits to a PENDING product: approve prices it and
+    // makes it ACTIVE, decline makes it INACTIVE with a note of 1-200 trimmed
+    // characters. Both stamp the reviewer and the server time. (The audit doc
+    // has a client-time ID, so rule #10 can't be tied to it here, as with
+    // PRICE_CHANGE.)
+    function isApprove() {
+      let d = incoming();
+      let ch = changed();
+      return ch.hasOnly(['status', 'price', 'reviewedBy', 'reviewedAt', 'updatedAt'])
+        && ch.hasAll(['status', 'price', 'reviewedAt'])
+        && d.status == 'ACTIVE'
+        && d.price is int && d.price > 0
+        && d.reviewedBy == request.auth.uid
+        && d.reviewedAt == request.time;
+    }
+    function isDecline() {
+      let d = incoming();
+      let ch = changed();
+      return ch.hasOnly(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'updatedAt'])
+        && ch.hasAll(['status', 'reviewNote', 'reviewedAt'])
+        && d.status == 'INACTIVE'
+        && d.reviewNote is string && d.reviewNote.size() >= 1 && d.reviewNote.size() <= 200
+        && d.reviewNote == d.reviewNote.trim()
+        && d.reviewedBy == request.auth.uid
+        && d.reviewedAt == request.time;
+    }
+
     match /auditLog/{auditId} {
       // Admin-style roles read every location's entries; a role with
       // audit.view scoped to one location reads only that location's.
@@ -641,10 +729,15 @@ service cloud.firestore {
         && (can('catalog.manage') || isSuggestion(incoming()));
       // Prices, approval, deactivation and edits (#11). createdBy and
       // createdAt never change.
+      // A PENDING product is only approved or declined (D-038), and no other
+      // edit touches the review fields.
       allow update: if can('catalog.manage')
         && !changed().hasAny(['createdBy', 'createdAt'])
-        && incoming().keys().hasOnly(productKeys())
-        && validProductFields(incoming());
+        && incoming().keys().hasOnly(productKeys().concat(reviewKeys()))
+        && validProductFields(incoming())
+        && (resource.data.status == 'PENDING'
+          ? isApprove() || isDecline()
+          : !changed().hasAny(reviewKeys()));
       allow delete: if false;
     }
 
@@ -732,6 +825,28 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // ---- #14 customers (D-037) ----------------------------------------
+      // One record per mobile number and name, written only by a bill's batch
+      // (see validCustomerWrite). Read by the staff who bill or report at the
+      // location, and by report.all everywhere (also as a collection group,
+      // below).
+      match /customers/{customerId} {
+        allow read: if canAt('bill.create', loc) || canAt('report.own', loc) || can('report.all');
+        // The first bill: billCount 1 and totalSpend that bill's total.
+        allow create: if validCustomerWrite(loc, customerId, customerBill(loc))
+          && incoming().billCount == 1
+          && incoming().totalSpend == customerBill(loc).total;
+        // Later bills: the counters go up by exactly this bill's count and
+        // total. name and phone never change (the name's letter case may, see
+        // validCustomerWrite).
+        allow update: if validCustomerWrite(loc, customerId, customerBill(loc))
+          && changed().hasOnly(['name', 'whatsapp', 'lastBillAt', 'lastWriteRef', 'billCount', 'totalSpend'])
+          && incoming().name.lower() == resource.data.name.lower()
+          && incoming().billCount == resource.data.billCount + 1
+          && incoming().totalSpend == resource.data.totalSpend + customerBill(loc).total;
+        allow delete: if false;
+      }
+
       match /dailySummary/{day} {
         allow read: if canAt('report.own', loc);
         allow create, update: if isBusinessDate(day) && validSummaryWrite(loc);
@@ -782,6 +897,14 @@ service cloud.firestore {
 
         allow delete: if false;
       }
+    }
+
+    // ---- #14 customers: every location at once (collection group) ----------
+    // A collectionGroup('customers') query is allowed by this rule only, and
+    // only with report.all. Single-location reads use the rule under
+    // locations/{loc}.
+    match /{path=**}/customers/{customerId} {
+      allow read: if can('report.all');
     }
   }
 }

@@ -16,9 +16,9 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { collection, doc, getDocs, limit, orderBy, query, setDoc, startAfter, where } from 'firebase/firestore';
+import { collection, collectionGroup, doc, getDocs, limit, orderBy, query, setDoc, startAfter, where } from 'firebase/firestore';
 import { ACTORS, LOC } from './support/fixtures.js';
-import { TODAY, makeAudit, makeBill, makeExpense, makeProduct, makeReturn, storedBill } from './support/builders.js';
+import { TODAY, customerFields, makeAudit, makeBill, makeExpense, makeMovement, makeProduct, makeReturn, storedBill, storedCustomer } from './support/builders.js';
 import { assertSucceeds, useRulesEnv } from './support/env.js';
 
 const t = useRulesEnv();
@@ -90,6 +90,19 @@ describe('BE-7 firestore.indexes.json', () => {
     );
     expect(spec.indexes.every((i) => i.queryScope === 'COLLECTION')).toBe(true);
   });
+
+  it('has the collection-group index for the Admin\'s customers list, and keeps the collection one (BE-16)', () => {
+    // watchAllLocations: collectionGroup('customers') ordered by lastBillAt. A
+    // collection-group query has no automatic index, and declaring an
+    // override replaces the automatic collection-scope ones, so both are listed.
+    const o = spec.fieldOverrides.find((f) => f.collectionGroup === 'customers' && f.fieldPath === 'lastBillAt');
+    expect(o).toBeDefined();
+    const has = (order, queryScope) => o.indexes.some((i) => i.order === order && i.queryScope === queryScope);
+    expect(has('DESCENDING', 'COLLECTION_GROUP')).toBe(true);
+    expect(has('DESCENDING', 'COLLECTION')).toBe(true);
+    // The other repository queries (watchMySuggestions, watchMovements, watchByPhone,
+    // watchAll) use equality filters, a range on one field or single-field order only.
+  });
 });
 
 describe('BE-7 the indexed queries run under the rules', () => {
@@ -142,6 +155,46 @@ describe('BE-7 the indexed queries run under the rules', () => {
       );
       expect(snap.size).toBe(1);
     }
+  });
+
+  it('the movements of a day and a Store Manager\'s own suggestions (BE-16)', async () => {
+    await t.arrange(async (db) => {
+      await setDoc(doc(db, 'locations', LOC.PTB, 'movements', 'D01-M000001'), {
+        ...makeMovement(),
+        serverCreatedAt: new Date(),
+      });
+      await setDoc(doc(db, 'products', 'p9'), {
+        ...makeProduct({ status: 'PENDING', price: null, scope: LOC.PTB, uid: ACTORS.smPtb.uid }),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+    const db = t.db('smPtb');
+    const day = await assertSucceeds(
+      getDocs(query(collection(db, 'locations', LOC.PTB, 'movements'), where('businessDate', '==', TODAY))),
+    );
+    expect(day.size).toBe(1);
+    const mine = await assertSucceeds(
+      getDocs(query(collection(db, 'products'), where('createdBy', '==', ACTORS.smPtb.uid), where('scope', '==', LOC.PTB))),
+    );
+    expect(mine.size).toBe(1);
+  });
+
+  it('customers by phone prefix, most recent first, and across locations (Store Manager, Admin)', async () => {
+    await t.arrange(async (db) => {
+      await setDoc(doc(db, 'locations', LOC.PTB, 'customers', customerFields().customerId), storedCustomer());
+      await setDoc(doc(db, 'locations', LOC.MNJ, 'customers', customerFields().customerId), storedCustomer());
+    });
+    const sm = collection(t.db('smPtb'), 'locations', LOC.PTB, 'customers');
+    const prefix = await assertSucceeds(
+      getDocs(query(sm, where('phone', '>=', '987'), where('phone', '<', '987\uf8ff'), orderBy('phone'), limit(10))),
+    );
+    expect(prefix.size).toBe(1);
+    await assertSucceeds(getDocs(query(sm, orderBy('lastBillAt', 'desc'), limit(200))));
+    const all = await assertSucceeds(
+      getDocs(query(collectionGroup(t.db('admin'), 'customers'), orderBy('lastBillAt', 'desc'), limit(500))),
+    );
+    expect(all.size).toBe(2);
   });
 
   it('expenses of one location by date (Admin)', async () => {

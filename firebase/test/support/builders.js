@@ -2,6 +2,7 @@
 // models' toMap(), with consistent arithmetic, so a test only spells out the
 // field it's tampering with.
 
+import { createHash } from 'node:crypto';
 import { increment, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
 
@@ -19,9 +20,25 @@ function roundToRupee(paise) {
   return sign * Math.floor((Math.abs(paise) + 50) / 100) * 100;
 }
 
+/** `{phone}_{nameKey}` (D-037): the first 10 hex of SHA-256 of the trimmed, space-collapsed, lower-cased name. */
+export function customerId(phone, name) {
+  const normal = name.trim().replace(/\s+/g, ' ').toLowerCase();
+  return `${phone}_${createHash('sha256').update(normal).digest('hex').slice(0, 10)}`;
+}
+
+/**
+ * The four customer fields of a bill (D-034, D-037). `whatsapp` defaults to
+ * the phone (the mobile is on WhatsApp); pass null for no WhatsApp.
+ */
+export function customerFields({ name = 'Test Customer', phone = '9876543210', whatsapp = phone } = {}) {
+  return { customerId: customerId(phone, name), customerName: name, customerPhone: phone, customerWhatsapp: whatsapp };
+}
+
 /**
  * A valid bill. `lines` is `[[productId, qty, unitPricePaise], ...]`;
- * `payments` defaults to one CASH payment of the total.
+ * `payments` defaults to one CASH payment of the total. `customer` is the
+ * options of customerFields(); `customerOverride` replaces fields as they
+ * are on the bill, for the tampered cases.
  */
 export function makeBill({
   loc = LOC.PTB,
@@ -33,6 +50,8 @@ export function makeBill({
   uid = ACTORS.smPtb.uid,
   userName = 'Store Manager PTB',
   businessDate = TODAY,
+  customer = {},
+  customerOverride = {},
 } = {}) {
   const billLines = lines.map(([productId, qty, unitPrice]) => ({
     productId,
@@ -68,7 +87,32 @@ export function makeBill({
     clientCreatedAt: Timestamp.fromDate(new Date(`${businessDate}T10:00:00+05:30`)),
     serverCreatedAt: serverTimestamp(),
     createdBy: uid,
+    ...customerFields(customer),
+    ...customerOverride,
   };
+}
+
+/**
+ * What a bill's batch writes to its customer doc (D-037, set with merge):
+ * the customer fields of the bill, the server time, both counters as
+ * increments and the bill's ID.
+ */
+export function customerWrite(bill, id, overrides = {}) {
+  return {
+    name: bill.customerName,
+    phone: bill.customerPhone,
+    whatsapp: bill.customerWhatsapp,
+    lastBillAt: serverTimestamp(),
+    billCount: increment(1),
+    totalSpend: increment(bill.total),
+    lastWriteRef: id,
+    ...overrides,
+  };
+}
+
+/** A customer doc as stored after `billCount` bills worth `totalSpend` (for arranging state). */
+export function storedCustomer({ name = 'Test Customer', phone = '9876543210', whatsapp = phone, billCount = 1, totalSpend = 70100, lastWriteRef = 'D01-000001' } = {}) {
+  return { name, phone, whatsapp, lastBillAt: Timestamp.now(), billCount, totalSpend, lastWriteRef };
 }
 
 /** The same bill as it reads back from the server (for arranging state). */

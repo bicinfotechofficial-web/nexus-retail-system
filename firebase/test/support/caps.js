@@ -6,7 +6,7 @@
 
 import { doc, setDoc } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
-import { billId, makeBill, makeMovement, makeReturn, manyLines, movementId, returnId, storedBill } from './builders.js';
+import { billId, makeBill, makeMovement, makeReturn, manyLines, movementId, returnId, storedBill, storedCustomer } from './builders.js';
 import { billBatch, returnBatch, stockBatch } from './batches.js';
 import { readLimits } from '../../scripts/lib/core.js';
 
@@ -54,6 +54,22 @@ export function bigBill(lines = MAX_BILL_LINES, qty = 1) {
 export const largestBill = {
   name: 'bill: 15 lines, 4 payments',
   arrange: (db) => device(db),
+  run: (dbAs) => billBatch(dbAs('smPtb'), bigBill(), { full: true }).commit(),
+};
+
+/**
+ * The same bill by a customer who already has a record, so its customer write
+ * is an update (billCount and totalSpend go up by this bill's).
+ */
+export const largestRepeatBill = {
+  name: 'bill: 15 lines, 4 payments, repeat customer',
+  arrange: async (db) => {
+    await device(db);
+    await setDoc(
+      doc(db, 'locations', LOC.PTB, 'customers', bigBill().customerId),
+      storedCustomer({ billCount: 4, totalSpend: 1_000_000, lastWriteRef: 'D01-000099' }),
+    );
+  },
   run: (dbAs) => billBatch(dbAs('smPtb'), bigBill(), { full: true }).commit(),
 };
 
@@ -125,7 +141,8 @@ export const largestProduce = {
 
 /** Every cap case, with the rules each one is measured on. */
 export const CAP_CASES = [
-  { scenario: largestBill, targets: ['billCreate'] },
+  { scenario: largestBill, targets: ['billCreate', 'customerCreate'] },
+  { scenario: largestRepeatBill, targets: ['customerUpdate'] },
   { scenario: largestFirstReturn, targets: ['billUpdate', 'returnCreate'] },
   { scenario: largestSecondReturn, targets: ['billUpdate', 'returnCreate'] },
   { scenario: largestProduce, targets: ['movementCreate', 'stockCreate'] },

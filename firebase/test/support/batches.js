@@ -4,7 +4,7 @@
 
 import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
-import { TODAY, makeAudit, makeCancel, makeMovement, stockWrite, summaryWrite } from './builders.js';
+import { TODAY, customerWrite, makeAudit, makeCancel, makeMovement, stockWrite, summaryWrite } from './builders.js';
 
 /** Adds the daily and monthly summary increments for `ref` (#9). */
 export function addSummaries(b, db, { loc = LOC.PTB, ref, fields, date = TODAY }) {
@@ -31,8 +31,12 @@ export async function arrangeDevice(t, loc = LOC.PTB, counters = {}) {
   );
 }
 
-/** Create bill: bill, FG stock decrements, SALE movement, device lastBillSeq. */
-export function billBatch(db, bill, { loc = LOC.PTB, full = false } = {}) {
+/**
+ * Create bill: bill, FG stock decrements, SALE movement, device lastBillSeq
+ * and the customer doc (set with merge, in every bill's batch, D-037;
+ * `customer: false` leaves it out, `customer: {..}` overrides its data).
+ */
+export function billBatch(db, bill, { loc = LOC.PTB, full = false, customer = true } = {}) {
   const id = `${bill.deviceId}-${String(bill.seq).padStart(6, '0')}`;
   const b = writeBatch(db);
   b.set(at(db, loc, 'bills', id), bill);
@@ -50,6 +54,9 @@ export function billBatch(db, bill, { loc = LOC.PTB, full = false } = {}) {
     }),
   );
   b.set(at(db, loc, 'devices', bill.deviceId), { lastBillSeq: bill.seq }, { merge: true });
+  if (customer && bill.customerId) {
+    b.set(at(db, loc, 'customers', bill.customerId), customerWrite(bill, id, customer === true ? {} : customer), { merge: true });
+  }
   if (full) {
     addSummaries(b, db, { loc, ref: `locations/${loc}/bills/${id}`, fields: { billCount: 1, netSales: bill.total } });
   }
