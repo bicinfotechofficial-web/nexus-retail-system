@@ -226,6 +226,70 @@ void main() {
       );
     });
 
+    test('approve and decline a suggestion: reviewer, audit, permission '
+        '(D-038)', () async {
+      final h = Harness(session: adminSession)..deviceId = null;
+      final catalog = FirestoreCatalogService(h.env);
+      const pending = Product(
+        id: 'p-special',
+        name: 'Plum Cake',
+        category: 'Cakes',
+        proposedPrice: Money(45000),
+        scope: 'PTB',
+        status: ProductStatus.pending,
+        sortOrder: 0,
+        createdBy: 'sm-ptb',
+      );
+      h.reads.products['p-special'] = pending;
+
+      final approved = await catalog.approve(
+        productId: 'p-special',
+        price: const Money(48000),
+      );
+      expect(approved.reviewedBy, adminSession.user.uid);
+      expect(
+        h.committer.plans.last.ops.first.data['reviewedAt'],
+        serverTimestamp,
+      );
+      expect(
+        h.committer.plans.last.paths.last,
+        startsWith('auditLog/APPROVE-p-special-'),
+      );
+
+      final declined = await catalog.decline(
+        productId: 'p-special',
+        note: ' Not for this store ',
+      );
+      expect(declined.status, ProductStatus.inactive);
+      expect(declined.reviewNote, 'Not for this store');
+      expect(declined.reviewedBy, adminSession.user.uid);
+      final plan = h.committer.plans.last;
+      expect(plan.paths.first, 'products/p-special');
+      expect(plan.paths.last, startsWith('auditLog/DECLINE-p-special-'));
+      expect(plan.ops.first.data['reviewNote'], 'Not for this store');
+
+      await expectLater(
+        catalog.decline(productId: 'nope', note: 'No'),
+        failsWith(FailureReason.notFound),
+      );
+      await expectLater(
+        catalog.decline(productId: 'p-special', note: '  '),
+        failsWith(FailureReason.ruleViolation),
+      );
+      h.reads.products['p-special'] = approved;
+      await expectLater(
+        catalog.decline(productId: 'p-special', note: 'Too late'),
+        failsWith(FailureReason.ruleViolation),
+      );
+
+      h.reads.products['p-special'] = pending;
+      h.session = smSession();
+      await expectLater(
+        catalog.decline(productId: 'p-special', note: 'No'),
+        failsWith(FailureReason.notPermitted),
+      );
+    });
+
     test('addRawMaterial needs rawMaterial.create', () async {
       final h = Harness();
       final catalog = FirestoreCatalogService(h.env);

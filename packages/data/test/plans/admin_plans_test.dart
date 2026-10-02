@@ -394,8 +394,11 @@ void main() {
       expect(p.plan.ops.first.data, {
         'status': 'ACTIVE',
         'price': 48000,
+        'reviewedBy': 'admin',
+        'reviewedAt': serverTimestamp,
         'updatedAt': serverTimestamp,
       });
+      expect(p.value.reviewedBy, 'admin');
       expect(p.plan.opAt(audit)!.data['before'], {
         'status': 'PENDING',
         'price': null,
@@ -414,6 +417,98 @@ void main() {
           price: const Money(1),
         ),
         _violation(),
+      );
+    });
+
+    const pendingSuggestion = Product(
+      id: 'p-special',
+      name: 'Plum Cake',
+      category: 'Cakes',
+      proposedPrice: Money(45000),
+      scope: 'PTB',
+      status: ProductStatus.pending,
+      sortOrder: 0,
+      createdBy: Fx.smUid,
+    );
+
+    test('decline: INACTIVE with the note, reviewer and PRODUCT_DECLINE', () {
+      final p = AdminPlans.declineProduct(
+        ctx: Fx.admin(),
+        existing: pendingSuggestion,
+        note: '  Too close to the Black Forest  ',
+      );
+      const audit = 'auditLog/DECLINE-p-special-$_millis';
+      expect(p.plan.paths, ['products/p-special', audit]);
+      expect(p.plan.ops.first.kind, WriteKind.update);
+      expect(p.plan.ops.first.data, {
+        'status': 'INACTIVE',
+        'reviewNote': 'Too close to the Black Forest',
+        'reviewedBy': 'admin',
+        'reviewedAt': serverTimestamp,
+        'updatedAt': serverTimestamp,
+      });
+      final a = p.plan.opAt(audit)!.data;
+      expect(a['action'], 'PRODUCT_DECLINE');
+      expect(a['entityPath'], 'products/p-special');
+      expect(a['locationId'], isNull);
+      expect(a['before'], {'status': 'PENDING'});
+      expect(a['after'], {
+        'status': 'INACTIVE',
+        'reviewNote': 'Too close to the Black Forest',
+      });
+      expect(p.value.status, ProductStatus.inactive);
+      expect(p.value.reviewNote, 'Too close to the Black Forest');
+      expect(p.value.wasDeclined, isTrue);
+      expect(p.value.isSellableAt('PTB'), isFalse);
+    });
+
+    test('decline refuses an empty or 201-character note, and a product '
+        'that is not pending', () {
+      for (final note in ['', '   ', 'x' * 201]) {
+        expect(
+          () => AdminPlans.declineProduct(
+            ctx: Fx.admin(),
+            existing: pendingSuggestion,
+            note: note,
+          ),
+          _violation(),
+          reason: 'note of ${note.length}',
+        );
+      }
+      expect(
+        AdminPlans.declineProduct(
+          ctx: Fx.admin(),
+          existing: pendingSuggestion,
+          note: 'x' * 200,
+        ).value.reviewNote,
+        hasLength(200),
+      );
+      final active = AdminPlans.approveProduct(
+        ctx: Fx.admin(),
+        existing: pendingSuggestion,
+        price: const Money(48000),
+      ).value;
+      expect(
+        () => AdminPlans.declineProduct(
+          ctx: Fx.admin(),
+          existing: active,
+          note: 'No',
+        ),
+        _violation(),
+      );
+    });
+
+    test('a created product never carries reviewedAt', () {
+      final p = AdminPlans.suggestProduct(
+        ctx: Fx.sm(),
+        productId: 'p-new',
+        name: 'Plum Cake',
+        category: 'Cakes',
+        proposedPrice: const Money(45000),
+      );
+      expect(
+        p.plan.ops.single.data.keys,
+        isNot(anyOf(contains('reviewedAt'), contains('reviewedBy'))),
       );
     });
   });

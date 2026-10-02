@@ -72,6 +72,28 @@ final class FirestoreCatalogService implements CatalogService {
   }
 
   @override
+  Future<Product> decline({
+    required String productId,
+    required String note,
+  }) async {
+    final s = _env.require(Permission.catalogManage);
+    final existing = await _env.reads.product(productId);
+    if (existing == null) {
+      throw DataFailure(FailureReason.notFound, 'product $productId');
+    }
+    final planned = AdminPlans.declineProduct(
+      ctx: _env.context(s, at: _env.now()),
+      existing: existing,
+      note: note,
+    );
+    await _env.write(
+      planned.plan,
+      label: 'Declined product "${planned.value.name}"',
+    );
+    return planned.value;
+  }
+
+  @override
   Future<RawMaterial> addRawMaterial({
     required String name,
     required StockUnit unit,

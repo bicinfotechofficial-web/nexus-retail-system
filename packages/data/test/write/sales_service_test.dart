@@ -32,6 +32,30 @@ void main() {
       expect((await h.sales.createBill(cashBill)).id, 'D01-000002');
     });
 
+    test('passes the customer through: on the bill, and as the customer '
+        'record in the same batch (D-037)', () async {
+      final h = Harness();
+      final bill = await h.sales.createBill(cashBill);
+      expect(bill.customer!.id, testCustomer.id);
+      expect(bill.customer!.name, 'Test Customer');
+      final plan = h.committer.plans.single;
+      final billData = plan.opAt('locations/PTB/bills/D01-000001')!.data;
+      expect(billData['customerId'], testCustomer.id);
+      expect(billData['customerName'], 'Test Customer');
+      expect(billData['customerPhone'], '9876543210');
+      expect(billData['customerWhatsapp'], isNull);
+      final c = plan.opAt('locations/PTB/customers/${testCustomer.id}')!;
+      expect(c.kind, WriteKind.setMerge);
+      expect(c.data['billCount'], const Increment(1));
+      expect(c.data['totalSpend'], const Increment(70100));
+      expect(c.data['lastWriteRef'], 'D01-000001');
+      // The same customer's next bill writes the same record again.
+      await h.sales.createBill(cashBill);
+      final again = h.committer.plans.last.opAt(c.path)!;
+      expect(again.data['lastWriteRef'], 'D01-000002');
+      expect(again.data['billCount'], const Increment(1));
+    });
+
     test('fails fast without bill.create: no number, no write', () async {
       final h = Harness(session: smSession(except: [Permission.billCreate]));
       await expectLater(
@@ -105,9 +129,10 @@ void main() {
 
     test('bad input is refused before a number is allocated', () async {
       final h = Harness();
-      const short = NewBill(
-        cart: [cake],
-        payments: [Payment(mode: PaymentMode.cash, amount: Money(100))],
+      final short = NewBill(
+        cart: const [cake],
+        payments: const [Payment(mode: PaymentMode.cash, amount: Money(100))],
+        customer: testCustomer,
       );
       await expectLater(
         h.sales.createBill(short),
@@ -126,6 +151,7 @@ void main() {
                 ),
             ],
             payments: const [],
+            customer: testCustomer,
           ),
         ),
         throwsA(isA<BillValidationException>()),
@@ -159,6 +185,7 @@ void main() {
             payments: const [
               Payment(mode: PaymentMode.cash, amount: Money(58500)),
             ],
+            customer: testCustomer,
           ),
         ),
         throwsA(isA<BillValidationException>()),

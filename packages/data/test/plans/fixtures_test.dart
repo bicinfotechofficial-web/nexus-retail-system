@@ -114,6 +114,7 @@ List<_Fixture> _buildFixtures() {
         amount: maxTotals.total - quarter.times(3),
       ),
     ],
+    customer: Fx.customer,
   );
 
   final afterFirstReturn = _withReturns(bill, {'puff-veg': 1}, 'D01-R000003');
@@ -191,6 +192,35 @@ List<_Fixture> _buildFixtures() {
         servedByName: 'SM',
       ).plan,
       arrange: {d01: _device()},
+    ),
+    _Fixture(
+      'bill_create_repeat',
+      'A second bill by the same customer (no WhatsApp this time): the '
+          'customer record is updated, not created',
+      Fx.smUid,
+      SalesPlans.createBill(
+        ctx: later,
+        seq: 8,
+        input: NewBill(
+          cart: const [Fx.puff],
+          payments: const [
+            Payment(mode: PaymentMode.cash, amount: Money(5100)),
+          ],
+          customer: BillCustomer(name: 'Test Customer', phone: '9876543210'),
+        ),
+        servedByName: 'Store Manager PTB',
+      ).plan,
+      arrange: {
+        d01: _device(bill: 7),
+        customerPath('PTB', Fx.customer.id): {
+          ...Customer.first(
+            customer: Fx.customer,
+            total: bill.total,
+            billId: bill.id,
+          ).toMap(),
+          'lastBillAt': Fx.now,
+        },
+      },
     ),
     _Fixture(
       'bill_cancel',
@@ -419,6 +449,18 @@ List<_Fixture> _buildFixtures() {
         ctx: Fx.admin(),
         existing: pending,
         price: const Money(48000),
+      ).plan,
+      arrange: {'products/p-special': storedProduct(pending)},
+    ),
+    _Fixture(
+      'product_decline',
+      'Admin declines the local special with a note, with the '
+          'PRODUCT_DECLINE audit',
+      Fx.adminUid,
+      AdminPlans.declineProduct(
+        ctx: Fx.admin(),
+        existing: pending,
+        note: 'Too close to the Black Forest',
       ).plan,
       arrange: {'products/p-special': storedProduct(pending)},
     ),

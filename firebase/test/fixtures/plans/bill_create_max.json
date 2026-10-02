@@ -188,6 +188,10 @@
           "uid": "sm-ptb",
           "name": "SM"
         },
+        "customerId": "9876543210_dd799e05ea",
+        "customerName": "Test Customer",
+        "customerPhone": "9876543210",
+        "customerWhatsapp": "9876543210",
         "businessDate": "2026-09-26",
         "clientCreatedAt": {
           "__op": "timestamp",
@@ -943,6 +947,27 @@
           }
         },
         "lastWriteRef": "locations/PTB/bills/D01-000001"
+      }
+    },
+    {
+      "path": "locations/PTB/customers/9876543210_dd799e05ea",
+      "kind": "setMerge",
+      "data": {
+        "name": "Test Customer",
+        "phone": "9876543210",
+        "whatsapp": "9876543210",
+        "lastBillAt": {
+          "__op": "serverTimestamp"
+        },
+        "billCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "totalSpend": {
+          "__op": "increment",
+          "by": 164600
+        },
+        "lastWriteRef": "D01-000001"
       }
     },
     {

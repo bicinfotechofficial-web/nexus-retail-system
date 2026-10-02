@@ -34,6 +34,32 @@ final class FirestoreStockRepository implements StockRepository {
       )
       .mapFirestoreErrors();
 
+  /// Every movement of [businessDate], newest first by `clientCreatedAt`
+  /// (ties by ID). One equality filter, sorted here, so no composite index;
+  /// a day has few hundred movements at most. Reading needs `stock.move`,
+  /// `stock.adjust` or `report.own` at the location (rule #7).
+  @override
+  Stream<List<Movement>> watchMovements(
+    String locationId,
+    String businessDate,
+  ) => _db
+      .collection(FirestorePaths.movements(locationId))
+      .where('businessDate', isEqualTo: businessDate)
+      .snapshots()
+      .map(
+        (s) =>
+            modelsOf(
+              s,
+              Movement.fromMap,
+              serverTimestampFields: Movement.serverTimestampFields,
+              now: _now,
+            )..sort((a, b) {
+              final c = b.clientCreatedAt.compareTo(a.clientCreatedAt);
+              return c != 0 ? c : b.id.compareTo(a.id);
+            }),
+      )
+      .mapFirestoreErrors();
+
   /// [watchStock] filtered with `StockItem.isLow` (D-015). Firestore can't
   /// compare two fields of a doc, so this is done in the app.
   @override

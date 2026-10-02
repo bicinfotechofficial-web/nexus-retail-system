@@ -6,6 +6,9 @@ import 'plan_fixtures.dart';
 
 const _billPath = 'locations/PTB/bills/D01-000007';
 
+/// `locations/PTB/customers/{id}` of [Fx.customer].
+final String _customerPath = 'locations/PTB/customers/${Fx.customer.id}';
+
 Map<String, Object?> _stock(
   String productId,
   String name,
@@ -37,7 +40,7 @@ void main() {
     final bill = planned.value;
 
     test(
-      'writes bill, stock, SALE movement, summaries and device, in order',
+      'writes bill, stock, SALE movement, summaries, customer and device, in order',
       () {
         expect(plan.paths, [
           _billPath,
@@ -46,6 +49,7 @@ void main() {
           'locations/PTB/movements/D01-000007',
           'locations/PTB/dailySummary/2026-09-26',
           'locations/PTB/monthlySummary/2026-09',
+          _customerPath,
           'locations/PTB/devices/D01',
         ]);
         expect(plan.ops.map((o) => o.kind), [
@@ -53,6 +57,7 @@ void main() {
           WriteKind.setMerge,
           WriteKind.setMerge,
           WriteKind.create,
+          WriteKind.setMerge,
           WriteKind.setMerge,
           WriteKind.setMerge,
           WriteKind.update,
@@ -103,9 +108,30 @@ void main() {
         'businessDate': '2026-09-26',
         'clientCreatedAt': Fx.now,
         'createdBy': 'sm-ptb',
+        'customerId': Fx.customer.id,
+        'customerName': 'Test Customer',
+        'customerPhone': '9876543210',
+        'customerWhatsapp': '9876543210',
         'serverCreatedAt': serverTimestamp,
       });
     });
+
+    test(
+      'the customer is written as set(merge) with the bill ID and total',
+      () {
+        expect(plan.opAt(_customerPath)!.kind, WriteKind.setMerge);
+        expect(plan.opAt(_customerPath)!.data, {
+          'name': 'Test Customer',
+          'phone': '9876543210',
+          'whatsapp': '9876543210',
+          'lastBillAt': serverTimestamp,
+          'billCount': const Increment(1),
+          'totalSpend': const Increment(63100),
+          'lastWriteRef': 'D01-000007',
+        });
+        expect(Fx.customer.id, startsWith('9876543210_'));
+      },
+    );
 
     test('stock goes down by each line qty, naming the SALE movement', () {
       expect(
@@ -157,6 +183,26 @@ void main() {
       expect(plan.opAt('locations/PTB/monthlySummary/2026-09')!.data, expected);
     });
 
+    test('a customer without WhatsApp overwrites it with null', () {
+      final p = SalesPlans.createBill(
+        ctx: Fx.sm(),
+        seq: 8,
+        input: NewBill(
+          cart: Fx.newBill.cart,
+          discount: Fx.newBill.discount,
+          payments: Fx.newBill.payments,
+          customer: BillCustomer(name: 'Test Customer', phone: '9876543210'),
+        ),
+        servedByName: 'SM',
+      );
+      final bill = p.plan.opAt('locations/PTB/bills/D01-000008')!.data;
+      expect(bill['customerWhatsapp'], isNull);
+      expect(bill.containsKey('customerWhatsapp'), isTrue);
+      final c = p.plan.opAt(_customerPath)!.data;
+      expect(c['whatsapp'], isNull);
+      expect(c.containsKey('whatsapp'), isTrue);
+    });
+
     test('the device records lastBillSeq', () {
       expect(plan.opAt('locations/PTB/devices/D01')!.data, {'lastBillSeq': 7});
     });
@@ -165,8 +211,9 @@ void main() {
       final p = SalesPlans.createBill(
         ctx: Fx.sm(),
         seq: 1,
-        input: const NewBill(
-          cart: [
+        input: NewBill(
+          customer: Fx.customer,
+          cart: const [
             CartLine(
               productId: 'a',
               name: 'A',
@@ -180,7 +227,9 @@ void main() {
               unitPrice: Money.zero,
             ),
           ],
-          payments: [Payment(mode: PaymentMode.card, amount: Money(10000))],
+          payments: const [
+            Payment(mode: PaymentMode.card, amount: Money(10000)),
+          ],
         ),
         servedByName: 'SM',
       ).plan;
@@ -220,6 +269,7 @@ void main() {
         cart: Fx.newBill.cart,
         discount: Fx.newBill.discount,
         payments: p,
+        customer: Fx.customer,
       );
       expect(
         () => SalesPlans.createBill(
@@ -236,7 +286,11 @@ void main() {
         () => SalesPlans.createBill(
           ctx: Fx.sm(),
           seq: 1,
-          input: const NewBill(cart: [], payments: []),
+          input: NewBill(
+            cart: const [],
+            payments: const [],
+            customer: Fx.customer,
+          ),
           servedByName: 'SM',
         ),
         throwsA(isA<BillValidationException>()),
@@ -626,5 +680,79 @@ void main() {
         throwsA(isA<ReturnValidationException>()),
       );
     });
+  });
+
+  group('customer record (D-037)', () {
+    PlannedWrite<Bill> bill(int seq, BillCustomer who, {Money? pay}) {
+      final total = pay ?? const Money(63100);
+      return SalesPlans.createBill(
+        ctx: Fx.sm(),
+        seq: seq,
+        input: NewBill(
+          cart: Fx.newBill.cart,
+          discount: Fx.newBill.discount,
+          payments: [Payment(mode: PaymentMode.cash, amount: total)],
+          customer: who,
+        ),
+        servedByName: 'SM',
+      );
+    }
+
+    final who = BillCustomer(name: 'Test Customer', phone: '9876543210');
+
+    Iterable<WriteOp> customerOps(WritePlan p) =>
+        p.ops.where((o) => o.path.contains('/customers/'));
+
+    test('every bill has exactly one customer op, under the bill location', () {
+      final p = bill(1, who).plan;
+      expect(customerOps(p), hasLength(1));
+      expect(customerOps(p).single.path, 'locations/PTB/customers/${who.id}');
+    });
+
+    test(
+      'two bills by the same customer share the id, and each increments',
+      () {
+        final first = bill(1, who).plan;
+        final second = bill(2, who).plan;
+        expect(customerOps(second).single.path, customerOps(first).single.path);
+        final d = customerOps(second).single.data;
+        expect(d['billCount'], const Increment(1));
+        expect(d['totalSpend'], const Increment(63100));
+        expect(d['lastWriteRef'], 'D01-000002');
+        expect(customerOps(first).single.data['lastWriteRef'], 'D01-000001');
+      },
+    );
+
+    test('the name\'s case and spacing do not change the id', () {
+      final other = BillCustomer(
+        name: '  test   CUSTOMER ',
+        phone: '98765 43210',
+      );
+      expect(other.id, who.id);
+      expect(
+        customerOps(bill(3, other).plan).single.path,
+        customerOps(bill(1, who).plan).single.path,
+      );
+    });
+
+    test('a different name on the same phone is a different customer', () {
+      final other = BillCustomer(name: 'Another Customer', phone: '9876543210');
+      expect(other.id, isNot(who.id));
+      expect(other.id, startsWith('9876543210_'));
+      final p = bill(4, other).plan;
+      expect(customerOps(p).single.path, 'locations/PTB/customers/${other.id}');
+      expect(customerOps(p).single.data['name'], 'Another Customer');
+    });
+
+    test(
+      'the increment follows the bill total, a whole-rupee paise amount',
+      () {
+        final p = bill(5, who, pay: const Money(63100)).plan;
+        expect(
+          customerOps(p).single.data['totalSpend'],
+          const Increment(63100),
+        );
+      },
+    );
   });
 }

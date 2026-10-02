@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_ce/hive_ce.dart';
 
+import '../api/catalog.dart';
+import '../api/customers.dart';
 import '../api/device.dart';
 import '../api/failures.dart';
 import '../api/reports.dart';
@@ -153,6 +155,9 @@ final class NexusTestDevice {
   DeviceService get devices => backend.devices;
   SalesService get sales => backend.sales;
   SalesRepository get salesRepo => backend.salesRepo;
+  CatalogService get catalog => backend.catalog;
+  CatalogRepository get catalogRepo => backend.catalogRepo;
+  CustomerRepository get customers => backend.customers;
   StockService get stock => backend.stock;
   StockRepository get stockRepo => backend.stockRepo;
   SummaryRepository get summaries => backend.summaries;

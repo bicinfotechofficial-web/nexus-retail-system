@@ -131,6 +131,9 @@ abstract final class PlanAuditIds {
   static String productApprove(String productId, DateTime at) =>
       Ids.productApproveAuditId(productId, at);
 
+  static String productDecline(String productId, DateTime at) =>
+      Ids.productDeclineAuditId(productId, at);
+
   static String userDisable(String uid, String? locationId, DateTime at) =>
       Ids.userAuditId(locationId, uid, at);
 
@@ -228,3 +231,35 @@ Map<String, Object?> movementDoc(
   ).toMap(),
   Movement.serverTimestampFields,
 );
+
+/// `locations/{loc}/customers` (D-037). `FirestorePaths` in core has no
+/// customer paths yet.
+String customersPath(String loc) => '${FirestorePaths.location(loc)}/customers';
+
+/// `locations/{loc}/customers/{customerId}`.
+String customerPath(String loc, String customerId) =>
+    '${customersPath(loc)}/$customerId';
+
+/// The customer record's write in a bill's batch (D-037), as `set(merge)`.
+/// A device can't know offline whether the record exists, so every bill
+/// writes the same shape: `name`, `phone` and `whatsapp` as on the bill,
+/// `lastBillAt` as the server time, `lastWriteRef` as the bill's ID (the rules'
+/// #14 ties the write to that new bill), and the two counters as increments. The first bill therefore
+/// creates the record with `billCount` 1 and `totalSpend` equal to its total.
+Map<String, Object?> customerWrite(
+  BillCustomer customer, {
+  required String billId,
+  required Money total,
+}) => {
+  'name': customer.name,
+  'phone': customer.phone,
+  'whatsapp': customer.whatsapp,
+  'lastBillAt': serverTimestamp,
+  'billCount': const Increment(1),
+  'totalSpend': Increment(total.paise),
+  'lastWriteRef': billId,
+};
+
+/// Longest `reviewNote` on a declined suggestion, in characters (D-038).
+/// Core's `Limits` has no constant for it yet; rule #11 repeats it.
+const int reviewNoteMax = 200;

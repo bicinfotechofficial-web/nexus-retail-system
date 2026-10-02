@@ -173,7 +173,8 @@ abstract final class AdminPlans {
     return PlannedWrite(product, b.build());
   }
 
-  /// Approves a PENDING product at [price] (`catalog.manage`, D-008), with a
+  /// Approves a PENDING product at [price] (`catalog.manage`, D-008): ACTIVE,
+  /// priced, with `reviewedBy` and `reviewedAt` (D-038), and a
   /// PRODUCT_APPROVE audit.
   static PlannedWrite<Product> approveProduct({
     required PlanContext ctx,
@@ -200,6 +201,7 @@ abstract final class AdminPlans {
       recipe: existing.recipe,
       sortOrder: existing.sortOrder,
       createdBy: existing.createdBy,
+      reviewedBy: ctx.uid,
       createdAt: existing.createdAt,
     );
     final plan =
@@ -207,6 +209,8 @@ abstract final class AdminPlans {
               ..update(path, {
                 'status': ProductStatus.active.wire,
                 'price': price.paise,
+                'reviewedBy': ctx.uid,
+                'reviewedAt': serverTimestamp,
                 'updatedAt': serverTimestamp,
               })
               ..create(
@@ -233,6 +237,69 @@ abstract final class AdminPlans {
     return PlannedWrite(approved, plan);
   }
 
+  /// Declines a PENDING suggestion (`catalog.manage`, D-038): INACTIVE with
+  /// [note] (1 to 200 characters once trimmed) as `reviewNote`, and
+  /// `reviewedBy` and `reviewedAt`, with a PRODUCT_DECLINE audit in the same
+  /// batch (D-019). The price stays null.
+  static PlannedWrite<Product> declineProduct({
+    required PlanContext ctx,
+    required Product existing,
+    required String note,
+  }) {
+    if (existing.status != ProductStatus.pending) {
+      throw const DataFailure(FailureReason.ruleViolation, 'not pending');
+    }
+    final n = requireReason(note);
+    if (n.length > reviewNoteMax) {
+      throw const DataFailure(FailureReason.ruleViolation, 'note too long');
+    }
+    final path = FirestorePaths.product(existing.id);
+    final declined = Product(
+      id: existing.id,
+      name: existing.name,
+      category: existing.category,
+      price: existing.price,
+      proposedPrice: existing.proposedPrice,
+      unit: existing.unit,
+      gstRate: existing.gstRate,
+      scope: existing.scope,
+      status: ProductStatus.inactive,
+      recipe: existing.recipe,
+      sortOrder: existing.sortOrder,
+      createdBy: existing.createdBy,
+      reviewedBy: ctx.uid,
+      reviewNote: n,
+      createdAt: existing.createdAt,
+    );
+    final plan =
+        (PlanBuilder()
+              ..update(path, {
+                'status': ProductStatus.inactive.wire,
+                'reviewNote': n,
+                'reviewedBy': ctx.uid,
+                'reviewedAt': serverTimestamp,
+                'updatedAt': serverTimestamp,
+              })
+              ..create(
+                FirestorePaths.audit(
+                  PlanAuditIds.productDecline(existing.id, ctx.now),
+                ),
+                auditDoc(
+                  action: AuditAction.productDecline,
+                  entityPath: path,
+                  ctx: ctx,
+                  before: {'status': existing.status.wire},
+                  after: {
+                    'status': ProductStatus.inactive.wire,
+                    'reviewNote': n,
+                  },
+                  reason: n,
+                ),
+              ))
+            .build();
+    return PlannedWrite(declined, plan);
+  }
+
   static WritePlan _createProduct(Product p) {
     if (!Ids.isSafeKey(p.id)) {
       throw DataFailure(FailureReason.ruleViolation, 'product id ${p.id}');
@@ -242,7 +309,8 @@ abstract final class AdminPlans {
     }
     return (PlanBuilder()..create(
           FirestorePaths.product(p.id),
-          withServerTimestamps(p.toMap(), Product.serverTimestampFields),
+          // `reviewedAt` is set only by an approval or a decline.
+          withServerTimestamps(p.toMap(), {'createdAt', 'updatedAt'}),
         ))
         .build();
   }

@@ -49,6 +49,26 @@ final class FirestoreCatalogRepository implements CatalogRepository {
       .map(_sorted)
       .mapFirestoreErrors();
 
+  /// The user's own suggestions at [locationId] in any status, newest first
+  /// (D-038). Two equality filters, so no composite index; sorted here by
+  /// `createdAt` (a suggestion still waiting for its server time counts as
+  /// created now, see `plainFromFirestore`). A Store Manager may read it:
+  /// products need `catalog.view` (rule #11).
+  @override
+  Stream<List<Product>> watchMySuggestions(String locationId, String uid) =>
+      _products
+          .where('createdBy', isEqualTo: uid)
+          .where('scope', isEqualTo: locationId)
+          .snapshots()
+          .map(
+            (s) => _toProducts(s)
+              ..sort((a, b) {
+                final c = _stamp(b.createdAt).compareTo(_stamp(a.createdAt));
+                return c != 0 ? c : b.id.compareTo(a.id);
+              }),
+          )
+          .mapFirestoreErrors();
+
   /// Every raw material, active or not, by name.
   @override
   Stream<List<RawMaterial>> watchRawMaterials() => _db
@@ -80,3 +100,7 @@ int _byName(String a, String b, String idA, String idB) {
   final c = a.toLowerCase().compareTo(b.toLowerCase());
   return c != 0 ? c : idA.compareTo(idB);
 }
+
+/// A missing `createdAt` (not yet confirmed and not estimated) sorts as the
+/// newest.
+DateTime _stamp(DateTime? at) => at ?? DateTime.utc(9999);

@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'api/admin.dart';
 import 'api/catalog.dart';
+import 'api/customers.dart';
 import 'api/device.dart';
 import 'api/reports.dart';
 import 'api/sales.dart';
@@ -23,6 +24,7 @@ import 'firestore/firebase_auth_service.dart';
 import 'firestore/firestore_admin_repositories.dart';
 import 'firestore/firestore_audit_repository.dart';
 import 'firestore/firestore_catalog_repository.dart';
+import 'firestore/firestore_customer_repository.dart';
 import 'firestore/firestore_sales_repository.dart';
 import 'firestore/firestore_stock_repository.dart';
 import 'firestore/firestore_summary_repository.dart';
@@ -61,6 +63,7 @@ final class NexusBackend {
     required this.sales,
     required this.stockRepo,
     required this.stock,
+    required this.customers,
     required this.summaries,
     required this.audit,
     required this.locationRepo,
@@ -91,6 +94,9 @@ final class NexusBackend {
   final SalesService sales;
   final StockRepository stockRepo;
   final StockService stock;
+
+  /// Customers, read only: bills write them (D-037).
+  final CustomerRepository customers;
   final SummaryRepository summaries;
   final AuditRepository audit;
   final LocationRepository locationRepo;
@@ -287,6 +293,7 @@ final class NexusBackend {
       sales: FirestoreSalesService(env, offline: guard.evaluate),
       stockRepo: FirestoreStockRepository(db, clock: now),
       stock: FirestoreStockService(env),
+      customers: FirestoreCustomerRepository(db, clock: now),
       summaries: FirestoreSummaryRepository(db),
       audit: FirestoreAuditRepository(db),
       locationRepo: FirestoreLocationRepository(db),

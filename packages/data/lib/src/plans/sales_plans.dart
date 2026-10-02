@@ -9,9 +9,11 @@ import 'write_plan.dart';
 /// caller reads the bill, allocates the sequence number (persisted first,
 /// 03-SYNC §3) and applies the plan as one batch.
 abstract final class SalesPlans {
-  /// Create bill: the bill (with `soldQty`), a `FG_*` stock decrement per
-  /// line, the SALE movement (the bill's ID), the daily and monthly summary
-  /// increments naming the bill, and the device's `lastBillSeq`.
+  /// Create bill: the bill (with `soldQty` and the customer fields), a
+  /// `FG_*` stock decrement per line, the SALE movement (the bill's ID), the
+  /// daily and monthly summary increments naming the bill, the customer
+  /// record (`set(merge)` in every bill, D-037; see [customerWrite]) and the
+  /// device's `lastBillSeq`.
   ///
   /// Throws the calculator's `BillValidationException`, or
   /// `DataFailure(ruleViolation)` when the payments don't check out.
@@ -60,6 +62,7 @@ abstract final class SalesPlans {
       businessDate: ctx.businessDate,
       clientCreatedAt: ctx.now,
       createdBy: ctx.uid,
+      customer: input.customer,
     );
 
     final billPath = FirestorePaths.bill(loc, id);
@@ -93,7 +96,12 @@ abstract final class SalesPlans {
       delta: SummaryDeltas.forBill(bill),
       lastWriteRef: billPath,
     );
-    b.update(FirestorePaths.device(loc, dev), {'lastBillSeq': seq});
+    b
+      ..setMerge(
+        customerPath(loc, input.customer.id),
+        customerWrite(input.customer, billId: id, total: bill.total),
+      )
+      ..update(FirestorePaths.device(loc, dev), {'lastBillSeq': seq});
     return PlannedWrite(bill, b.build());
   }
 

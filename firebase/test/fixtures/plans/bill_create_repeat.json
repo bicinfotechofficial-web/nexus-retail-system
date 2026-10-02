@@ -1,5 +1,5 @@
 {
-  "description": "Create bill: 2 lines, 10% off, cash + UPI, as D01 bill 7",
+  "description": "A second bill by the same customer (no WhatsApp this time): the customer record is updated, not created",
   "uid": "sm-ptb",
   "arrange": [
     {
@@ -8,7 +8,7 @@
         "code": "D01",
         "label": "Counter 1",
         "registeredBy": "sm-ptb",
-        "lastBillSeq": 6,
+        "lastBillSeq": 7,
         "lastMovementSeq": 0,
         "lastReturnSeq": 0,
         "retired": false,
@@ -17,24 +17,32 @@
           "value": "2026-09-26T04:30:00.000Z"
         }
       }
+    },
+    {
+      "path": "locations/PTB/customers/9876543210_dd799e05ea",
+      "data": {
+        "name": "Test Customer",
+        "phone": "9876543210",
+        "whatsapp": "9876543210",
+        "billCount": 1,
+        "totalSpend": 63100,
+        "lastWriteRef": "D01-000007",
+        "lastBillAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
     }
   ],
   "ops": [
     {
-      "path": "locations/PTB/bills/D01-000007",
+      "path": "locations/PTB/bills/D01-000008",
       "kind": "create",
       "data": {
-        "billNo": "PTB-D01-000007",
+        "billNo": "PTB-D01-000008",
         "deviceId": "D01",
-        "seq": 7,
+        "seq": 8,
         "lines": [
-          {
-            "productId": "cake-choco-1kg",
-            "name": "Chocolate Cake 1 kg",
-            "qty": 1,
-            "unitPrice": 65000,
-            "lineTotal": 65000
-          },
           {
             "productId": "puff-veg",
             "name": "Veg Puff",
@@ -43,33 +51,23 @@
             "lineTotal": 5100
           }
         ],
-        "subtotal": 70100,
-        "discount": {
-          "type": "PCT",
-          "value": 10,
-          "amount": 7010
-        },
-        "taxableValue": 63090,
+        "subtotal": 5100,
+        "discount": null,
+        "taxableValue": 5100,
         "taxLines": [],
-        "roundOff": 10,
-        "total": 63100,
+        "roundOff": 0,
+        "total": 5100,
         "payments": [
           {
             "mode": "CASH",
-            "amount": 50000
-          },
-          {
-            "mode": "UPI",
-            "amount": 13100,
-            "ref": "UPI-1"
+            "amount": 5100
           }
         ],
-        "cashTendered": 50000,
+        "cashTendered": null,
         "status": "COMPLETED",
         "cancel": null,
         "returnedQty": {},
         "soldQty": {
-          "cake-choco-1kg": 1,
           "puff-veg": 2
         },
         "lastReturnId": null,
@@ -80,32 +78,14 @@
         "customerId": "9876543210_dd799e05ea",
         "customerName": "Test Customer",
         "customerPhone": "9876543210",
-        "customerWhatsapp": "9876543210",
+        "customerWhatsapp": null,
         "businessDate": "2026-09-26",
         "clientCreatedAt": {
           "__op": "timestamp",
-          "value": "2026-09-26T04:30:00.000Z"
+          "value": "2026-09-26T06:30:00.000Z"
         },
         "createdBy": "sm-ptb",
         "serverCreatedAt": {
-          "__op": "serverTimestamp"
-        }
-      }
-    },
-    {
-      "path": "locations/PTB/stock/FG_cake-choco-1kg",
-      "kind": "setMerge",
-      "data": {
-        "kind": "FINISHED",
-        "refId": "cake-choco-1kg",
-        "name": "Chocolate Cake 1 kg",
-        "unit": "PCS",
-        "qty": {
-          "__op": "increment",
-          "by": -1
-        },
-        "lastMovementId": "D01-000007",
-        "updatedAt": {
           "__op": "serverTimestamp"
         }
       }
@@ -122,22 +102,18 @@
           "__op": "increment",
           "by": -2
         },
-        "lastMovementId": "D01-000007",
+        "lastMovementId": "D01-000008",
         "updatedAt": {
           "__op": "serverTimestamp"
         }
       }
     },
     {
-      "path": "locations/PTB/movements/D01-000007",
+      "path": "locations/PTB/movements/D01-000008",
       "kind": "create",
       "data": {
         "type": "SALE",
         "lines": [
-          {
-            "itemKey": "FG_cake-choco-1kg",
-            "delta": -1
-          },
           {
             "itemKey": "FG_puff-veg",
             "delta": -2
@@ -145,11 +121,11 @@
         ],
         "reason": null,
         "note": null,
-        "refId": "D01-000007",
+        "refId": "D01-000008",
         "businessDate": "2026-09-26",
         "clientCreatedAt": {
           "__op": "timestamp",
-          "value": "2026-09-26T04:30:00.000Z"
+          "value": "2026-09-26T06:30:00.000Z"
         },
         "createdBy": "sm-ptb",
         "deviceId": "D01",
@@ -168,41 +144,19 @@
         },
         "grossSales": {
           "__op": "increment",
-          "by": 70100
-        },
-        "discounts": {
-          "__op": "increment",
-          "by": 7010
-        },
-        "roundOff": {
-          "__op": "increment",
-          "by": 10
+          "by": 5100
         },
         "netSales": {
           "__op": "increment",
-          "by": 63100
+          "by": 5100
         },
         "byMode": {
           "CASH": {
             "__op": "increment",
-            "by": 50000
-          },
-          "UPI": {
-            "__op": "increment",
-            "by": 13100
+            "by": 5100
           }
         },
         "byProduct": {
-          "cake-choco-1kg": {
-            "qty": {
-              "__op": "increment",
-              "by": 1
-            },
-            "amount": {
-              "__op": "increment",
-              "by": 58500
-            }
-          },
           "puff-veg": {
             "qty": {
               "__op": "increment",
@@ -210,11 +164,11 @@
             },
             "amount": {
               "__op": "increment",
-              "by": 4590
+              "by": 5100
             }
           }
         },
-        "lastWriteRef": "locations/PTB/bills/D01-000007"
+        "lastWriteRef": "locations/PTB/bills/D01-000008"
       }
     },
     {
@@ -227,41 +181,19 @@
         },
         "grossSales": {
           "__op": "increment",
-          "by": 70100
-        },
-        "discounts": {
-          "__op": "increment",
-          "by": 7010
-        },
-        "roundOff": {
-          "__op": "increment",
-          "by": 10
+          "by": 5100
         },
         "netSales": {
           "__op": "increment",
-          "by": 63100
+          "by": 5100
         },
         "byMode": {
           "CASH": {
             "__op": "increment",
-            "by": 50000
-          },
-          "UPI": {
-            "__op": "increment",
-            "by": 13100
+            "by": 5100
           }
         },
         "byProduct": {
-          "cake-choco-1kg": {
-            "qty": {
-              "__op": "increment",
-              "by": 1
-            },
-            "amount": {
-              "__op": "increment",
-              "by": 58500
-            }
-          },
           "puff-veg": {
             "qty": {
               "__op": "increment",
@@ -269,11 +201,11 @@
             },
             "amount": {
               "__op": "increment",
-              "by": 4590
+              "by": 5100
             }
           }
         },
-        "lastWriteRef": "locations/PTB/bills/D01-000007"
+        "lastWriteRef": "locations/PTB/bills/D01-000008"
       }
     },
     {
@@ -282,7 +214,7 @@
       "data": {
         "name": "Test Customer",
         "phone": "9876543210",
-        "whatsapp": "9876543210",
+        "whatsapp": null,
         "lastBillAt": {
           "__op": "serverTimestamp"
         },
@@ -292,16 +224,16 @@
         },
         "totalSpend": {
           "__op": "increment",
-          "by": 63100
+          "by": 5100
         },
-        "lastWriteRef": "D01-000007"
+        "lastWriteRef": "D01-000008"
       }
     },
     {
       "path": "locations/PTB/devices/D01",
       "kind": "update",
       "data": {
-        "lastBillSeq": 7
+        "lastBillSeq": 8
       }
     }
   ]

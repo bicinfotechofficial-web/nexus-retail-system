@@ -37,6 +37,13 @@ abstract final class Fx {
     unitPrice: Money(2550),
   );
 
+  /// The customer on every test bill.
+  static final BillCustomer customer = BillCustomer(
+    name: 'Test Customer',
+    phone: '9876543210',
+    whatsapp: '9876543210',
+  );
+
   /// 1 × ₹650 + 2 × ₹25.50 = ₹701, 10% off (₹70.10) = ₹630.90, rounded to
   /// ₹631 (+₹0.10). Paid ₹500 cash + ₹131 UPI. Per-line nets: ₹585 and
   /// ₹45.90.
@@ -48,6 +55,7 @@ abstract final class Fx {
       Payment(mode: PaymentMode.upi, amount: Money(13100), ref: 'UPI-1'),
     ],
     cashTendered: const Money(50000),
+    customer: customer,
   );
 
   /// The bill [newBill] makes as D01's 7th bill.

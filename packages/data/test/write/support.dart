@@ -211,10 +211,17 @@ const CartLine puff = CartLine(
   unitPrice: Money(2550),
 );
 
+/// The customer on every test bill.
+final BillCustomer testCustomer = BillCustomer(
+  name: 'Test Customer',
+  phone: '9876543210',
+);
+
 /// ₹701, paid in cash.
-const NewBill cashBill = NewBill(
-  cart: [cake, puff],
-  payments: [Payment(mode: PaymentMode.cash, amount: Money(70100))],
+final NewBill cashBill = NewBill(
+  cart: const [cake, puff],
+  payments: const [Payment(mode: PaymentMode.cash, amount: Money(70100))],
+  customer: testCustomer,
 );
 
 /// Lets pending microtasks and zero-delay timers run.

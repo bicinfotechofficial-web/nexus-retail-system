@@ -32,6 +32,7 @@ export 'src/firestore/firebase_auth_service.dart';
 export 'src/firestore/firestore_admin_repositories.dart';
 export 'src/firestore/firestore_audit_repository.dart';
 export 'src/firestore/firestore_catalog_repository.dart';
+export 'src/firestore/firestore_customer_repository.dart';
 export 'src/firestore/firestore_sales_repository.dart';
 export 'src/firestore/firestore_stock_repository.dart';
 export 'src/firestore/firestore_summary_repository.dart';

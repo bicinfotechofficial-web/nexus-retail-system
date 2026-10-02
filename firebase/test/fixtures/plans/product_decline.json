@@ -1,5 +1,5 @@
 {
-  "description": "Admin approves the local special, with the PRODUCT_APPROVE audit",
+  "description": "Admin declines the local special with a note, with the PRODUCT_DECLINE audit",
   "uid": "admin",
   "arrange": [
     {
@@ -32,8 +32,8 @@
       "path": "products/p-special",
       "kind": "update",
       "data": {
-        "status": "ACTIVE",
-        "price": 48000,
+        "status": "INACTIVE",
+        "reviewNote": "Too close to the Black Forest",
         "reviewedBy": "admin",
         "reviewedAt": {
           "__op": "serverTimestamp"
@@ -44,23 +44,20 @@
       }
     },
     {
-      "path": "auditLog/APPROVE-p-special-1790397000000",
+      "path": "auditLog/DECLINE-p-special-1790397000000",
       "kind": "create",
       "data": {
-        "action": "PRODUCT_APPROVE",
+        "action": "PRODUCT_DECLINE",
         "entityPath": "products/p-special",
         "locationId": null,
         "before": {
-          "status": "PENDING",
-          "price": null,
-          "proposedPrice": 45000
+          "status": "PENDING"
         },
         "after": {
-          "status": "ACTIVE",
-          "price": 48000,
-          "proposedPrice": 45000
+          "status": "INACTIVE",
+          "reviewNote": "Too close to the Black Forest"
         },
-        "reason": null,
+        "reason": "Too close to the Black Forest",
         "by": "admin",
         "deviceId": null,
         "clientAt": {

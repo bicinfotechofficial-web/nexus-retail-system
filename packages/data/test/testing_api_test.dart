@@ -16,6 +16,9 @@ Future<void> _shape(NexusTestDevice d) async {
   final StockService stock = d.stock;
   final StockRepository stockRepo = d.stockRepo;
   final SummaryRepository summaries = d.summaries;
+  final CatalogService catalog = d.catalog;
+  final CatalogRepository catalogRepo = d.catalogRepo;
+  final CustomerRepository customers = d.customers;
   final SyncService sync = d.sync;
   final OfflineGuard guard = d.offlineGuard;
   await d.goOffline();
@@ -31,6 +34,9 @@ Future<void> _shape(NexusTestDevice d) async {
     stock,
     stockRepo,
     summaries,
+    catalog,
+    catalogRepo,
+    customers,
     sync,
     guard,
   ], isNotEmpty);
