@@ -100,7 +100,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | QA-8 | Pilot checklist for B-6 (a device-side manual script) | Phase 2 | S | Checklist committed | DONE |
 
 ## Change set 1 — pilot feedback (D-034 to D-036)
-Order: C-10 → BE-15 / BE-16 → POS-13 → POS-14 / PR-7 / POS-15 / POS-16 / POS-17 / POS-18 → AD-5 / AD-6 → QA-9. The UI refresh (UX-1) waits until POS-13 and POS-14 are merged, so the screens are restyled once.
+Order: C-10 → BE-15 / BE-16 → POS-13 → POS-14 / PR-7 / POS-15 / POS-16 / POS-17 / POS-18 → AD-12 / AD-13 → QA-9. The UI refresh (UX-1) waits until POS-13 and POS-14 are merged, so the screens are restyled once.
 | ID | Task | Needs | Size | Done when | Status |
 |---|---|---|---|---|---|
 | C-10 | `packages/core`: `Bill` customer fields, `Customer` model and `CustomerId` (D-037), validators (`CustomerValidator`: name, phone, WhatsApp), receipt text builder for WhatsApp (plain text, ≤ 1500 chars at 15 lines), tolerant reading of old bills | D-034 | S | Unit tests, coverage gate stays ≥ 95% | DONE |
@@ -108,14 +108,14 @@ Order: C-10 → BE-15 / BE-16 → POS-13 → POS-14 / PR-7 / POS-15 / POS-16 / P
 | POS-13 | Customer step (name, phone, "WhatsApp same as phone" switch, validated as you type), read-only review screen before commit, and a result screen with Print / WhatsApp / Done (D-035) | BE-15 | M | Widget tests: cannot confirm without valid customer, Back keeps the cart, double Confirm makes one bill | REVIEW |
 | POS-14 | WhatsApp text via `wa.me` (url_launcher, Android 11+ `<queries>` entry for WhatsApp), and a clear message when WhatsApp isn't installed (D-036a) | POS-13, C-10 | S | Widget test with a fake launcher; Bicy tries it on the Pixel | TODO |
 | PR-7 | Receipt as an image (`ReceiptDocument` → PNG) and the Android share sheet through `share_plus` (D-036b) | POS-13 | M | Golden image for a normal bill | REVIEW |
-| AD-5 | Admin: show the customer on the bill detail and bills list (read only), and use the same validators | BE-15 | S | Widget test | REVIEW |
+| AD-12 | Admin: show the customer on the bill detail and bills list (read only), and use the same validators | BE-15 | S | Widget test | REVIEW |
 | QA-9 | Scenarios: bill without a customer is denied; an offline bill keeps its customer after sync; review → Back → Confirm makes exactly one bill | POS-13 | S | Green | TODO |
 | POS-15 | Customer lookup: typing a mobile offers the saved names for it (local cache, works offline); picking one fills name and WhatsApp | POS-13, BE-15 | S | Widget test | TODO |
 | POS-16 | Settings screen with **Review bill before saving** (D-035), and the "Don't show again" box on the review | POS-13 | S | Widget test: off → Confirm saves directly; setting survives a restart | TODO |
 | POS-17 | My suggestions: status list, a dot and a banner when a decision arrives (D-038) | BE-16 | S | Widget test with a fake decision | REVIEW |
 | POS-18 | Stock: Finished / Raw filter on the stock list, and a Stock history screen with In / Out / All and a date (D-039) | BE-16 | M | Widget tests | REVIEW |
 | BE-16 | Product `reviewedAt`, `reviewedBy`, `reviewNote` written by the Admin's approve and decline, with the repository streams for "my suggestions" and a movements query by type and date, plus index | C-10 | S | Rules and repository tests | REVIEW |
-| AD-6 | Admin: Customers list across locations (read only, search by name or number), and decline-with-note on the approval queue (D-038) | BE-15, BE-16 | M | Widget tests | TODO |
+| AD-13 | Admin: Customers list across locations (read only, search by name or number), and decline-with-note on the approval queue (D-038) | BE-15, BE-16 | M | Widget tests | TODO |
 | UX-1 | Visual refresh: Caramel Cottage palette, larger product tiles with category colours, friendlier empty states, motion on add-to-cart. Behaviour doesn't change | POS-14, PR-7 | M | Screenshots reviewed by Bicy | TODO |
 | WEB-1 | Which Store Manager operations the web console should offer (stock, returns, bill search and cancel, suggest product): scope not decided, Bicy keeps it open | Bicy | — | Decision recorded | OPEN |
 
