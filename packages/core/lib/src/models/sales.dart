@@ -1,3 +1,4 @@
+import '../customer.dart';
 import '../enums.dart';
 import '../map_reader.dart';
 import '../money.dart';
@@ -21,6 +22,7 @@ final class Bill {
     required this.businessDate,
     required this.clientCreatedAt,
     required this.createdBy,
+    this.customer,
     this.discount,
     this.taxLines = const [],
     this.cashTendered,
@@ -58,6 +60,7 @@ final class Bill {
       returnedQty: r.intMap('returnedQty'),
       lastReturnId: r.stringOrNull('lastReturnId'),
       servedBy: ServedBy.fromReader(r.child('servedBy')),
+      customer: BillCustomer.fromBillMap(r),
       businessDate: r.string('businessDate'),
       clientCreatedAt: r.dateTime('clientCreatedAt'),
       serverCreatedAt: r.dateTimeOrNull('serverCreatedAt'),
@@ -103,6 +106,10 @@ final class Bill {
   /// the rules require it to be a new return doc (04-PERMISSIONS #5).
   final String? lastReturnId;
   final ServedBy servedBy;
+
+  /// Who bought. Required on every new bill (D-034), but bills made before
+  /// that have none, so reading tolerates a missing one.
+  final BillCustomer? customer;
   final String businessDate;
   final DateTime clientCreatedAt;
   final DateTime? serverCreatedAt;
@@ -133,6 +140,7 @@ final class Bill {
     'soldQty': soldQty,
     'lastReturnId': lastReturnId,
     'servedBy': servedBy.toMap(),
+    ...?customer?.toBillFields(),
     'businessDate': businessDate,
     'clientCreatedAt': clientCreatedAt,
     'createdBy': createdBy,
@@ -284,6 +292,69 @@ final class BillCancel {
     'by': by,
     'at': at,
     'businessDate': businessDate,
+  };
+}
+
+/// The customer fields on a bill (D-034, D-037), stored flat on the bill as
+/// `customerId`, `customerName`, `customerPhone` and `customerWhatsapp`.
+final class BillCustomer {
+  /// Builds the customer from raw input. [phone] and [whatsapp] may be pasted
+  /// with spaces or a country code. Throws [ArgumentError] when something
+  /// is invalid, so callers validate with `CustomerValidator` first.
+  factory BillCustomer({
+    required String name,
+    required String phone,
+    String? whatsapp,
+  }) {
+    final n = CustomerValidator.cleanName(name);
+    final p = CustomerValidator.cleanPhone(phone);
+    final w = whatsapp == null ? null : CustomerValidator.cleanPhone(whatsapp);
+    final problem =
+        CustomerValidator.nameError(n) ??
+        CustomerValidator.phoneError(p) ??
+        CustomerValidator.whatsappError(w);
+    if (problem != null) throw ArgumentError(problem);
+    return BillCustomer._(
+      id: CustomerId.of(p, n),
+      name: n,
+      phone: p,
+      whatsapp: w,
+    );
+  }
+
+  const BillCustomer._({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.whatsapp,
+  });
+
+  /// Null when the bill has no `customerId` (a bill made before D-034).
+  static BillCustomer? fromBillMap(MapReader r) {
+    if (r.stringOrNull('customerId') == null) return null;
+    return BillCustomer._(
+      id: r.string('customerId'),
+      name: r.string('customerName'),
+      phone: r.string('customerPhone'),
+      whatsapp: r.stringOrNull('customerWhatsapp'),
+    );
+  }
+
+  /// `{phone}_{nameKey}`.
+  final String id;
+  final String name;
+
+  /// Ten digits.
+  final String phone;
+
+  /// Ten digits, or null when the customer isn't on WhatsApp.
+  final String? whatsapp;
+
+  Map<String, Object?> toBillFields() => {
+    'customerId': id,
+    'customerName': name,
+    'customerPhone': phone,
+    'customerWhatsapp': whatsapp,
   };
 }
 

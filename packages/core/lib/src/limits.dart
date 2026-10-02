@@ -17,4 +17,7 @@ abstract final class Limits {
 
   /// Minimum length of a location's offline override PIN, in digits (D-031).
   static const int minOverridePinDigits = 8;
+
+  /// Longest customer name, in characters (D-034).
+  static const int customerNameMax = 60;
 }
