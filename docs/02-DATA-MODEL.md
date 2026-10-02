@@ -119,11 +119,23 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | soldQty | map productId → int | The qty of each line, written at creation so the rules can cap returns (D-029) |
 | returnedQty | map productId → int | Starts empty. Incremented by returns, never with 0. Must stay ≤ `soldQty` |
 | lastReturnId | string \| null | The return that last raised `returnedQty`, written in the same batch |
+| customerId | string | `{phone}_{nameKey}` (D-037) |
 | customerName | string | Required, trimmed, 1–60 chars (D-034). Bills made before D-034 have none, and readers show "—" |
 | customerPhone | string | Required, 10 digits, `^[6-9][0-9]{9}$`, India only (D-034) |
-| customerWhatsapp | string \| null | Same shape as `customerPhone`, or null when the customer has no WhatsApp |
+| customerWhatsapp | string \| null | Same shape as `customerPhone`. Equal to `customerPhone` when the mobile is on WhatsApp, or null when the customer has no WhatsApp |
 | servedBy | `{uid, name}` | |
 | businessDate, clientCreatedAt, serverCreatedAt | | |
+
+### locations/{loc}/customers/{customerId}
+`customerId` = `{phone}_{nameKey}` (D-037). Written in the bill's batch.
+| Field | Type | Notes |
+|---|---|---|
+| name, phone | string | As entered the first time (name trimmed), phone 10 digits |
+| whatsapp | string \| null | The latest number used for WhatsApp, or null |
+| firstBillAt, lastBillAt | timestamp | |
+| billCount, totalSpend | int | Incremented per bill, as billed (cancellations are not reversed) |
+| lastWriteRef | string | The bill that last changed it |
+| createdBy | uid | |
 
 ### locations/{loc}/returns/{returnId}
 `returnId` = `{deviceId}-R{seq:6}` (e.g. `D01-R000007`), using a separate per-device return counter.
@@ -172,6 +184,7 @@ Net revenue for a period = `netSales − returns − cancelled`. Profit = that f
 | status | `ACTIVE` \| `PENDING` \| `INACTIVE` | |
 | recipe | `[{materialId, qty}]` \| null | Reserved for BOM |
 | sortOrder | int | |
+| reviewedAt, reviewedBy, reviewNote | timestamp, uid, string \| null | Set by the Admin when approving or declining a suggestion (D-038). A declined suggestion is `INACTIVE` with a note |
 | createdBy, createdAt, updatedAt | | |
 
 ## rawMaterials/{materialId}
