@@ -162,7 +162,6 @@ void main() {
         customer: bc,
         total: const Money.rupees(1700),
         billId: 'D01-000001',
-        createdBy: 'u1',
       );
       expect(c.billCount, 1);
       expect(c.totalSpend, const Money.rupees(1700));
@@ -174,15 +173,13 @@ void main() {
         'name': 'Anita',
         'phone': '9876543210',
         'whatsapp': null,
-        'firstBillAt': t0,
         'lastBillAt': t0,
         'billCount': 3,
         'totalSpend': 450000,
         'lastWriteRef': 'D01-000009',
-        'createdBy': 'u1',
       };
       final c = Customer.fromMap('9876543210_aaaaaaaaaa', map);
-      expect(c.firstBillAt, t0);
+      expect(c.lastBillAt, t0);
       expect(c.toMap(), {
         for (final e in map.entries)
           if (!Customer.serverTimestampFields.contains(e.key)) e.key: e.value,

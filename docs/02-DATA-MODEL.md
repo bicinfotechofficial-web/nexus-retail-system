@@ -127,15 +127,14 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | businessDate, clientCreatedAt, serverCreatedAt | | |
 
 ### locations/{loc}/customers/{customerId}
-`customerId` = `{phone}_{nameKey}` (D-037). Written in the bill's batch.
+`customerId` = `{phone}_{nameKey}` (D-037). Written in every bill's batch with `set(merge)`, because a device can't know offline whether it exists: the same `name` and `phone` each time, `whatsapp` and `lastBillAt` overwritten, `billCount` and `totalSpend` incremented. So there is no `createdBy` or first-bill date.
 | Field | Type | Notes |
 |---|---|---|
 | name, phone | string | As entered the first time (name trimmed), phone 10 digits |
 | whatsapp | string \| null | The latest number used for WhatsApp, or null |
-| firstBillAt, lastBillAt | timestamp | |
+| lastBillAt | timestamp | Server time of the last bill |
 | billCount, totalSpend | int | Incremented per bill, as billed (cancellations are not reversed) |
 | lastWriteRef | string | The bill that last changed it |
-| createdBy | uid | |
 
 ### locations/{loc}/returns/{returnId}
 `returnId` = `{deviceId}-R{seq:6}` (e.g. `D01-R000007`), using a separate per-device return counter.

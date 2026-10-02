@@ -3,7 +3,10 @@ import '../money.dart';
 import 'sales.dart';
 
 /// `locations/{loc}/customers/{customerId}` (D-037). Written in the batch
-/// of each bill: created on the first bill, then only incremented.
+/// of each bill. A device can't know offline whether it exists, so every
+/// bill writes it with `set(merge)`: only values that stay the same
+/// (`name`, `phone`) or can be incremented or overwritten are stored, which
+/// is why there is no `createdBy` or first-bill date.
 final class Customer {
   const Customer({
     required this.id,
@@ -12,9 +15,7 @@ final class Customer {
     required this.billCount,
     required this.totalSpend,
     required this.lastWriteRef,
-    required this.createdBy,
     this.whatsapp,
-    this.firstBillAt,
     this.lastBillAt,
   });
 
@@ -25,12 +26,10 @@ final class Customer {
       name: r.string('name'),
       phone: r.string('phone'),
       whatsapp: r.stringOrNull('whatsapp'),
-      firstBillAt: r.dateTimeOrNull('firstBillAt'),
       lastBillAt: r.dateTimeOrNull('lastBillAt'),
       billCount: r.integer('billCount'),
       totalSpend: Money(r.integer('totalSpend')),
       lastWriteRef: r.string('lastWriteRef'),
-      createdBy: r.string('createdBy'),
     );
   }
 
@@ -39,7 +38,6 @@ final class Customer {
     required BillCustomer customer,
     required Money total,
     required String billId,
-    required String createdBy,
   }) => Customer(
     id: customer.id,
     name: customer.name,
@@ -48,13 +46,9 @@ final class Customer {
     billCount: 1,
     totalSpend: total,
     lastWriteRef: billId,
-    createdBy: createdBy,
   );
 
-  static const Set<String> serverTimestampFields = {
-    'firstBillAt',
-    'lastBillAt',
-  };
+  static const Set<String> serverTimestampFields = {'lastBillAt'};
 
   final String id;
   final String name;
@@ -62,7 +56,6 @@ final class Customer {
 
   /// The latest number used for WhatsApp, or null.
   final String? whatsapp;
-  final DateTime? firstBillAt;
   final DateTime? lastBillAt;
 
   /// Bills made, as billed (a cancellation doesn't reverse it).
@@ -71,7 +64,6 @@ final class Customer {
 
   /// The bill that last changed this document.
   final String lastWriteRef;
-  final String createdBy;
 
   Map<String, Object?> toMap() => {
     'name': name,
@@ -80,6 +72,5 @@ final class Customer {
     'billCount': billCount,
     'totalSpend': totalSpend.paise,
     'lastWriteRef': lastWriteRef,
-    'createdBy': createdBy,
   };
 }
