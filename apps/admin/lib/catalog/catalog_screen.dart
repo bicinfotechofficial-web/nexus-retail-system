@@ -5,6 +5,7 @@ import 'package:nexus_core/nexus_core.dart';
 import '../common/dialogs.dart';
 import '../common/model_copies.dart';
 import '../data/providers.dart';
+import '../users/users_screen.dart' show usersProvider;
 import 'catalog_providers.dart';
 import 'product_form.dart';
 
@@ -170,6 +171,8 @@ class _ProductsTabState extends ConsumerState<ProductsTab> {
           child: DataTable(
             key: const Key('products-table'),
             columnSpacing: 32,
+            // A declined suggestion shows its note and reviewer too.
+            dataRowMaxHeight: 80,
             columns: const [
               DataColumn(label: Text('Name')),
               DataColumn(label: Text('Category')),
@@ -194,10 +197,15 @@ class _ProductsTabState extends ConsumerState<ProductsTab> {
                     ),
                     DataCell(Text(scopeLabel(p.scope))),
                     DataCell(
-                      Text(
-                        productStatusLabel(p.status),
-                        key: Key('status-${p.id}'),
-                      ),
+                      p.wasDeclined
+                          ? DeclinedNote(
+                              key: Key('declined-${p.id}'),
+                              product: p,
+                            )
+                          : Text(
+                              productStatusLabel(p.status),
+                              key: Key('status-${p.id}'),
+                            ),
                     ),
                     DataCell(canManage ? _actions(p) : const SizedBox.shrink()),
                   ],
@@ -279,7 +287,7 @@ class _Filter<T> extends StatelessWidget {
 }
 
 /// PENDING suggestions from Store Managers. Approving sets the price and
-/// makes the product sellable (D-008); rejecting deactivates it.
+/// makes the product sellable (D-008); declining needs a note (D-038).
 class ApprovalQueue extends ConsumerWidget {
   const ApprovalQueue({super.key});
 
@@ -288,7 +296,12 @@ class ApprovalQueue extends ConsumerWidget {
     final canManage =
         ref.watch(sessionProvider)?.can(Permission.catalogManage) ?? false;
     final async = ref.watch(pendingProductsProvider);
-    final pending = async.value;
+    final pending = async.value == null
+        ? null
+        : [
+            for (final p in async.value!)
+              if (p.status == ProductStatus.pending) p,
+          ];
     if (pending == null) {
       return async.hasError
           ? Center(child: Text('Could not load suggestions: ${async.error}'))
@@ -323,9 +336,12 @@ class ApprovalQueue extends ConsumerWidget {
                       spacing: 8,
                       children: [
                         TextButton(
-                          key: Key('reject-${p.id}'),
-                          onPressed: () => _reject(context, ref, p),
-                          child: const Text('Reject'),
+                          key: Key('decline-${p.id}'),
+                          onPressed: () => showDialog<void>(
+                            context: context,
+                            builder: (_) => DeclineDialog(product: p),
+                          ),
+                          child: const Text('Decline'),
                         ),
                         FilledButton(
                           key: Key('approve-${p.id}'),
@@ -343,22 +359,125 @@ class ApprovalQueue extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Future<void> _reject(BuildContext context, WidgetRef ref, Product p) async {
-    final ok = await confirmAction(
-      context,
-      title: 'Reject ${p.name}?',
-      message: 'It is marked inactive and never appears on the POS.',
-      confirmLabel: 'Reject',
-    );
-    if (!ok) return;
+/// Declines a PENDING suggestion with a note for the Store Manager, 1 to
+/// [Limits.reviewNoteMax] characters (`CatalogService.decline`, D-038).
+class DeclineDialog extends ConsumerStatefulWidget {
+  const DeclineDialog({required this.product, super.key});
+
+  final Product product;
+
+  @override
+  ConsumerState<DeclineDialog> createState() => _DeclineDialogState();
+}
+
+class _DeclineDialogState extends ConsumerState<DeclineDialog> {
+  final _form = GlobalKey<FormState>();
+  final _note = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _decline() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() => _saving = true);
     try {
       await ref
           .read(catalogServiceProvider)
-          .save(p.copyWith(status: ProductStatus.inactive));
+          .decline(productId: widget.product.id, note: _note.text.trim());
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showMessage(context, '${widget.product.name} is declined.');
     } on Object catch (e) {
-      if (context.mounted) showMessage(context, failureMessage(e));
+      if (!mounted) return;
+      setState(() => _saving = false);
+      showMessage(context, failureMessage(e));
     }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Decline ${widget.product.name}'),
+    content: SizedBox(
+      width: 400,
+      child: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'It never appears on the POS. The Store Manager sees your note '
+              'in My suggestions.',
+            ),
+            TextFormField(
+              key: const Key('decline-note'),
+              controller: _note,
+              maxLines: 3,
+              maxLength: Limits.reviewNoteMax,
+              decoration: const InputDecoration(
+                labelText: 'Note for the Store Manager',
+              ),
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? 'Say why, in up to ${Limits.reviewNoteMax} characters'
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: _saving ? null : () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('decline-confirm'),
+        onPressed: _saving ? null : _decline,
+        child: const Text('Decline'),
+      ),
+    ],
+  );
+}
+
+/// "Declined", the note and who decided, for a declined suggestion.
+class DeclinedNote extends ConsumerWidget {
+  const DeclinedNote({required this.product, super.key});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final by = product.reviewedBy;
+    final name = [
+      for (final u in ref.watch(usersProvider).value ?? const <AppUser>[])
+        if (u.uid == by) u.name,
+    ].firstOrNull;
+    final note = product.reviewNote;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Declined', key: Key('status-${product.id}')),
+        if (note != null)
+          Text(
+            'Note: $note',
+            key: Key('decline-note-${product.id}'),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        if (by != null)
+          Text(
+            'By ${name ?? by}',
+            key: Key('decline-by-${product.id}'),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+      ],
+    );
   }
 }
 

@@ -87,27 +87,81 @@ void main() {
       expect(backend.catalog.byId('sugpudding')!.status, ProductStatus.pending);
     });
 
-    testWidgets('rejecting asks first, then deactivates the suggestion', (
+    testWidgets('declining needs a note of 1 to 200 characters', (
       tester,
     ) async {
       await _openCatalog(tester, backend);
       await _tapTab(tester, 'tab-approvals');
 
-      await tester.tap(find.byKey(const Key('reject-sugpudding')));
+      await tester.tap(find.byKey(const Key('decline-sugpudding')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('confirm-cancel')));
+      // An empty or blank note is refused and nothing is written.
+      await tester.tap(find.byKey(const Key('decline-confirm')));
       await tester.pumpAndSettle();
+      expect(find.textContaining('Say why'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('decline-note')), '   ');
+      await tester.tap(find.byKey(const Key('decline-confirm')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Say why'), findsOneWidget);
       expect(backend.catalog.byId('sugpudding')!.status, ProductStatus.pending);
+      expect(backend.audit.actions, isEmpty);
 
-      await tester.tap(find.byKey(const Key('reject-sugpudding')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('confirm-ok')));
-      await tester.pumpAndSettle();
-      expect(
-        backend.catalog.byId('sugpudding')!.status,
-        ProductStatus.inactive,
+      // The field stops at the limit.
+      await tester.enterText(
+        find.byKey(const Key('decline-note')),
+        'x' * (Limits.reviewNoteMax + 20),
       );
-      expect(backend.catalog.byId('sugpudding')!.price, isNull);
+      await tester.pumpAndSettle();
+      final field = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const Key('decline-note')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(field.controller.text.length, Limits.reviewNoteMax);
+    });
+
+    testWidgets('declining calls decline with the note and the queue updates', (
+      tester,
+    ) async {
+      await _openCatalog(tester, backend);
+      await _tapTab(tester, 'tab-approvals');
+      expect(find.text('Approval queue (2)'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('decline-sugpudding')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('decline-note')),
+        '  Already on the menu as a dessert  ',
+      );
+      await tester.tap(find.byKey(const Key('decline-confirm')));
+      await tester.pumpAndSettle();
+
+      final p = backend.catalog.byId('sugpudding')!;
+      expect(p.status, ProductStatus.inactive);
+      expect(p.price, isNull);
+      expect(p.reviewNote, 'Already on the menu as a dessert');
+      expect(p.reviewedBy, 'admin-0001');
+      expect(p.wasDeclined, isTrue);
+      expect(backend.audit.actions, [AuditAction.productDecline]);
+      // Only the PENDING one is left in the queue.
+      expect(find.byKey(const ValueKey('pending-sugpudding')), findsNothing);
+      expect(find.byKey(const ValueKey('pending-sugplum')), findsOneWidget);
+      expect(find.text('Approval queue (1)'), findsOneWidget);
+    });
+
+    testWidgets('a suggestion decided elsewhere leaves the queue', (
+      tester,
+    ) async {
+      await _openCatalog(tester, backend);
+      await _tapTab(tester, 'tab-approvals');
+      // Someone else approves it first.
+      await backend.catalogService.approve(
+        productId: 'sugpudding',
+        price: Money.rupees(100),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('decline-sugpudding')), findsNothing);
     });
 
     testWidgets('an empty queue says so', (tester) async {
@@ -161,6 +215,30 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('1 of 12 products'), findsOneWidget);
       expect(find.text('Pineapple Pastry'), findsNothing);
+    });
+
+    testWidgets('a declined suggestion shows its note and reviewer', (
+      tester,
+    ) async {
+      await _openCatalog(tester, backend);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('decline-note-sugdeclined')))
+            .data,
+        'Note: Too close to a cake we sell',
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('decline-by-sugdeclined')))
+            .data,
+        'By Admin',
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('status-sugdeclined'))).data,
+        'Declined',
+      );
+      // A plain inactive product has no note.
+      expect(find.byKey(const Key('decline-note-fruitcake')), findsNothing);
     });
 
     testWidgets('creates an active product with a safe ID', (tester) async {
