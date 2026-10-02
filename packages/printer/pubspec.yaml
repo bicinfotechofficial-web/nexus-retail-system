@@ -15,6 +15,7 @@ dependencies:
     path: ../core
   permission_handler: ^13.0.2
   print_bluetooth_thermal: ^1.2.4
+  share_plus: ^13.3.1
   shared_preferences: ^2.5.5
 
 dev_dependencies:
