@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'audit/audit_screen.dart';
+import 'bills/bills_screen.dart';
 import 'catalog/catalog_screen.dart';
+import 'customers/customers_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'data/providers.dart';
 import 'devices/devices_screen.dart';
@@ -47,6 +49,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           _guarded('/dashboard', const DashboardScreen()),
           _guarded('/reports', const ReportsScreen()),
+          _guarded('/bills', const BillsScreen()),
+          _guarded('/customers', const CustomersScreen()),
           _guarded('/financials', const FinancialsScreen()),
           _guarded('/stock', const StockScreen()),
           _guarded('/expenses', const ExpensesScreen()),
