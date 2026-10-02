@@ -43,12 +43,18 @@ class PosScaffold extends ConsumerWidget {
                   tooltip: 'Open navigation menu',
                   onPressed: () => Scaffold.of(context).openDrawer(),
                   icon: Badge(
-                    key: const Key('menu-badge'),
-                    // A count for low stock, otherwise a plain dot for a new
-                    // decision on a suggestion.
-                    isLabelVisible: low > 0 || decisions > 0,
-                    label: low > 0 ? Text('$low') : null,
-                    child: const Icon(Icons.menu),
+                    // A plain dot at the top left when the Admin has decided
+                    // on a suggestion; the count at the right is low stock.
+                    key: const Key('decision-dot'),
+                    isLabelVisible: decisions > 0,
+                    smallSize: 10,
+                    alignment: AlignmentDirectional.topStart,
+                    child: Badge(
+                      key: const Key('menu-badge'),
+                      isLabelVisible: low > 0,
+                      label: Text('$low'),
+                      child: const Icon(Icons.menu),
+                    ),
                   ),
                 ),
               )

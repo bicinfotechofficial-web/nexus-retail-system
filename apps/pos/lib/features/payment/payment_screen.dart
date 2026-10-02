@@ -228,7 +228,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       cashTendered: form.tendered,
       customer: customer,
     );
-    if (reviewIsOn(ref)) {
+    if (reviewIsOnNow(ref)) {
       setState(() {
         _reviewing = true;
         _error = null;

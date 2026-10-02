@@ -40,6 +40,11 @@ final reviewBeforeSaveProvider =
       ReviewBeforeSaveNotifier.new,
     );
 
-/// Whether the review step is on right now (the default until loaded).
+/// Whether the review step is on, for `build` (rebuilds when it changes).
+/// The default until it has loaded.
 bool reviewIsOn(WidgetRef ref) =>
     ref.watch(reviewBeforeSaveProvider).value ?? true;
+
+/// The same, read once, for a button handler.
+bool reviewIsOnNow(WidgetRef ref) =>
+    ref.read(reviewBeforeSaveProvider).value ?? true;
