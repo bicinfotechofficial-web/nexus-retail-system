@@ -25,7 +25,7 @@ Status: `TODO` / `WIP` / `REVIEW` / `DONE` / `BLOCKED`. Agents update only the s
 | C-5 | Launch Phase 1 agents with their briefs and task IDs: data and printer API contracts (D-026), shared rules and briefs in `docs/agents/` | C-3 | S | All agents WIP | DONE |
 | C-6 | Handle change requests and keep 00-DECISIONS current | ongoing | — | CHANGE-REQUESTS has no open row older than one working session | WIP |
 | C-7 | Integration: merge the agent branches, fix the seams, run every suite | Phase 1 | L | All suites green on `main` | WIP |
-| C-8 | Release build: signed release APK, admin web build, pilot setup guide (seed, first admin login, device registration, printer pairing) | C-7 | M | APK and guide delivered to Bicy | TODO |
+| C-8 | Release build: signed release APK, admin web build, admin hosting, App Distribution, see DEMO-RELEASE.md; pilot setup guide (seed, first admin login, device registration, printer pairing) | C-7 | M | APK and guide delivered to Bicy | TODO |
 | C-9 | BRD v4: fold in D-003 and every other deviation | B-1 | S | `docs/requirements/BRD-v4.md` committed | DONE |
 
 ## Backend — `firebase/`, `packages/data/`
