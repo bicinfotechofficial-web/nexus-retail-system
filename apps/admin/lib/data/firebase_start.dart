@@ -4,7 +4,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
 import '../firebase_options.dart';
+import '../firebase_options_demo.dart' as demo;
 import 'emulator_switch.dart';
+
+/// `--dart-define=APP_ENV=demo` builds the trial console, which runs on its own
+/// Firebase project (D-040). Anything else is the real system.
+const String _appEnv = String.fromEnvironment('APP_ENV');
 
 NexusBackend? _backend;
 
@@ -23,7 +28,9 @@ Future<NexusBackend> startFirebase(EmulatorTarget? emulator) async =>
     _backend ??= await _open(emulator);
 
 Future<NexusBackend> _open(EmulatorTarget? emulator) async {
-  final options = DefaultFirebaseOptions.currentPlatform;
+  final options = _appEnv == 'demo'
+      ? demo.DefaultFirebaseOptions.currentPlatform
+      : DefaultFirebaseOptions.currentPlatform;
   if (emulator == null) {
     await Firebase.initializeApp(options: options);
     return NexusBackend.firebase(admin: true);

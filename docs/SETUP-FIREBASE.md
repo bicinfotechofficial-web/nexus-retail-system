@@ -50,7 +50,7 @@ Run these from the repo root in Git Bash, after B-3 is done:
 
 ```bash
 cd apps/pos
-flutterfire configure --project=caramel-cottage-retail --platforms=android --android-package-name=in.caramelcottage.pos --out=lib/firebase_options.dart --yes
+flutterfire configure --project=caramel-cottage-retail --platforms=android --android-package-name=in.caramelcottage.pos --out=lib/firebase_options.dart --android-out=android/app/src/prod/google-services.json --yes
 
 cd ../admin
 flutterfire configure --project=caramel-cottage-retail --platforms=web --web-app-id=1:137960797974:web:e16ab706577d29c3cc0237 --out=lib/firebase_options.dart --yes
@@ -60,7 +60,7 @@ tool/check.sh
 ```
 
 What they do:
-- **POS:** registers the Android app `in.caramelcottage.pos` in the Firebase project (D-023), and writes `apps/pos/lib/firebase_options.dart`, `apps/pos/android/app/google-services.json` and `apps/pos/firebase.json`. It may also add the Google Services plugin to the Gradle files.
+- **POS:** registers the Android app `in.caramelcottage.pos` in the Firebase project (D-023), and writes `apps/pos/lib/firebase_options.dart`, `apps/pos/android/app/src/prod/google-services.json` and `apps/pos/firebase.json`. It may also add the Google Services plugin to the Gradle files.
 - **Admin:** reuses the existing `admin-web` app (it does not create a second one), and writes `apps/admin/lib/firebase_options.dart` and `apps/admin/firebase.json`.
 
 Commit everything they create or change. None of it is secret: access is controlled by the security rules, not by these keys.

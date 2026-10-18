@@ -1,8 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart' show appFlavor;
 import 'package:nexus_data/nexus_data.dart';
 import 'package:nexus_printer/nexus_printer.dart';
 
 import '../firebase_options.dart';
+import '../firebase_options_demo.dart' as demo;
 import 'emulator_switch.dart';
 import 'services.dart';
 
@@ -29,7 +31,10 @@ Future<PosServices> startFirebase(EmulatorTarget? emulator) async {
 }
 
 Future<NexusBackend> _openBackend(EmulatorTarget? emulator) async {
-  final options = DefaultFirebaseOptions.currentPlatform;
+  // The demo build (--flavor demo) runs on its own Firebase project (D-040).
+  final options = appFlavor == 'demo'
+      ? demo.DefaultFirebaseOptions.currentPlatform
+      : DefaultFirebaseOptions.currentPlatform;
   if (emulator == null) {
     await Firebase.initializeApp(options: options);
     return NexusBackend.firebase();

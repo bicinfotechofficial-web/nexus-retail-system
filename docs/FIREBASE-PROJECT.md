@@ -29,7 +29,7 @@ Registered by `flutterfire configure` in B-5 (D-023).
 | Setting | Value |
 |---|---|
 | App ID | `1:137960797974:android:0bef52460e74598fcc0237` |
-| Config files | `apps/pos/android/app/google-services.json`, `apps/pos/lib/firebase_options.dart` |
+| Config files | `apps/pos/android/app/src/prod/google-services.json`, `apps/pos/lib/firebase_options.dart` |
 
 The admin app's `apps/admin/lib/firebase_options.dart` uses the `admin-web` app above.
 

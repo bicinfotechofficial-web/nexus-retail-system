@@ -31,6 +31,8 @@ import { hashPin, readLimits, readPermissions } from './lib/core.js';
 
 export const DEMO_PROJECT = 'demo-caramel-cottage';
 export const PROD_PROJECT = 'caramel-cottage-retail';
+/** The real, separate Firebase project the client's trial runs on, deleted afterwards (docs/DEMO-RELEASE.md). */
+export const CLIENT_DEMO_PROJECT = 'caramel-cottage-demo';
 
 const SEED = 'seed';
 
@@ -222,11 +224,13 @@ export function resolveTarget(argv, env = process.env) {
       },
     };
   }
-  if (project !== PROD_PROJECT) {
-    throw new Error(`Refusing project ${project}: use a demo- project (the emulator) or ${PROD_PROJECT}.`);
+  if (project !== PROD_PROJECT && project !== CLIENT_DEMO_PROJECT) {
+    throw new Error(
+      `Refusing project ${project}: use a demo- project (the emulator), ${PROD_PROJECT} or ${CLIENT_DEMO_PROJECT}.`,
+    );
   }
   if (!yesReally) {
-    throw new Error(`Seeding production (${PROD_PROJECT}) needs --yes-really as well.`);
+    throw new Error(`Seeding production (${project}) needs --yes-really as well.`);
   }
   if (env.FIRESTORE_EMULATOR_HOST || env.FIREBASE_AUTH_EMULATOR_HOST) {
     throw new Error('Refusing to seed production with FIRESTORE_EMULATOR_HOST or FIREBASE_AUTH_EMULATOR_HOST set.');

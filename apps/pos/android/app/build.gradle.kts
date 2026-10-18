@@ -45,6 +45,23 @@ android {
         versionName = flutter.versionName
     }
 
+    // Two builds of the same app (D-040): `prod` is the real system, `demo`
+    // is a trial build on its own Firebase project and its own application ID,
+    // so it can sit on the same phone and can never touch real data. Each has
+    // its own `src/<flavor>/google-services.json`.
+    flavorDimensions += "env"
+    productFlavors {
+        create("prod") {
+            dimension = "env"
+            resValue("string", "app_name", "Caramel Cottage POS")
+        }
+        create("demo") {
+            dimension = "env"
+            applicationIdSuffix = ".demo"
+            resValue("string", "app_name", "Caramel Cottage DEMO")
+        }
+    }
+
     signingConfigs {
         if (keystoreProps.getProperty("storeFile") != null) {
             create("release") {

@@ -3,7 +3,7 @@
          it is stated here so a release build never depends on the merge. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Caramel Cottage POS"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

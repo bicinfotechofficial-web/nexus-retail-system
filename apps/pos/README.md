@@ -51,7 +51,8 @@ Only once the rules are deployed (docs/SETUP-FIREBASE.md §4) and there is a rea
 cd apps/pos
 flutter run -d <phone-id>                # debug build on the real project
 flutter run -d <phone-id> --release      # what the shop gets
-flutter build apk --release              # build/app/outputs/flutter-apk/app-release.apk
+flutter build apk --release              # the real system: build/app/outputs/flutter-apk/app-prod-release.apk
+flutter build apk --release --flavor demo   # the trial build (D-040): app-demo-release.apk
 ```
 
 ## Demo data

@@ -14,7 +14,7 @@ import { deleteApp, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readLimits, readPermissions, verifyPin } from '../scripts/lib/core.js';
-import { LOCATIONS, PRODUCTS, PROD_PROJECT, RAW_MATERIALS, resolveTarget } from '../scripts/seed.mjs';
+import { CLIENT_DEMO_PROJECT, LOCATIONS, PRODUCTS, PROD_PROJECT, RAW_MATERIALS, resolveTarget } from '../scripts/seed.mjs';
 
 const run = promisify(execFile);
 const SEED = fileURLToPath(new URL('../scripts/seed.mjs', import.meta.url));
@@ -175,6 +175,13 @@ describe('BE-14 seed script', () => {
     expect(() => resolveTarget(['--project', 'some-other-project'], {})).toThrow(/Refusing project/);
     expect(() => resolveTarget(['--project', PROD_PROJECT], {})).toThrow(/--yes-really/);
     expect(() => resolveTarget(['--yes-really'], {})).not.toThrow();
+    // The client's trial project is treated exactly like production.
+    expect(() => resolveTarget(['--project', CLIENT_DEMO_PROJECT], {})).toThrow(/--yes-really/);
+    expect(resolveTarget(['--project', CLIENT_DEMO_PROJECT, '--yes-really'], {})).toEqual({
+      project: CLIENT_DEMO_PROJECT,
+      emulator: false,
+      env: {},
+    });
     expect(() =>
       resolveTarget(['--project', PROD_PROJECT, '--yes-really'], { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' }),
     ).toThrow(/Refusing to seed production/);

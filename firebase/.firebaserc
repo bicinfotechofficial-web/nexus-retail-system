@@ -2,6 +2,7 @@
   "projects": {
     "default": "demo-caramel-cottage",
     "demo": "demo-caramel-cottage",
-    "prod": "caramel-cottage-retail"
+    "prod": "caramel-cottage-retail",
+    "clientdemo": "caramel-cottage-demo"
   }
 }

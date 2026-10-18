@@ -32,3 +32,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Plain `flutter run` and `flutter build apk` use the real system. The trial
+  # build is `--flavor demo` (D-040).
+  default-flavor: prod
