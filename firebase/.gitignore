@@ -1,0 +1,2 @@
+# Admin web build for hosting (flutter build web --output ../../firebase/admin-web)
+admin-web/

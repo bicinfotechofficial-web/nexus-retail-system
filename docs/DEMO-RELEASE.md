@@ -63,7 +63,7 @@ The file is `apps/pos/build/app/outputs/flutter-apk/app-demo-release.apk`.
 
 ```bash
 cd ../admin
-flutter build web --release --dart-define=APP_ENV=demo
+flutter build web --release --dart-define=APP_ENV=demo --output ../../firebase/admin-web
 cd ../../firebase
 firebase deploy --only hosting --project clientdemo
 ```
@@ -99,4 +99,4 @@ rm firestore.rules.backup
 Open the demo app afterwards and check it shows an error and not a login. The real project, the keystore and all code are unaffected.
 
 ## H. The real launch (later)
-Repeat B to E against `caramel-cottage-retail` (`--project prod`, `npm run seed -- --project caramel-cottage-retail --yes-really`, `flutter build apk --release` without `--flavor demo` for `app-prod-release.apk`, and `flutter build web --release` for the admin site on `caramel-cottage-retail.web.app`). Before real customers, restrict both API keys in Google Cloud Console (Credentials): the Android key to package `in.caramelcottage.pos` and the release keystore's SHA-1 (`keytool -list -v -keystore app/caramel-release.jks`), and the web key to your hosting origins. Put a notice at the counter saying why customers' numbers are collected.
+Repeat B to E against `caramel-cottage-retail` (`--project prod`, `npm run seed -- --project caramel-cottage-retail --yes-really`, `flutter build apk --release` without `--flavor demo` for `app-prod-release.apk`, and `flutter build web --release --output ../../firebase/admin-web` for the admin site on `caramel-cottage-retail.web.app`). Before real customers, restrict both API keys in Google Cloud Console (Credentials): the Android key to package `in.caramelcottage.pos` and the release keystore's SHA-1 (`keytool -list -v -keystore app/caramel-release.jks`), and the web key to your hosting origins. Put a notice at the counter saying why customers' numbers are collected.

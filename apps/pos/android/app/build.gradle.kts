@@ -49,6 +49,10 @@ android {
     // is a trial build on its own Firebase project and its own application ID,
     // so it can sit on the same phone and can never touch real data. Each has
     // its own `src/<flavor>/google-services.json`.
+    // AGP 9 turns resValue off by default; the flavors need it for app_name.
+    buildFeatures {
+        resValues = true
+    }
     flavorDimensions += "env"
     productFlavors {
         create("prod") {
