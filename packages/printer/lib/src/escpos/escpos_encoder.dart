@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../layout/print_line.dart';
+import '../logo/logo_raster.dart';
 import 'code_page.dart';
 
 /// Standard ESC/POS commands only, so any ESC/POS printer takes them
@@ -27,6 +28,21 @@ abstract final class EscPos {
 
   /// `ESC d n`: print and feed n lines.
   static List<int> feed(int lines) => [esc, 0x64, lines];
+
+  /// `GS v 0 m xL xH yL yH d1..dk`: print a raster bit image, normal
+  /// density (m = 0). Width is in bytes, height in dots, both little-endian
+  /// 16-bit; data is row by row, 1 = black.
+  static List<int> raster(LogoRaster r) => [
+    gs,
+    0x76,
+    0x30,
+    0,
+    r.widthBytes & 0xFF,
+    r.widthBytes >> 8,
+    r.height & 0xFF,
+    r.height >> 8,
+    ...r.bytes,
+  ];
 
   /// `GS V 1`: partial cut. Printers without a cutter ignore it.
   static const List<int> cut = [gs, 0x56, 1];
@@ -55,11 +71,18 @@ final class EscPosEncoder {
   /// one character, so line widths never change.
   static const int unknownChar = 0x3F; // '?'
 
-  Uint8List encode(List<PrintLine> lines) {
+  /// With [logo], the raster is printed first, followed by a one-line feed
+  /// (D-041). Without it the bytes are exactly the text-only slip.
+  Uint8List encode(List<PrintLine> lines, {LogoRaster? logo}) {
     final out = BytesBuilder(copy: false)
       ..add(EscPos.init)
       ..add(EscPos.codePage(codePage.escPosNumber))
       ..add(EscPos.alignLeft);
+    if (logo != null) {
+      out
+        ..add(EscPos.raster(logo))
+        ..add(EscPos.feed(1));
+    }
     var bold = false;
     var tall = false;
     for (final line in lines) {

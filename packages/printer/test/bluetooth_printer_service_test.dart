@@ -4,6 +4,7 @@ import 'package:nexus_printer/src/bluetooth_printer_service.dart';
 import 'package:nexus_printer/src/escpos/escpos_encoder.dart';
 import 'package:nexus_printer/src/layout/print_line.dart';
 import 'package:nexus_printer/src/layout/receipt_layout.dart';
+import 'package:nexus_printer/src/logo/logo_raster.dart';
 import 'package:nexus_printer/src/transport/printer_link.dart';
 import 'package:nexus_printer/src/transport/printer_transport.dart';
 
@@ -23,10 +24,13 @@ void main() {
     settings = MemorySettings();
   });
 
-  Future<BluetoothPrinterService> service() => BluetoothPrinterService.create(
+  Future<BluetoothPrinterService> service({
+    ReceiptLogo logo = const NoReceiptLogo(),
+  }) => BluetoothPrinterService.create(
     transport: transport,
     permissions: permissions,
     settings: settings,
+    logo: logo,
   );
 
   /// Every status the service emits from now on, current one first.
@@ -307,6 +311,113 @@ void main() {
       );
       expect(transport.printed, expected);
     });
+  });
+
+  group('the logo and the advance slip (PR-8, PR-9)', () {
+    List<int> bill(PaperWidth w, {LogoRaster? logo}) => EscPosEncoder().encode(
+      ReceiptLayout(
+        w,
+        currencySymbol: 'Rs.',
+      ).bill(ReceiptDocument.fromBill(normalBill(), pilotLocation)),
+      logo: logo,
+    );
+
+    for (final width in PaperWidth.values) {
+      test('a bill starts with the logo raster at ${width.name}', () async {
+        settings
+          ..printer = counterPrinter
+          ..width = width;
+        final fake = FakeReceiptLogo(syntheticLogo());
+        final s = await service(logo: fake);
+        expect(await s.printBill(normalBill(), pilotLocation), isA<Printed>());
+        final raster = rasterizeLogo(syntheticLogo(), dotWidth: width.dots);
+        expect(transport.printed, bill(width, logo: raster));
+        // GS v 0 right after init, table and alignment.
+        expect(transport.printed.sublist(8, 12), [0x1D, 0x76, 0x30, 0x00]);
+        expect(transport.printed[12], width.dots ~/ 8);
+      });
+    }
+
+    test('a missing logo prints exactly the text-only bill', () async {
+      settings.printer = counterPrinter;
+      final s = await service(logo: FakeReceiptLogo(null));
+      expect(await s.printBill(normalBill(), pilotLocation), isA<Printed>());
+      expect(transport.printed, bill(PaperWidth.mm80));
+    });
+
+    test('a logo that throws still prints the bill, text only', () async {
+      settings.printer = counterPrinter;
+      final s = await service(logo: ThrowingReceiptLogo());
+      expect(await s.printBill(normalBill(), pilotLocation), isA<Printed>());
+      expect(transport.printed, bill(PaperWidth.mm80));
+    });
+
+    test('the test page never carries the logo', () async {
+      settings.printer = counterPrinter;
+      final s = await service(logo: FakeReceiptLogo(syntheticLogo()));
+      await s.testPrint();
+      expect(transport.printed, isNot(containsAllInOrder([0x1D, 0x76, 0x30])));
+    });
+
+    test('a return slip carries the logo too', () async {
+      settings.printer = counterPrinter;
+      final s = await service(logo: FakeReceiptLogo(syntheticLogo()));
+      final b = discountedSplitBill();
+      await s.printReturn(partialReturn(b), b, pilotLocation);
+      expect(transport.printed.sublist(8, 11), [0x1D, 0x76, 0x30]);
+    });
+
+    test('printOrderSlip prints the slip, with the logo', () async {
+      settings.printer = counterPrinter;
+      final s = await service(logo: FakeReceiptLogo(syntheticLogo()));
+      final doc = OrderSlipDocument.fromOrder(normalOrder(), pilotLocation);
+      expect(await s.printOrderSlip(doc), isA<Printed>());
+      final expected = EscPosEncoder().encode(
+        const ReceiptLayout(
+          PaperWidth.mm80,
+          currencySymbol: 'Rs.',
+        ).orderSlip(doc),
+        logo: rasterizeLogo(syntheticLogo(), dotWidth: 576),
+      );
+      expect(transport.printed, expected);
+    });
+
+    test(
+      'printOrderSlip without a logo, and with a long description',
+      () async {
+        settings
+          ..printer = counterPrinter
+          ..width = PaperWidth.mm58;
+        final s = await service();
+        final doc = OrderSlipDocument.fromOrder(
+          longDescriptionOrder(),
+          pilotLocation,
+        );
+        expect(await s.printOrderSlip(doc), isA<Printed>());
+        expect(
+          transport.printed,
+          EscPosEncoder().encode(
+            const ReceiptLayout(
+              PaperWidth.mm58,
+              currencySymbol: 'Rs.',
+            ).orderSlip(doc),
+          ),
+        );
+        expect(s.previewOrderSlip(doc), contains('ADVANCE RECEIPT'));
+        expect(s.previewOrderSlip(doc), contains('Rs.5,000.00'));
+      },
+    );
+
+    test(
+      'printOrderSlip with no printer is PrintFailed, not a throw',
+      () async {
+        final s = await service();
+        final r = await s.printOrderSlip(
+          OrderSlipDocument.fromOrder(normalOrder(), pilotLocation),
+        );
+        expect(r, isA<PrintFailed>());
+      },
+    );
   });
 
   test('dispose closes the socket and the status stream', () async {

@@ -3,6 +3,7 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_printer/src/api.dart';
 import 'package:nexus_printer/src/layout/print_line.dart';
 import 'package:nexus_printer/src/layout/receipt_layout.dart';
+import 'package:nexus_printer/src/receipt/order_slip.dart';
 import 'package:nexus_printer/src/receipt/receipt_document.dart';
 
 import 'fixtures.dart';
@@ -15,6 +16,9 @@ void main() {
         bill.taxLines.isEmpty ? pilotLocation : gstLocation,
         reprint: reprint,
       );
+
+  OrderSlipDocument orderSlip(PreOrder o) =>
+      OrderSlipDocument.fromOrder(o, pilotLocation);
 
   ReturnSlipDocument slip() {
     final bill = discountedSplitBill();
@@ -32,6 +36,10 @@ void main() {
         l.bill(doc(cancelledBill(), reprint: true)),
     'bill_gst': (l) => l.bill(doc(gstBill())),
     'return_slip': (l) => l.returnSlip(slip()),
+    'bill_delivery': (l) => l.bill(doc(deliveryBill())),
+    'order_slip': (l) => l.orderSlip(orderSlip(normalOrder())),
+    'order_slip_long': (l) => l.orderSlip(orderSlip(longDescriptionOrder())),
+    'order_slip_no_advance': (l) => l.orderSlip(orderSlip(noAdvanceOrder())),
   };
 
   for (final width in PaperWidth.values) {
@@ -101,6 +109,21 @@ void main() {
       expect(sum, amountOn(at('TOTAL')));
       expect(amountOn(at('TOTAL')), const Money.rupees(893));
       expect(lines[at('Round off')], endsWith('+₹0.50'));
+    });
+
+    test('a bill that delivers an order shows the advance as a paid line', () {
+      final lines = text(deliveryBill()).split('\n');
+      final payments = lines
+          .map((l) => l.trimRight())
+          .where((l) => RegExp(r'^(Advance paid|Cash) +₹').hasMatch(l))
+          .toList();
+      expect(payments, hasLength(2));
+      expect(payments[0], matches(RegExp(r'^Advance paid +₹1,000\.00$')));
+      expect(payments[1], matches(RegExp(r'^Cash +₹1,400\.00$')));
+      expect(text(deliveryBill()), contains(RegExp(r'Change +₹100\.00')));
+      expect(text(deliveryBill()), contains('Custom Cake'));
+      // Tendered and change work on the cash part only, not the advance.
+      expect(text(deliveryBill()), contains(RegExp(r'Cash tendered +₹1,500')));
     });
 
     test('REPRINT only when asked; CANCELLED always for a cancelled bill', () {

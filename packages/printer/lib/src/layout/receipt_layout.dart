@@ -1,6 +1,7 @@
 import 'package:nexus_core/nexus_core.dart';
 
 import '../api.dart';
+import '../receipt/order_slip.dart';
 import '../receipt/receipt_document.dart';
 import 'line_builder.dart';
 import 'print_line.dart';
@@ -107,6 +108,43 @@ final class ReceiptLayout {
     return b.build();
   }
 
+  /// The advance slip given to the customer when an order is taken (D-043).
+  List<PrintLine> orderSlip(OrderSlipDocument doc) {
+    final b = LineBuilder(columns);
+    _header(b, doc.header);
+
+    b.center('ADVANCE RECEIPT', bold: true);
+    b.rule();
+    b.left('Order No: ${doc.orderNo}');
+    b.left('Date: ${_dateTime(doc.issuedAtIst)}');
+    b.left('Customer: ${doc.customerName}');
+    b.rule();
+
+    b.left('Due date: ${_dueDate(doc.dueDate)}', bold: true);
+    b.left('Time: ${doc.dueTime ?? 'any'}', bold: true);
+    b.rule();
+
+    b.left('Order details:');
+    b.left(doc.description, indent: 2);
+    b.rule();
+
+    b.row('Price', _money(doc.price));
+    final mode = doc.advanceMode;
+    b.row(
+      mode == null ? 'Advance' : 'Advance (${_modeName(mode)})',
+      _money(doc.advance),
+    );
+    b.rule('=');
+    b.row('BALANCE DUE', _money(doc.balance), bold: true, doubleHeight: true);
+    b.rule('=');
+
+    b.left('Served by: ${doc.servedBy}');
+    b.blank();
+    b.center('Bring this slip on delivery.');
+    _footer(b, doc.footer);
+    return b.build();
+  }
+
   void _header(LineBuilder b, ReceiptHeader h) {
     b.center(h.name, bold: true);
     b.center(h.address);
@@ -143,6 +181,18 @@ String _modeLabel(PaymentMode mode) => switch (mode) {
   PaymentMode.other => 'Other',
   PaymentMode.advance => 'Advance paid',
 };
+
+/// The mode's own name, for "Advance (UPI)": the delivery-bill label
+/// "Advance paid" would read wrongly here.
+String _modeName(PaymentMode mode) =>
+    mode == PaymentMode.advance ? 'Advance' : _modeLabel(mode);
+
+/// `2026-10-28` as `28-10-2026`. Anything that isn't a business date is
+/// printed as given.
+String _dueDate(String businessDate) {
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(businessDate);
+  return m == null ? businessDate : '${m.group(3)}-${m.group(2)}-${m.group(1)}';
+}
 
 /// `25-09-2026 14:35`, from IST wall-clock fields.
 String _dateTime(DateTime ist) {

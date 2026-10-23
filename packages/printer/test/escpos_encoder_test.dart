@@ -5,6 +5,8 @@ import 'package:nexus_printer/src/escpos/code_page.dart';
 import 'package:nexus_printer/src/escpos/escpos_encoder.dart';
 import 'package:nexus_printer/src/layout/print_line.dart';
 import 'package:nexus_printer/src/layout/receipt_layout.dart';
+import 'package:nexus_printer/src/logo/logo_raster.dart';
+import 'package:nexus_printer/src/receipt/order_slip.dart';
 import 'package:nexus_printer/src/receipt/receipt_document.dart';
 
 import 'fixtures.dart';
@@ -119,6 +121,9 @@ void main() {
     ReceiptDocument bill(Bill Function() make, {bool reprint = false}) =>
         ReceiptDocument.fromBill(make(), pilotLocation, reprint: reprint);
 
+    OrderSlipDocument slip(PreOrder o) =>
+        OrderSlipDocument.fromOrder(o, pilotLocation);
+
     final cases = <String, List<PrintLine> Function(ReceiptLayout)>{
       'bill_normal': (l) => l.bill(bill(normalBill)),
       'bill_discount_split': (l) => l.bill(bill(discountedSplitBill)),
@@ -131,6 +136,30 @@ void main() {
         );
       },
     };
+
+    cases['bill_delivery'] = (l) => l.bill(bill(deliveryBill));
+    cases['order_slip'] = (l) => l.orderSlip(slip(normalOrder()));
+    cases['order_slip_long'] = (l) => l.orderSlip(slip(longDescriptionOrder()));
+    cases['order_slip_no_advance'] = (l) => l.orderSlip(slip(noAdvanceOrder()));
+
+    // The same slips with the synthetic logo on top (PR-8). The text after
+    // the raster is what the preview shows, which golden_set_test checks.
+    final withLogo = <String, List<PrintLine> Function(ReceiptLayout)>{
+      'bill_normal_logo': cases['bill_normal']!,
+      'order_slip_logo': cases['order_slip']!,
+    };
+    for (final width in PaperWidth.values) {
+      for (final MapEntry(key: name, value: build) in withLogo.entries) {
+        test('${name}_${width.name}_rs', () {
+          final layout = ReceiptLayout(width, currencySymbol: 'Rs.');
+          final bytes = const EscPosEncoder().encode(
+            build(layout),
+            logo: rasterizeLogo(syntheticLogo(), dotWidth: width.dots),
+          );
+          expectBytesGolden(bytes, '${name}_${width.name}_rs');
+        });
+      }
+    }
 
     for (final width in PaperWidth.values) {
       for (final table in [CodePage.pc437, rupeeTable]) {
