@@ -371,7 +371,7 @@ void main() {
       settings.printer = counterPrinter;
       final s = await service(logo: FakeReceiptLogo(syntheticLogo()));
       final doc = OrderSlipDocument.fromOrder(normalOrder(), pilotLocation);
-      expect(await s.printOrderSlip(doc), isA<Printed>());
+      expect(await s.printOrderSlipDocument(doc), isA<Printed>());
       final expected = EscPosEncoder().encode(
         const ReceiptLayout(
           PaperWidth.mm80,
@@ -393,7 +393,7 @@ void main() {
           longDescriptionOrder(),
           pilotLocation,
         );
-        expect(await s.printOrderSlip(doc), isA<Printed>());
+        expect(await s.printOrderSlipDocument(doc), isA<Printed>());
         expect(
           transport.printed,
           EscPosEncoder().encode(
@@ -403,8 +403,8 @@ void main() {
             ).orderSlip(doc),
           ),
         );
-        expect(s.previewOrderSlip(doc), contains('ADVANCE RECEIPT'));
-        expect(s.previewOrderSlip(doc), contains('Rs.5,000.00'));
+        expect(s.previewOrderSlipDocument(doc), contains('ADVANCE RECEIPT'));
+        expect(s.previewOrderSlipDocument(doc), contains('Rs.5,000.00'));
       },
     );
 
@@ -412,7 +412,7 @@ void main() {
       'printOrderSlip with no printer is PrintFailed, not a throw',
       () async {
         final s = await service();
-        final r = await s.printOrderSlip(
+        final r = await s.printOrderSlipDocument(
           OrderSlipDocument.fromOrder(normalOrder(), pilotLocation),
         );
         expect(r, isA<PrintFailed>());

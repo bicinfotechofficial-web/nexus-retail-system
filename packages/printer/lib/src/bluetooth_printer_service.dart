@@ -144,9 +144,12 @@ final class BluetoothPrinterService implements PrinterService {
         _layout.returnSlip(ReturnSlipDocument.fromReturn(ret, bill, location)),
   );
 
-  /// The advance slip for a new order (D-043). Not on [PrinterService] yet:
-  /// see CR-printer-1.
-  Future<PrintResult> printOrderSlip(OrderSlipDocument doc) =>
+  @override
+  Future<PrintResult> printOrderSlip(PreOrder order, Location location) =>
+      printOrderSlipDocument(OrderSlipDocument.fromOrder(order, location));
+
+  /// The advance slip for an already-built [doc] (D-043).
+  Future<PrintResult> printOrderSlipDocument(OrderSlipDocument doc) =>
       _print(() => _layout.orderSlip(doc));
 
   @override
@@ -174,7 +177,7 @@ final class BluetoothPrinterService implements PrinterService {
       );
 
   /// The advance slip as plain text, exactly as it would print.
-  String previewOrderSlip(OrderSlipDocument doc) =>
+  String previewOrderSlipDocument(OrderSlipDocument doc) =>
       renderText(_layout.orderSlip(doc));
 
   /// Closes the socket and the status stream.

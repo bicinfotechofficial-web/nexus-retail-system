@@ -98,6 +98,15 @@ final class FakePrinterService implements PrinterService {
     return _next();
   }
 
+  /// Every order passed to [printOrderSlip], in order.
+  final List<PreOrder> printedOrderSlips = [];
+
+  @override
+  Future<PrintResult> printOrderSlip(PreOrder order, Location location) async {
+    printedOrderSlips.add(order);
+    return _next();
+  }
+
   @override
   Future<PrintResult> testPrint() async => _next();
 

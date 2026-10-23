@@ -14,3 +14,25 @@ abstract interface class OrderSlipActions {
   /// sheet. Throws when the image can't be made or shared.
   Future<void> shareImage(PreOrder order, Location location);
 }
+
+/// The real [OrderSlipActions]: prints through the [PrinterService] and
+/// shares the slip as an image at the printer's paper width.
+final class PrinterOrderSlipActions implements OrderSlipActions {
+  const PrinterOrderSlipActions(this._printer, this._sharer);
+
+  final PrinterService _printer;
+  final ReceiptSharer _sharer;
+
+  @override
+  Future<PrintResult> print(PreOrder order, Location location) =>
+      _printer.printOrderSlip(order, location);
+
+  @override
+  Future<void> shareImage(PreOrder order, Location location) async {
+    final png = await renderOrderSlipPng(
+      OrderSlipDocument.fromOrder(order, location),
+      _printer.paperWidth,
+    );
+    await _sharer.shareImage(png, fileName: '${order.orderNo}.png');
+  }
+}

@@ -92,6 +92,9 @@ abstract interface class PrinterService {
 
   Future<PrintResult> printReturn(SaleReturn ret, Bill bill, Location location);
 
+  /// The advance slip given to the customer when an order is taken (D-043).
+  Future<PrintResult> printOrderSlip(PreOrder order, Location location);
+
   /// A short page to check alignment, width and the ₹ glyph (PR-5).
   Future<PrintResult> testPrint();
 

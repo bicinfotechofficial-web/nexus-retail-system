@@ -23,6 +23,10 @@ final class AdminServices {
     required this.expenseRepo,
     required this.expenses,
     required this.audit,
+    this.staffRepo,
+    this.staff,
+    this.attendanceRepo,
+    this.orderRepo,
   });
 
   /// The Firestore implementations from the composition root.
@@ -42,6 +46,10 @@ final class AdminServices {
     expenseRepo: b.expenseRepo,
     expenses: b.expenses,
     audit: b.audit,
+    staffRepo: b.staffRepo,
+    staff: b.staff,
+    attendanceRepo: b.attendanceRepo,
+    orderRepo: b.orderRepo,
   );
 
   final AuthService auth;
@@ -59,6 +67,13 @@ final class AdminServices {
   final ExpenseRepository expenseRepo;
   final ExpenseService expenses;
   final AuditRepository audit;
+
+  /// Staff, attendance and pre-orders (D-042, D-043). The real backend
+  /// always fills these; the fakes install their own in the widget tests.
+  final StaffRepository? staffRepo;
+  final StaffService? staff;
+  final AttendanceRepository? attendanceRepo;
+  final OrderRepository? orderRepo;
 
   /// One override for every provider in `providers.dart` that has no
   /// implementation of its own.
@@ -78,5 +93,10 @@ final class AdminServices {
     expenseRepositoryProvider.overrideWithValue(expenseRepo),
     expenseServiceProvider.overrideWithValue(expenses),
     auditRepositoryProvider.overrideWithValue(audit),
+    if (staffRepo case final v?) staffRepositoryProvider.overrideWithValue(v),
+    if (staff case final v?) staffServiceProvider.overrideWithValue(v),
+    if (attendanceRepo case final v?)
+      attendanceRepositoryProvider.overrideWithValue(v),
+    if (orderRepo case final v?) orderRepositoryProvider.overrideWithValue(v),
   ];
 }

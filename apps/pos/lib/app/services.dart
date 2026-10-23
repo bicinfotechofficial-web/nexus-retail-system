@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:nexus_data/nexus_data.dart';
 import 'package:nexus_printer/nexus_printer.dart';
 
+import 'order_slip.dart';
 import 'phone_store.dart';
 import 'providers.dart';
 
@@ -25,6 +26,12 @@ final class PosServices {
     required this.customers,
     required this.phoneStore,
     required this.receiptSharer,
+    this.staffRepo,
+    this.attendanceRepo,
+    this.attendance,
+    this.orderRepo,
+    this.orders,
+    this.orderSlips,
   });
 
   /// The `nexus_data` Firestore implementations from the composition root,
@@ -34,6 +41,15 @@ final class PosServices {
         customers: b.customers,
         phoneStore: const SharedPrefsPhoneStore(),
         receiptSharer: const SharePlusReceiptSharer(),
+        staffRepo: b.staffRepo,
+        attendanceRepo: b.attendanceRepo,
+        attendance: b.attendance,
+        orderRepo: b.orderRepo,
+        orders: b.orders,
+        orderSlips: PrinterOrderSlipActions(
+          printer,
+          const SharePlusReceiptSharer(),
+        ),
         auth: b.authService,
         devices: b.deviceService,
         catalogRepo: b.catalogRepo,
@@ -69,6 +85,16 @@ final class PosServices {
   /// Shares the receipt image through the share sheet (D-036b, D-041).
   final ReceiptSharer receiptSharer;
 
+  /// Staff, attendance and pre-orders (D-042, D-043). The real backend
+  /// always fills these; the `FAKE_DATA` backend leaves them out, and the
+  /// widget tests install their own fakes.
+  final StaffRepository? staffRepo;
+  final AttendanceRepository? attendanceRepo;
+  final AttendanceService? attendance;
+  final OrderRepository? orderRepo;
+  final OrderService? orders;
+  final OrderSlipActions? orderSlips;
+
   /// One override for every provider in `providers.dart` that has no
   /// implementation of its own.
   List<Override> get overrides => [
@@ -87,5 +113,13 @@ final class PosServices {
     customerRepositoryProvider.overrideWithValue(customers),
     phoneStoreProvider.overrideWithValue(phoneStore),
     receiptSharerProvider.overrideWithValue(receiptSharer),
+    if (staffRepo case final v?) staffRepositoryProvider.overrideWithValue(v),
+    if (attendanceRepo case final v?)
+      attendanceRepositoryProvider.overrideWithValue(v),
+    if (attendance case final v?)
+      attendanceServiceProvider.overrideWithValue(v),
+    if (orderRepo case final v?) orderRepositoryProvider.overrideWithValue(v),
+    if (orders case final v?) orderServiceProvider.overrideWithValue(v),
+    if (orderSlips case final v?) orderSlipActionsProvider.overrideWithValue(v),
   ];
 }
