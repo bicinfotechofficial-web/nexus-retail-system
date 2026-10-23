@@ -37,6 +37,8 @@ const DIR = fileURLToPath(new URL('./fixtures/plans/', import.meta.url));
 const EXPECTED = [
   'adjust',
   'adjust_stock_counter',
+  'attendance_mark',
+  'attendance_mark_max',
   'bill_cancel',
   'bill_create',
   'bill_create_max',
@@ -47,6 +49,10 @@ const EXPECTED = [
   'expense_edit',
   'location_create',
   'location_edit',
+  'order_cancel',
+  'order_create',
+  'order_create_no_advance',
+  'order_deliver',
   'produce',
   'product_approve',
   'product_create',
@@ -56,6 +62,8 @@ const EXPECTED = [
   'raw_material_create',
   'return_first',
   'return_second',
+  'staff_create',
+  'staff_update',
   'stock_in',
   'stock_out_raw',
   'threshold_set',
@@ -246,6 +254,112 @@ describe('plan fixtures: exact state after the batches', () => {
 });
 
 // ---- Tampered plans are denied -----------------------------------------
+
+describe('plan fixtures: pre-orders (BE-18)', () => {
+  const ORDER = 'locations/PTB/orders/D01-O000004';
+  const CREATE_DAY = 'locations/PTB/dailySummary/2026-09-26';
+  const AUDIT = 'auditLog/PTB-D01-O000004-X';
+
+  /** Arranges the docs of [f] other than the order itself (the chain wrote that). */
+  async function arrangeExceptOrder(f) {
+    await t.arrange(async (db) => {
+      for (const a of f.arrange) if (a.path !== ORDER) await setDoc(doc(db, a.path), decode(a.data));
+    });
+  }
+
+  it('create then deliver: the advance counts when taken, the sale and ADVANCE when delivered', async () => {
+    await assertSucceeds(apply(fx('order_create')));
+    expect(await read(ORDER)).toMatchObject({ status: 'OPEN', advance: 50000, billId: null });
+    expect(await read(CREATE_DAY)).toMatchObject({ advanceReceived: 50000, lastWriteRef: ORDER });
+    expect((await read('locations/PTB/devices/D01')).lastOrderSeq).toBe(4);
+
+    await arrangeExceptOrder(fx('order_deliver'));
+    await assertSucceeds(apply(fx('order_deliver'), { skipArrange: true }));
+    expect(await read(ORDER)).toMatchObject({ status: 'DELIVERED', billId: 'D02-000007' });
+    expect(await read('locations/PTB/bills/D02-000007')).toMatchObject({ orderId: 'D01-O000004', total: 150000 });
+    const day = await read('locations/PTB/dailySummary/2026-09-28');
+    expect(day).toMatchObject({ billCount: 1, netSales: 150000, byMode: { ADVANCE: 50000, CASH: 100000 } });
+    // Delivering does not move the advance counter.
+    expect((await read(CREATE_DAY)).advanceReceived).toBe(50000);
+  });
+
+  it('create then cancel: the refund is counted on the cancel day, with the audit entry', async () => {
+    await assertSucceeds(apply(fx('order_create')));
+    await arrangeExceptOrder(fx('order_cancel'));
+    await assertSucceeds(apply(fx('order_cancel'), { skipArrange: true }));
+    expect(await read(ORDER)).toMatchObject({ status: 'CANCELLED' });
+    expect(await read(AUDIT)).toMatchObject({ action: 'ORDER_CANCEL' });
+    expect(await read('locations/PTB/dailySummary/2026-09-27')).toMatchObject({
+      advanceRefunded: 30000,
+      lastWriteRef: AUDIT,
+    });
+    expect((await read(CREATE_DAY)).advanceReceived).toBe(50000);
+  });
+
+  it('a delivered order cannot then be cancelled, nor delivered twice', async () => {
+    await assertSucceeds(apply(fx('order_create')));
+    await arrangeExceptOrder(fx('order_deliver'));
+    await assertSucceeds(apply(fx('order_deliver'), { skipArrange: true }));
+    await assertFails(apply(fx('order_cancel'), { skipArrange: true }));
+    const again = fx('order_deliver');
+    opAt(again, 'locations/PTB/bills/D02-000007').path = 'locations/PTB/bills/D02-000008';
+    await assertFails(apply(again, { skipArrange: true }));
+  });
+
+  it('create: a bigger advance than the order itself holds is denied (#20)', async () => {
+    const f = fx('order_create');
+    opAt(f, CREATE_DAY).data.advanceReceived.by = 60000;
+    await assertFails(apply(f));
+  });
+
+  it('create: a device counter that does not go up, or an order not numbered by it (#4)', async () => {
+    const f = fx('order_create');
+    f.arrange.find((a) => a.path.endsWith('/devices/D01')).data.lastOrderSeq = 5;
+    await assertFails(apply(f));
+    const g = fx('order_create');
+    opAt(g, 'locations/PTB/devices/D01').data.lastOrderSeq = 9;
+    await assertFails(apply(g));
+  });
+
+  it('deliver: a payment list without the ADVANCE entry, or the order left OPEN, is denied (#19)', async () => {
+    await assertSucceeds(apply(fx('order_create')));
+    await arrangeExceptOrder(fx('order_deliver'));
+    const noAdv = fx('order_deliver');
+    opAt(noAdv, 'locations/PTB/bills/D02-000007').data.payments = [{ mode: 'CASH', amount: 150000 }];
+    await assertFails(apply(noAdv, { skipArrange: true }));
+    await assertFails(apply(without(fx('order_deliver'), (p) => p === ORDER), { skipArrange: true }));
+  });
+
+  it('cancel: without its audit entry, or by a role without order.manage, is denied (#21, #10)', async () => {
+    await assertSucceeds(apply(fx('order_create')));
+    await arrangeExceptOrder(fx('order_cancel'));
+    await assertFails(apply(without(fx('order_cancel'), (p) => p.startsWith('auditLog/')), { skipArrange: true }));
+    await assertFails(apply(fx('order_cancel'), { actor: 'cashierPtb', skipArrange: true }));
+  });
+});
+
+describe('plan fixtures: staff and attendance (BE-17)', () => {
+  it('a Store Manager cannot write the roster; the Admin can, and edit it again', async () => {
+    await assertFails(apply(fx('staff_create'), { actor: 'smPtb' }));
+    await assertSucceeds(apply(fx('staff_create')));
+    await assertSucceeds(apply(fx('staff_update'), { skipArrange: true }));
+    expect(await read('locations/PTB/staff/st-0001')).toMatchObject({ name: 'Test Baker Two', active: false });
+  });
+
+  it('a mark by another store, or with a changed note over 100 characters, is denied', async () => {
+    await assertSucceeds(apply(fx('attendance_mark')));
+    const other = fx('attendance_mark');
+    await assertFails(apply(other, { actor: 'smMnj', skipArrange: true }));
+    const long = fx('attendance_mark');
+    long.ops[0].data.note = 'x'.repeat(101);
+    await assertFails(apply(long, { skipArrange: true }));
+  });
+
+  it('the largest batch is accepted, and marking again overwrites', async () => {
+    await assertSucceeds(apply(fx('attendance_mark_max')));
+    await assertSucceeds(apply(fx('attendance_mark_max'), { skipArrange: true }));
+  });
+});
 
 describe('plan fixtures: tampered variants are denied', () => {
   it('a summary increment without its new bill (#9)', async () => {

@@ -34,7 +34,7 @@ The tests use the `demo-caramel-cottage` project and **clear its Firestore data 
 | `test/support/batches.js` | Whole business batches (bill, cancel, return, stock operation), with or without summaries and audit, until BE-10's plan fixtures replace them |
 | `test/support/caps.js` | The largest batches the list caps allow (D-030), with the caps read from `Limits` in `packages/core` |
 | `test/support/budget.js` | Probes that measure how far a rule is from Firestore's evaluation limits (see "Rules budget") |
-| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `customers` (#14 and the bill's customer fields, BE-15), `budget` (the caps), plus `indexes` (BE-7) and `seed` (BE-14) |
+| `test/*.test.js` | One file per rule group: `org` (#1–4), `bills` (#5–6), `returns` (#5(b), #7), `stock` (#7–8 and the bill batch), `summaries` (#9 and the complete batches), `audit` (#10), `catalog` (#11), `expenses` (#12), `isolation` (#13), `customers` (#14 and the bill's customer fields, BE-15), `attendance` (#15–16, BE-17), `orders` (#18–21, BE-18), `budget` (the caps), plus `indexes` (BE-7) and `seed` (BE-14) |
 | `scripts/lib/core.js` | What `firebase/` reads from `packages/core`: permission sets, `Limits`, and the override PIN hash |
 | `scripts/seed.mjs` | The seed script (see "Seeding") |
 | `scripts/budget.mjs` | `npm run budget`: prints the measured headroom of each cap case |

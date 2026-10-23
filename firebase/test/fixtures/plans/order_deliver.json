@@ -1,0 +1,284 @@
+{
+  "description": "Deliver order D01-O000004 from device D02 as bill D02-000007: ADVANCE entry first, the balance in cash",
+  "uid": "sm-ptb",
+  "arrange": [
+    {
+      "path": "locations/PTB/orders/D01-O000004",
+      "data": {
+        "orderNo": "PTB-D01-O000004",
+        "deviceId": "D01",
+        "seq": 4,
+        "customerId": "9876543210_dd799e05ea",
+        "customerName": "Test Customer",
+        "customerPhone": "9876543210",
+        "customerWhatsapp": "9876543210",
+        "dueDate": "2026-09-28",
+        "dueTime": "16:30",
+        "description": "Two layer truffle, 1.5 kg, \"Happy Birthday\"",
+        "price": 150000,
+        "advance": 50000,
+        "advanceMode": "UPI",
+        "status": "OPEN",
+        "billId": null,
+        "servedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "businessDate": "2026-09-26",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "serverCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D02",
+      "data": {
+        "code": "D02",
+        "label": "Counter 1",
+        "registeredBy": "sm-ptb",
+        "lastBillSeq": 6,
+        "lastMovementSeq": 0,
+        "lastReturnSeq": 0,
+        "lastOrderSeq": 0,
+        "retired": false,
+        "registeredAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "ops": [
+    {
+      "path": "locations/PTB/bills/D02-000007",
+      "kind": "create",
+      "data": {
+        "billNo": "PTB-D02-000007",
+        "deviceId": "D02",
+        "seq": 7,
+        "lines": [
+          {
+            "productId": "CUSTOM-CAKE",
+            "name": "Custom cake",
+            "qty": 1,
+            "unitPrice": 150000,
+            "lineTotal": 150000
+          }
+        ],
+        "subtotal": 150000,
+        "discount": null,
+        "taxableValue": 150000,
+        "taxLines": [],
+        "roundOff": 0,
+        "total": 150000,
+        "payments": [
+          {
+            "mode": "ADVANCE",
+            "amount": 50000
+          },
+          {
+            "mode": "CASH",
+            "amount": 100000
+          }
+        ],
+        "cashTendered": null,
+        "status": "COMPLETED",
+        "cancel": null,
+        "returnedQty": {},
+        "soldQty": {
+          "CUSTOM-CAKE": 1
+        },
+        "lastReturnId": null,
+        "servedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "customerId": "9876543210_dd799e05ea",
+        "customerName": "Test Customer",
+        "customerPhone": "9876543210",
+        "customerWhatsapp": "9876543210",
+        "businessDate": "2026-09-28",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-28T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        },
+        "orderId": "D01-O000004"
+      }
+    },
+    {
+      "path": "locations/PTB/stock/FG_CUSTOM-CAKE",
+      "kind": "setMerge",
+      "data": {
+        "kind": "FINISHED",
+        "refId": "CUSTOM-CAKE",
+        "name": "Custom cake",
+        "unit": "PCS",
+        "qty": {
+          "__op": "increment",
+          "by": -1
+        },
+        "lastMovementId": "D02-000007",
+        "updatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/movements/D02-000007",
+      "kind": "create",
+      "data": {
+        "type": "SALE",
+        "lines": [
+          {
+            "itemKey": "FG_CUSTOM-CAKE",
+            "delta": -1
+          }
+        ],
+        "reason": null,
+        "note": null,
+        "refId": "D02-000007",
+        "businessDate": "2026-09-28",
+        "clientCreatedAt": {
+          "__op": "timestamp",
+          "value": "2026-09-28T04:30:00.000Z"
+        },
+        "createdBy": "sm-ptb",
+        "deviceId": "D02",
+        "serverCreatedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/dailySummary/2026-09-28",
+      "kind": "setMerge",
+      "data": {
+        "billCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "grossSales": {
+          "__op": "increment",
+          "by": 150000
+        },
+        "netSales": {
+          "__op": "increment",
+          "by": 150000
+        },
+        "byMode": {
+          "ADVANCE": {
+            "__op": "increment",
+            "by": 50000
+          },
+          "CASH": {
+            "__op": "increment",
+            "by": 100000
+          }
+        },
+        "byProduct": {
+          "CUSTOM-CAKE": {
+            "qty": {
+              "__op": "increment",
+              "by": 1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 150000
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/bills/D02-000007"
+      }
+    },
+    {
+      "path": "locations/PTB/monthlySummary/2026-09",
+      "kind": "setMerge",
+      "data": {
+        "billCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "grossSales": {
+          "__op": "increment",
+          "by": 150000
+        },
+        "netSales": {
+          "__op": "increment",
+          "by": 150000
+        },
+        "byMode": {
+          "ADVANCE": {
+            "__op": "increment",
+            "by": 50000
+          },
+          "CASH": {
+            "__op": "increment",
+            "by": 100000
+          }
+        },
+        "byProduct": {
+          "CUSTOM-CAKE": {
+            "qty": {
+              "__op": "increment",
+              "by": 1
+            },
+            "amount": {
+              "__op": "increment",
+              "by": 150000
+            }
+          }
+        },
+        "lastWriteRef": "locations/PTB/bills/D02-000007"
+      }
+    },
+    {
+      "path": "locations/PTB/customers/9876543210_dd799e05ea",
+      "kind": "setMerge",
+      "data": {
+        "name": "Test Customer",
+        "phone": "9876543210",
+        "whatsapp": "9876543210",
+        "lastBillAt": {
+          "__op": "serverTimestamp"
+        },
+        "billCount": {
+          "__op": "increment",
+          "by": 1
+        },
+        "totalSpend": {
+          "__op": "increment",
+          "by": 150000
+        },
+        "lastWriteRef": "D02-000007"
+      }
+    },
+    {
+      "path": "locations/PTB/devices/D02",
+      "kind": "update",
+      "data": {
+        "lastBillSeq": 7
+      }
+    },
+    {
+      "path": "locations/PTB/orders/D01-O000004",
+      "kind": "update",
+      "data": {
+        "status": "DELIVERED",
+        "billId": "D02-000007",
+        "deliveredAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

@@ -52,6 +52,7 @@ export function makeBill({
   businessDate = TODAY,
   customer = {},
   customerOverride = {},
+  orderId,
 } = {}) {
   const billLines = lines.map(([productId, qty, unitPrice]) => ({
     productId,
@@ -88,6 +89,8 @@ export function makeBill({
     serverCreatedAt: serverTimestamp(),
     createdBy: uid,
     ...customerFields(customer),
+    // Only a delivery bill carries the key (D-043); an ordinary bill omits it.
+    ...(orderId === undefined ? {} : { orderId }),
     ...customerOverride,
   };
 }
@@ -281,4 +284,95 @@ export function makeProduct({ status = 'ACTIVE', price = 65000, proposedPrice = 
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
+}
+
+// ---- Staff, attendance and pre-orders (D-042, D-043) ------------------------
+
+/** A new staff doc as the Admin's create writes it (auto ID). */
+export function makeStaff({ name = 'Asha Baker', role = 'Baker', active = true, uid = ACTORS.admin.uid } = {}) {
+  return { name, role, active, createdBy: uid, createdAt: serverTimestamp() };
+}
+
+/** `2026-09-26_staff1`. */
+export const attendanceId = (businessDate, staffId) => `${businessDate}_${staffId}`;
+
+/** One attendance mark as the POS writes it (set of the whole doc). */
+export function makeAttendance({
+  staffId = 'staff1',
+  staffName = 'Asha Baker',
+  businessDate = TODAY,
+  status = 'PRESENT',
+  note = null,
+  uid = ACTORS.smPtb.uid,
+  userName = 'Store Manager PTB',
+  deviceId = 'D01',
+} = {}) {
+  return {
+    staffId,
+    staffName,
+    businessDate,
+    status,
+    note,
+    markedBy: { uid, name: userName },
+    deviceId,
+    editedAt: serverTimestamp(),
+  };
+}
+
+/** `D01-O000007` */
+export function orderId(deviceId, seq) {
+  return `${deviceId}-O${String(seq).padStart(6, '0')}`;
+}
+
+/**
+ * A new pre-order as the create writes it. Amounts are paise; `advance` 0
+ * means no mode. `override` replaces fields as they are, for tampered cases.
+ */
+export function makeOrder({
+  loc = LOC.PTB,
+  deviceId = 'D01',
+  seq = 1,
+  price = 150000,
+  advance = 50000,
+  advanceMode = advance === 0 ? null : 'UPI',
+  dueDate = TOMORROW,
+  dueTime = '16:30',
+  description = 'Two layer chocolate truffle, 1.5 kg, "Happy Birthday Anu"',
+  uid = ACTORS.smPtb.uid,
+  userName = 'Store Manager PTB',
+  businessDate = TODAY,
+  customer = {},
+  override = {},
+} = {}) {
+  const id = orderId(deviceId, seq);
+  return {
+    orderNo: `${loc}-${id}`,
+    deviceId,
+    seq,
+    ...customerFields(customer),
+    dueDate,
+    dueTime,
+    description,
+    price,
+    advance,
+    advanceMode,
+    status: 'OPEN',
+    billId: null,
+    servedBy: { uid, name: userName },
+    businessDate,
+    clientCreatedAt: Timestamp.fromDate(new Date(`${businessDate}T10:00:00+05:30`)),
+    serverCreatedAt: serverTimestamp(),
+    createdBy: uid,
+    ...override,
+  };
+}
+
+/** The same order as it reads back (for arranging state): server times filled in. */
+export function storedOrder(order, extra = {}) {
+  return { ...order, serverCreatedAt: Timestamp.now(), ...extra };
+}
+
+/** The `cancel` map of a cancelled pre-order. */
+export function makeOrderCancel({ uid = ACTORS.smPtb.uid, businessDate = TODAY, reason = 'Customer cancelled', refunded = 0 } = {}) {
+  return { reason, by: uid, at: Timestamp.now(), businessDate, refunded };
 }

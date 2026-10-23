@@ -9,8 +9,8 @@ import { assertFails, useRulesEnv } from './support/env.js';
 
 describe('fixtures', () => {
   it('read every permission from packages/core', () => {
-    expect(PERMS.all).toHaveLength(17);
-    expect(new Set(PERMS.all).size).toBe(17);
+    expect(PERMS.all).toHaveLength(20);
+    expect(new Set(PERMS.all).size).toBe(20);
   });
 
   it('give Admin every permission and all locations', () => {
@@ -23,11 +23,13 @@ describe('fixtures', () => {
     expect(sm.allLocations).toBe(false);
     expect([...sm.permissions].sort()).toEqual(
       [
+        'attendance.mark',
         'bill.cancel',
         'bill.create',
         'catalog.suggest',
         'catalog.view',
         'device.register',
+        'order.manage',
         'rawMaterial.create',
         'report.own',
         'return.create',

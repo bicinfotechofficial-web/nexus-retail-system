@@ -3,7 +3,7 @@ import 'package:nexus_core/nexus_core.dart';
 import '../api/failures.dart';
 import 'durable_store.dart';
 
-/// The three per-device sequences (03-SYNC §3).
+/// The four per-device sequences (03-SYNC §3, D-043).
 enum SeqKind {
   /// Bill numbers: `D01-000123`. Recovered from `lastBillSeq`.
   bill,
@@ -12,12 +12,16 @@ enum SeqKind {
   movement,
 
   /// Returns: `D01-R000007`. Recovered from `lastReturnSeq`.
-  returned;
+  returned,
+
+  /// Pre-orders: `D01-O000007`. Recovered from `lastOrderSeq`.
+  order;
 
   int lastUsedOn(Device d) => switch (this) {
     bill => d.lastBillSeq,
     movement => d.lastMovementSeq,
     returned => d.lastReturnSeq,
+    order => d.lastOrderSeq,
   };
 }
 

@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // Security rules for the Caramel Cottage retail system. The contract is
-// docs/04-PERMISSIONS.md; rule numbers (#1 ... #14) refer to it. Anything not
+// docs/04-PERMISSIONS.md; rule numbers (#1 ... #21) refer to it. Anything not
 // matched below is denied (#1).
 //
 // Two budgets apply to every rule evaluation:
@@ -30,6 +30,9 @@ service cloud.firestore {
     }
     function devicePath(loc, deviceId) {
       return /databases/$(database)/documents/locations/$(loc)/devices/$(deviceId);
+    }
+    function orderPath(loc, orderId) {
+      return /databases/$(database)/documents/locations/$(loc)/orders/$(orderId);
     }
 
     // ---- Who is asking (04-PERMISSIONS helper functions) ----------------
@@ -194,6 +197,149 @@ service cloud.firestore {
         && c.lastBillAt == request.time;
     }
 
+    // ---- #15 staff roster, #16 attendance (D-042) ------------------------
+
+    function staffKeys() {
+      return ['name', 'role', 'active', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'];
+    }
+    function validStaffName(n) {
+      return n is string && n.size() >= 1 && n.size() <= 60;
+    }
+    // #15 create: an auto-ID document the Admin adds. `updatedBy` and
+    // `updatedAt` are optional on create and, when given, are the writer and
+    // the server time.
+    function validNewStaff(loc) {
+      let d = incoming();
+      return canAt('staff.manage', loc)
+        && d.keys().hasOnly(staffKeys())
+        && d.keys().hasAll(['name', 'role', 'active', 'createdBy', 'createdAt'])
+        && validStaffName(d.name)
+        && d.role is string && d.role.size() <= 30
+        && d.active is bool
+        && d.createdBy == request.auth.uid
+        && d.createdAt == request.time
+        && (!d.keys().hasAny(['updatedBy']) || d.updatedBy == request.auth.uid)
+        && (!d.keys().hasAny(['updatedAt']) || d.updatedAt == request.time);
+    }
+    // #15 update: only the editable fields and the update stamp. Whatever
+    // the edit leaves alone stays valid because it was valid when created.
+    function validStaffUpdate(loc) {
+      let d = incoming();
+      let ch = changed();
+      return canAt('staff.manage', loc)
+        && ch.hasOnly(['name', 'role', 'active', 'updatedBy', 'updatedAt'])
+        // updatedAt is the server time, so it always changes; updatedBy
+        // doesn't when the same person edits twice.
+        && ch.hasAll(['updatedAt'])
+        && validStaffName(d.name)
+        && d.role is string && d.role.size() <= 30
+        && d.active is bool
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+    function attendanceKeys() {
+      return ['staffId', 'staffName', 'businessDate', 'status', 'note', 'markedBy', 'deviceId', 'editedAt'];
+    }
+    // #16. The doc ID is `{businessDate}_{staffId}`, and the doc says the
+    // same. The roster is not read (a batch of 15 marks must stay inside the
+    // access-call budget) and the date window is the client's (D-031).
+    function validAttendance(docId) {
+      let d = incoming();
+      return d.keys().hasOnly(attendanceKeys())
+        && d.keys().hasAll(['staffId', 'staffName', 'businessDate', 'status', 'markedBy', 'deviceId', 'editedAt'])
+        && isBusinessDate(d.businessDate)
+        && d.staffId is string && isSafeKey(d.staffId)
+        && docId == d.businessDate + '_' + d.staffId
+        && d.status in ['PRESENT', 'ABSENT', 'HALF_DAY']
+        && (d.get('note', null) == null || (d.note is string && d.note.size() <= 100))
+        && validStaffName(d.staffName)
+        && d.markedBy is map
+        && d.markedBy.keys().hasOnly(['uid', 'name'])
+        && d.markedBy.uid == request.auth.uid
+        && d.markedBy.name is string
+        && d.deviceId is string && d.deviceId.matches('^D[0-9]{2}$')
+        && d.editedAt == request.time;
+    }
+
+    // ---- #18 pre-orders (D-043) ---------------------------------------------
+
+    function orderKeys() {
+      return ['orderNo', 'deviceId', 'seq', 'customerId', 'customerName', 'customerPhone',
+              'customerWhatsapp', 'dueDate', 'dueTime', 'description', 'price', 'advance',
+              'advanceMode', 'status', 'billId', 'servedBy', 'businessDate',
+              'clientCreatedAt', 'serverCreatedAt', 'createdBy'];
+    }
+    // #18 create. orderId is `D01-O000007` and must agree with deviceId, seq
+    // and orderNo; the device is a registered one whose lastOrderSeq becomes
+    // this seq in the same batch (#4).
+    function validNewOrder(loc, orderId) {
+      let o = incoming();
+      let keys = orderKeys();
+      return orderId.matches('^D[0-9]{2}-O[0-9]{6}$')
+        && o.keys().hasOnly(keys.concat(['deliveredAt']))
+        && o.keys().hasAll(keys)
+        && o.get('deliveredAt', null) == null
+        && o.orderNo == loc + '-' + orderId
+        && o.deviceId == orderId.split('-')[0]
+        && o.seq is int && o.seq > 0
+        && orderId.matches('^D[0-9]{2}-O0*' + string(o.seq) + '$')
+        && exists(devicePath(loc, o.deviceId))
+        && getAfter(devicePath(loc, o.deviceId)).data.lastOrderSeq == o.seq
+        && o.createdBy == request.auth.uid
+        && o.status == 'OPEN'
+        && o.billId == null
+        && validBillCustomer(o)
+        && isBusinessDate(o.dueDate)
+        && (o.dueTime == null || (o.dueTime is string && o.dueTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
+        && o.description is string && o.description.size() >= 1 && o.description.size() <= 500
+        && o.price is int && o.price > 0 && o.price % 100 == 0
+        && o.advance is int && o.advance % 100 == 0 && o.advance >= 0 && o.advance <= o.price
+        && (o.advance == 0
+          ? o.advanceMode == null
+          : o.advanceMode in ['CASH', 'UPI', 'CARD', 'WALLET', 'OTHER'])
+        && o.servedBy is map
+        && isBusinessDate(o.businessDate)
+        && o.clientCreatedAt is timestamp
+        && o.serverCreatedAt == request.time;
+    }
+    // #18 (a): delivery. The order goes OPEN -> DELIVERED with the bill that
+    // is new in this batch and says it delivers this order (#19 checks the
+    // other half).
+    function isOrderDeliver(loc, orderId) {
+      let ch = changed();
+      let bid = incoming().billId;
+      return ch.hasOnly(['status', 'billId', 'deliveredAt'])
+        && ch.hasAll(['status', 'billId', 'deliveredAt'])
+        && canAt('order.manage', loc)
+        && resource.data.status == 'OPEN'
+        && incoming().status == 'DELIVERED'
+        && bid is string && bid.matches('^D[0-9]{2}-[0-9]{6}$')
+        && !exists(billPath(loc, bid))
+        && existsAfter(billPath(loc, bid))
+        && getAfter(billPath(loc, bid)).data.get('orderId', null) == orderId
+        && incoming().deliveredAt == request.time;
+    }
+    // #18 (b): cancellation of an open order, with its audit entry.
+    function isOrderCancel(loc, orderId) {
+      let ch = changed();
+      let c = incoming().cancel;
+      return ch.hasOnly(['status', 'cancel'])
+        && ch.hasAll(['status', 'cancel'])
+        && canAt('order.manage', loc)
+        && resource.data.status == 'OPEN'
+        && incoming().status == 'CANCELLED'
+        && c is map
+        && c.keys().hasOnly(['reason', 'by', 'at', 'businessDate', 'refunded'])
+        && c.keys().hasAll(['reason', 'by', 'at', 'businessDate', 'refunded'])
+        && c.reason is string && c.reason.size() >= 1 && c.reason.size() <= 100
+        && c.by == request.auth.uid
+        && c.at is timestamp
+        && isBusinessDate(c.businessDate)
+        && c.refunded is int && c.refunded % 100 == 0
+        && c.refunded >= 0 && c.refunded <= resource.data.advance
+        && existsAfter(auditPath(loc + '-' + orderId + '-X'));
+    }
+
     // ---- #5-6 bills --------------------------------------------------------
     // The rules language has no loops, so per-line and per-key checks are
     // unrolled up to the caps in Limits (D-030): 15 lines, 4 payments.
@@ -281,6 +427,71 @@ service cloud.firestore {
               'customerId', 'customerName', 'customerPhone', 'customerWhatsapp'];
     }
 
+    // #19. A bill may also carry `orderId` (D-043): absent or null for an
+    // ordinary bill.
+    function billOptionalKeys() {
+      return ['orderId'];
+    }
+
+    // The ADVANCE entries of a payment list (#19): how many, and their sum.
+    // Unrolled to the cap of 4 payments, dispatching on size() like
+    // paymentsOk.
+    function isAdv(p) {
+      return p.mode == 'ADVANCE';
+    }
+    function advanceCount(ps) {
+      return ps.size() == 0 ? 0
+        : ps.size() == 1 ? (isAdv(ps[0]) ? 1 : 0)
+        : ps.size() == 2 ? (isAdv(ps[0]) ? 1 : 0) + (isAdv(ps[1]) ? 1 : 0)
+        : ps.size() == 3 ? (isAdv(ps[0]) ? 1 : 0) + (isAdv(ps[1]) ? 1 : 0) + (isAdv(ps[2]) ? 1 : 0)
+        : (isAdv(ps[0]) ? 1 : 0) + (isAdv(ps[1]) ? 1 : 0) + (isAdv(ps[2]) ? 1 : 0) + (isAdv(ps[3]) ? 1 : 0);
+    }
+    function advanceSum(ps) {
+      return ps.size() == 0 ? 0
+        : ps.size() == 1 ? (isAdv(ps[0]) ? ps[0].amount : 0)
+        : ps.size() == 2 ? (isAdv(ps[0]) ? ps[0].amount : 0) + (isAdv(ps[1]) ? ps[1].amount : 0)
+        : ps.size() == 3 ? (isAdv(ps[0]) ? ps[0].amount : 0) + (isAdv(ps[1]) ? ps[1].amount : 0) + (isAdv(ps[2]) ? ps[2].amount : 0)
+        : (isAdv(ps[0]) ? ps[0].amount : 0) + (isAdv(ps[1]) ? ps[1].amount : 0) + (isAdv(ps[2]) ? ps[2].amount : 0) + (isAdv(ps[3]) ? ps[3].amount : 0);
+    }
+
+    // An ordinary bill's payments (#19): like paymentsOk, and no entry is
+    // ADVANCE. Fused with the sum so the list is dispatched on size() once
+    // (the bill rule is the tightest, see the header).
+    function paymentsOkNoAdvance(ps, total) {
+      return ps is list && ps.size() <= 4
+        && (ps.size() == 0 ? total == 0
+          : ps.size() == 1 ? ps[0].amount == total && ps[0].mode != 'ADVANCE'
+          : ps.size() == 2 ? ps[0].amount + ps[1].amount == total
+            && ps[0].mode != 'ADVANCE' && ps[1].mode != 'ADVANCE'
+          : ps.size() == 3 ? ps[0].amount + ps[1].amount + ps[2].amount == total
+            && ps[0].mode != 'ADVANCE' && ps[1].mode != 'ADVANCE' && ps[2].mode != 'ADVANCE'
+          : ps[0].amount + ps[1].amount + ps[2].amount + ps[3].amount == total
+            && ps[0].mode != 'ADVANCE' && ps[1].mode != 'ADVANCE' && ps[2].mode != 'ADVANCE'
+            && ps[3].mode != 'ADVANCE');
+    }
+
+    // #19. Without an orderId no payment is ADVANCE. With one, the order
+    // must be OPEN before the batch and DELIVERED after it, naming this bill,
+    // and the payments hold exactly one ADVANCE entry equal to the order's
+    // advance (none when the advance is 0).
+    function paymentsAndOrderOk(loc, billId, b) {
+      return b.get('orderId', null) != null
+        ? paymentsOk(b.payments, b.total)
+          && b.orderId is string && b.orderId.matches('^D[0-9]{2}-O[0-9]{6}$')
+          && orderDelivers(loc, billId, b.orderId, b.payments)
+        : paymentsOkNoAdvance(b.payments, b.total);
+    }
+    function orderDelivers(loc, billId, orderId, ps) {
+      let before = get(orderPath(loc, orderId)).data;
+      let after = getAfter(orderPath(loc, orderId)).data;
+      return before.status == 'OPEN'
+        && after.status == 'DELIVERED'
+        && after.billId == billId
+        && (before.advance == 0
+          ? advanceCount(ps) == 0
+          : advanceCount(ps) == 1 && advanceSum(ps) == before.advance);
+    }
+
     // The customer on a new bill (D-034, D-037): a trimmed name of 1-60
     // characters, a mobile number, a WhatsApp number that is null or a mobile
     // number, and a customerId that starts with `{customerPhone}_`. The
@@ -302,8 +513,8 @@ service cloud.firestore {
       let b = incoming();
       let keys = billKeys();
       return billId.matches('^D[0-9]{2}-[0-9]{6}$')
-        && b.keys().hasOnly(keys)
-        && b.keys().size() == keys.size()
+        && b.keys().hasOnly(keys.concat(billOptionalKeys()))
+        && b.keys().hasAll(keys)
         && b.billNo == loc + '-' + billId
         && b.deviceId == billId.split('-')[0]
         && b.seq is int && b.seq > 0
@@ -323,7 +534,7 @@ service cloud.firestore {
         && (b.cashTendered == null || b.cashTendered is int)
         && b.servedBy is map
         && b.total is int && b.total >= 0 && b.total % 100 == 0
-        && paymentsOk(b.payments, b.total)
+        && paymentsAndOrderOk(loc, billId, b)
         && isBusinessDate(b.businessDate)
         && b.clientCreatedAt is timestamp
         && b.serverCreatedAt == request.time;
@@ -338,6 +549,9 @@ service cloud.firestore {
         && resource.data.status == 'COMPLETED'
         && incoming().status == 'CANCELLED'
         && resource.data.returnedQty.size() == 0
+        // A bill that delivers a pre-order can't be cancelled (D-043 (d)):
+        // its advance was taken on another day.
+        && resource.data.get('orderId', null) == null
         && c is map
         && c.keys().hasOnly(['reason', 'by', 'at', 'businessDate'])
         && c.keys().hasAll(['reason', 'by', 'at', 'businessDate'])
@@ -544,7 +758,14 @@ service cloud.firestore {
     function summaryKeys() {
       return ['billCount', 'cancelCount', 'returnCount', 'grossSales', 'discounts', 'roundOff',
               'netSales', 'returns', 'cancelled', 'byMode', 'byProduct', 'expenses',
-              'byExpenseCategory', 'lastWriteRef'];
+              'byExpenseCategory', 'advanceReceived', 'advanceRefunded', 'lastWriteRef'];
+    }
+
+    // How much a summary write changes a number field. A set(merge) with
+    // increment() reaches the rules as the resulting value, so the change is
+    // the new value minus the stored one (0 for a doc that doesn't exist yet).
+    function summaryDelta(f) {
+      return incoming().get(f, 0) - (resource == null ? 0 : resource.data.get(f, 0));
     }
 
     // #9. Every summary write names, in lastWriteRef, the doc that caused
@@ -553,19 +774,45 @@ service cloud.firestore {
     // audit doc (`{loc}-EXP-...`, D-032; an edit that moves an expense to
     // another location ties both summaries to the one audit doc). That doc must be new in this batch, which ties each
     // increment to exactly one business event. The numbers themselves are
-    // increments the rules can't see; QA-5 reconciles them.
+    // increments the rules can't see, except the two advance fields (#20,
+    // D-043), which only a pre-order can move: a new order (with an advance)
+    // raises advanceReceived by its advance, and a cancelled order's audit
+    // entry `{loc}-{orderId}-X` raises advanceRefunded by what it refunded.
+    // QA-5 reconciles the rest.
+    function docPath(ref) {
+      return path('/databases/' + database + '/documents/' + ref);
+    }
     function validSummaryWrite(loc) {
       let ref = incoming().lastWriteRef;
+      let refIsOrder = ref is string && ref.matches('^locations/' + loc + '/orders/D[0-9]{2}-O[0-9]{6}$');
+      let refIsCancel = ref is string && ref.matches('^auditLog/' + loc + '-D[0-9]{2}-O[0-9]{6}-X$');
       return activeAt(loc)
         && incoming().keys().hasOnly(summaryKeys())
         && ref is string
-        && (ref.matches('^locations/' + loc + '/((bills|returns)/[A-Za-z0-9-]+|movements/D[0-9]{2}-[0-9]{6}-X)$')
-          || ref.matches('^auditLog/[A-Z]{2,4}-EXP-[A-Za-z0-9_-]+$'))
-        && !exists(path('/databases/' + database + '/documents/' + ref))
-        && existsAfter(path('/databases/' + database + '/documents/' + ref))
+        && (ref.matches('^locations/' + loc + '/((bills|returns)/[A-Za-z0-9-]+|movements/D[0-9]{2}-[0-9]{6}-X|orders/D[0-9]{2}-O[0-9]{6})$')
+          || ref.matches('^auditLog/[A-Z]{2,4}-EXP-[A-Za-z0-9_-]+$')
+          || refIsCancel)
+        && !exists(docPath(ref))
+        && existsAfter(docPath(ref))
         && (!ref.matches('^auditLog/.*$')
-          || getAfter(path('/databases/' + database + '/documents/' + ref)).data.action
-               in ['EXPENSE_CREATE', 'EXPENSE_UPDATE']);
+          || (refIsCancel
+            ? getAfter(docPath(ref)).data.action == 'ORDER_CANCEL'
+            : getAfter(docPath(ref)).data.action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE']))
+        && validAdvanceDeltas(loc, ref, refIsOrder, refIsCancel);
+    }
+
+    // #20. advanceReceived moves only with a new order, by exactly its
+    // advance; advanceRefunded only with a cancellation's audit entry, by
+    // exactly the order's refund. Every other write leaves both alone.
+    function validAdvanceDeltas(loc, ref, refIsOrder, refIsCancel) {
+      return summaryDelta('advanceReceived') == (refIsOrder ? getAfter(docPath(ref)).data.advance : 0)
+        && summaryDelta('advanceRefunded') == (refIsCancel ? cancelledRefund(loc, ref) : 0);
+    }
+    // `auditLog/PTB-D01-O000007-X` is the cancellation of order D01-O000007.
+    function cancelledRefund(loc, ref) {
+      let parts = ref.split('/')[1].split('-');
+      let o = getAfter(orderPath(loc, parts[1] + '-' + parts[2])).data;
+      return o.status == 'CANCELLED' ? o.cancel.refunded : null;
     }
 
     // ---- #10 auditLog ------------------------------------------------------
@@ -582,6 +829,7 @@ service cloud.firestore {
         : action == 'BILL_CANCEL' ? 'bill.cancel'
         : action == 'RETURN' ? 'return.create'
         : action == 'OFFLINE_OVERRIDE' ? 'bill.create'
+        : action == 'ORDER_CANCEL' ? 'order.manage'
         : action == 'THRESHOLD_CHANGE' ? 'stock.threshold'
         : action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'expense.manage'
         : action in ['PRICE_CHANGE', 'PRODUCT_APPROVE', 'PRODUCT_DECLINE'] ? 'catalog.manage'
@@ -597,6 +845,7 @@ service cloud.firestore {
         : action == 'RETURN' ? 'D[0-9]{2}-R[0-9]{6}'
         : action in ['STOCK_ADJUST', 'WASTAGE'] ? 'D[0-9]{2}-M[0-9]{6}'
         : action == 'OFFLINE_OVERRIDE' ? 'D[0-9]{2}-OVR-[0-9]+'
+        : action == 'ORDER_CANCEL' ? 'D[0-9]{2}-O[0-9]{6}-X'
         : action in ['EXPENSE_CREATE', 'EXPENSE_UPDATE'] ? 'EXP-[A-Za-z0-9_-]+-[0-9]+'
         : action == 'LOCATION_UPDATE' ? 'LOC-[0-9]+'
         : 'USR-[A-Za-z0-9_-]+-[0-9]+';
@@ -620,7 +869,7 @@ service cloud.firestore {
         && a.keys().size() == keys.size()
         && a.action in ['STOCK_ADJUST', 'WASTAGE', 'BILL_CANCEL', 'RETURN', 'EXPENSE_CREATE',
                         'EXPENSE_UPDATE', 'PRICE_CHANGE', 'PRODUCT_APPROVE', 'PRODUCT_DECLINE', 'USER_CREATE',
-                        'USER_DISABLE', 'USER_ENABLE', 'OFFLINE_OVERRIDE', 'LOCATION_UPDATE']
+                        'USER_DISABLE', 'USER_ENABLE', 'OFFLINE_OVERRIDE', 'LOCATION_UPDATE', 'ORDER_CANCEL']
         && a.by == request.auth.uid
         && a.at == request.time
         && a.clientAt is timestamp
@@ -643,6 +892,12 @@ service cloud.firestore {
       return ['name', 'category', 'price', 'proposedPrice', 'unit', 'gstRate', 'scope', 'status',
               'recipe', 'sortOrder', 'createdBy', 'createdAt', 'updatedAt'];
     }
+    // `openPrice` (D-043): the price is typed at the counter, as for the
+    // seeded CUSTOM-CAKE. Optional, a bool, and true only with catalog.manage
+    // (a suggestion can't set it, see isSuggestion).
+    function productOptionalKeys() {
+      return ['openPrice'];
+    }
     // Set by an approval or a decline only (D-038).
     function reviewKeys() {
       return ['reviewedBy', 'reviewNote', 'reviewedAt'];
@@ -659,6 +914,8 @@ service cloud.firestore {
         && d.status in ['ACTIVE', 'PENDING', 'INACTIVE']
         && (d.scope == 'GLOBAL' || isLocationCode(d.scope))
         && d.sortOrder is int
+        && d.get('openPrice', false) is bool
+        && (d.get('openPrice', false) == false || can('catalog.manage'))
         && d.updatedAt == request.time;
     }
     // A Store Manager's suggestion: PENDING, no price yet, scoped to their own
@@ -667,6 +924,7 @@ service cloud.firestore {
       return can('catalog.suggest')
         && d.status == 'PENDING'
         && d.price == null
+        && d.get('openPrice', false) == false
         && d.scope == me().locationId;
     }
 
@@ -721,7 +979,7 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if can('catalog.view');
       allow create: if isSafeKey(productId)
-        && incoming().keys().hasOnly(productKeys())
+        && incoming().keys().hasOnly(productKeys().concat(productOptionalKeys()))
         && incoming().keys().hasAll(productKeys())
         && validProductFields(incoming())
         && incoming().createdBy == request.auth.uid
@@ -733,7 +991,7 @@ service cloud.firestore {
       // edit touches the review fields.
       allow update: if can('catalog.manage')
         && !changed().hasAny(['createdBy', 'createdAt'])
-        && incoming().keys().hasOnly(productKeys().concat(reviewKeys()))
+        && incoming().keys().hasOnly(productKeys().concat(productOptionalKeys()).concat(reviewKeys()))
         && validProductFields(incoming())
         && (resource.data.status == 'PENDING'
           ? isApprove() || isDecline()
@@ -847,6 +1105,35 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // ---- #15 staff roster (D-042) --------------------------------------
+      // The Admin keeps it; staff are deactivated, never deleted. Read by
+      // whoever marks, manages or reports at the location, and by report.all
+      // everywhere.
+      match /staff/{staffId} {
+        allow read: if canAt('attendance.mark', loc) || canAt('staff.manage', loc)
+          || canAt('report.own', loc) || can('report.all');
+        allow create: if isSafeKey(staffId) && validNewStaff(loc);
+        allow update: if validStaffUpdate(loc);
+        allow delete: if false;
+      }
+
+      // ---- #16 attendance (D-042) -----------------------------------------
+      match /attendance/{docId} {
+        allow read: if canAt('attendance.mark', loc) || canAt('report.own', loc) || can('report.all');
+        // set() of the whole doc: a first mark creates it, a correction
+        // replaces it, so one rule covers both.
+        allow create, update: if canAt('attendance.mark', loc) && validAttendance(docId);
+        allow delete: if false;
+      }
+
+      // ---- #18 pre-orders (D-043) ------------------------------------------
+      match /orders/{orderId} {
+        allow read: if canAt('order.manage', loc) || canAt('report.own', loc) || can('report.all');
+        allow create: if canAt('order.manage', loc) && validNewOrder(loc, orderId);
+        allow update: if isOrderDeliver(loc, orderId) || isOrderCancel(loc, orderId);
+        allow delete: if false;
+      }
+
       match /dailySummary/{day} {
         allow read: if canAt('report.own', loc);
         allow create, update: if isBusinessDate(day) && validSummaryWrite(loc);
@@ -868,7 +1155,7 @@ service cloud.firestore {
           && getAfter(locationPath(loc)).data.nextDeviceNo == get(locationPath(loc)).data.nextDeviceNo + 1
           && deviceId == deviceCode(getAfter(locationPath(loc)).data.nextDeviceNo)
           && incoming().keys().hasOnly(['code', 'label', 'registeredBy', 'registeredAt', 'lastSeenAt',
-                                        'lastBillSeq', 'lastMovementSeq', 'lastReturnSeq', 'retired'])
+                                        'lastBillSeq', 'lastMovementSeq', 'lastReturnSeq', 'lastOrderSeq', 'retired'])
           && incoming().code == deviceId
           && incoming().label is string
           && incoming().registeredBy == request.auth.uid
@@ -877,11 +1164,12 @@ service cloud.firestore {
           && incoming().get('lastBillSeq', 0) == 0
           && incoming().get('lastMovementSeq', 0) == 0
           && incoming().get('lastReturnSeq', 0) == 0
+          && incoming().get('lastOrderSeq', 0) == 0
           && incoming().retired == false;
 
         // Each field has its own writer. The sequence fields only go up.
         allow update: if activeAt(loc)
-          && changed().hasOnly(['lastBillSeq', 'lastMovementSeq', 'lastReturnSeq', 'lastSeenAt', 'label', 'retired'])
+          && changed().hasOnly(['lastBillSeq', 'lastMovementSeq', 'lastReturnSeq', 'lastOrderSeq', 'lastSeenAt', 'label', 'retired'])
           && (!changed().hasAny(['lastBillSeq'])
             || (can('bill.create') && incoming().lastBillSeq is int
               && incoming().lastBillSeq > resource.data.get('lastBillSeq', 0)))
@@ -891,6 +1179,9 @@ service cloud.firestore {
           && (!changed().hasAny(['lastReturnSeq'])
             || (can('return.create') && incoming().lastReturnSeq is int
               && incoming().lastReturnSeq > resource.data.get('lastReturnSeq', 0)))
+          && (!changed().hasAny(['lastOrderSeq'])
+            || (can('order.manage') && incoming().lastOrderSeq is int
+              && incoming().lastOrderSeq > resource.data.get('lastOrderSeq', 0)))
           && (!changed().hasAny(['lastSeenAt']) || incoming().lastSeenAt == request.time)
           && (!changed().hasAny(['label', 'retired'])
             || (can('location.manage') && incoming().label is string && incoming().retired is bool));
@@ -904,6 +1195,17 @@ service cloud.firestore {
     // only with report.all. Single-location reads use the rule under
     // locations/{loc}.
     match /{path=**}/customers/{customerId} {
+      allow read: if can('report.all');
+    }
+
+    // The Admin's views across stores: one day's attendance
+    // (`watchDayAllLocations`, by businessDate) and every store's pre-orders.
+    // Each is allowed by its own rule and only with report.all; reads of one
+    // location use the rules under locations/{loc}.
+    match /{path=**}/attendance/{docId} {
+      allow read: if can('report.all');
+    }
+    match /{path=**}/orders/{orderId} {
       allow read: if can('report.all');
     }
   }

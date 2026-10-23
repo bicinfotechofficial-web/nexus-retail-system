@@ -1,0 +1,20 @@
+{
+  "description": "Admin adds a staff member to the PTB roster (D-041)",
+  "uid": "admin",
+  "arrange": [],
+  "ops": [
+    {
+      "path": "locations/PTB/staff/st-0001",
+      "kind": "create",
+      "data": {
+        "name": "Test Baker",
+        "role": "Baker",
+        "active": true,
+        "createdBy": "admin",
+        "createdAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

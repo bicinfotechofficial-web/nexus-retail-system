@@ -122,6 +122,7 @@ void main() {
         'lastBillSeq': 0,
         'lastMovementSeq': 0,
         'lastReturnSeq': 0,
+        'lastOrderSeq': 0,
         'retired': false,
         'registeredAt': serverTimestamp,
       });

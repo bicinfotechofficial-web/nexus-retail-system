@@ -18,7 +18,22 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { collection, collectionGroup, doc, getDocs, limit, orderBy, query, setDoc, startAfter, where } from 'firebase/firestore';
 import { ACTORS, LOC } from './support/fixtures.js';
-import { TODAY, customerFields, makeAudit, makeBill, makeExpense, makeMovement, makeProduct, makeReturn, storedBill, storedCustomer } from './support/builders.js';
+import {
+  TODAY,
+  customerFields,
+  makeAttendance,
+  makeAudit,
+  makeBill,
+  makeExpense,
+  makeMovement,
+  makeOrder,
+  makeProduct,
+  makeReturn,
+  orderId,
+  storedBill,
+  storedCustomer,
+  storedOrder,
+} from './support/builders.js';
 import { assertSucceeds, useRulesEnv } from './support/env.js';
 
 const t = useRulesEnv();
@@ -86,9 +101,19 @@ describe('BE-7 firestore.indexes.json', () => {
         // watchPending, and watchSellable (ACTIVE, scope GLOBAL or the location).
         'products: status ASC, sortOrder ASC',
         'products: status ASC, scope ASC, sortOrder ASC',
+        // Pre-orders (BE-18): watchOpen (open, soonest due first), watchClosed
+        // (delivered and cancelled, newest first) and the Admin's all-stores
+        // list filtered by status (collection group, below).
+        'orders: status ASC, dueDate ASC',
+        'orders: status ASC, clientCreatedAt DESC',
+        'orders: status ASC, dueDate ASC',
       ].sort(),
     );
-    expect(spec.indexes.every((i) => i.queryScope === 'COLLECTION')).toBe(true);
+    // Every composite index is per collection, except the Admin's all-stores
+    // orders list, which is a collection-group query.
+    const groupScoped = spec.indexes.filter((i) => i.queryScope !== 'COLLECTION');
+    expect(groupScoped.map((i) => i.collectionGroup)).toEqual(['orders']);
+    expect(groupScoped[0].queryScope).toBe('COLLECTION_GROUP');
   });
 
   it('has the collection-group index for the Admin\'s customers list, and keeps the collection one (BE-16)', () => {
@@ -102,6 +127,28 @@ describe('BE-7 firestore.indexes.json', () => {
     expect(has('DESCENDING', 'COLLECTION')).toBe(true);
     // The other repository queries (watchMySuggestions, watchMovements, watchByPhone,
     // watchAll) use equality filters, a range on one field or single-field order only.
+  });
+});
+
+describe('BE-17 and BE-18 collection-group indexes', () => {
+  const override = (group, field) => spec.fieldOverrides.find((f) => f.collectionGroup === group && f.fieldPath === field);
+  const has = (o, order, queryScope) => o.indexes.some((i) => i.order === order && i.queryScope === queryScope);
+
+  it('indexes attendance.businessDate for watchDayAllLocations, and keeps the collection indexes', () => {
+    const o = override('attendance', 'businessDate');
+    expect(o).toBeDefined();
+    expect(has(o, 'ASCENDING', 'COLLECTION_GROUP')).toBe(true);
+    // watchMonth and watchDay read one location: a range on businessDate.
+    expect(has(o, 'ASCENDING', 'COLLECTION')).toBe(true);
+    expect(has(o, 'DESCENDING', 'COLLECTION')).toBe(true);
+  });
+
+  it('indexes orders.dueDate across stores (the Admin\'s list, with or without a status filter)', () => {
+    const o = override('orders', 'dueDate');
+    expect(o).toBeDefined();
+    expect(has(o, 'ASCENDING', 'COLLECTION_GROUP')).toBe(true);
+    expect(has(o, 'ASCENDING', 'COLLECTION')).toBe(true);
+    expect(has(o, 'DESCENDING', 'COLLECTION')).toBe(true);
   });
 });
 
@@ -195,6 +242,56 @@ describe('BE-7 the indexed queries run under the rules', () => {
       getDocs(query(collectionGroup(t.db('admin'), 'customers'), orderBy('lastBillAt', 'desc'), limit(500))),
     );
     expect(all.size).toBe(2);
+  });
+
+  it('attendance of a day across stores, of a month at one store, and the staff roster (Admin, Store Manager)', async () => {
+    await t.arrange(async (db) => {
+      await setDoc(doc(db, 'locations', LOC.PTB, 'attendance', '2026-09-26_s1'), { ...makeAttendance(), editedAt: new Date() });
+      await setDoc(doc(db, 'locations', LOC.PTB, 'attendance', '2026-09-25_s1'), { ...makeAttendance({ businessDate: '2026-09-25' }), editedAt: new Date() });
+      await setDoc(doc(db, 'locations', LOC.MNJ, 'attendance', '2026-09-26_s2'), { ...makeAttendance({ staffId: 's2' }), editedAt: new Date() });
+    });
+    const day = await assertSucceeds(
+      getDocs(query(collectionGroup(t.db('admin'), 'attendance'), where('businessDate', '==', '2026-09-26'))),
+    );
+    expect(day.size).toBe(2);
+    const month = await assertSucceeds(
+      getDocs(
+        query(
+          collection(t.db('smPtb'), 'locations', LOC.PTB, 'attendance'),
+          where('businessDate', '>=', '2026-09-01'),
+          where('businessDate', '<', '2026-10-01'),
+          orderBy('businessDate'),
+        ),
+      ),
+    );
+    expect(month.size).toBe(2);
+  });
+
+  it('orders: open by due date, closed newest first (Store Manager), and the Admin\'s all-stores list with each filter', async () => {
+    await t.arrange(async (db) => {
+      const order = (seq, extra = {}, loc = LOC.PTB) =>
+        setDoc(doc(db, 'locations', loc, 'orders', orderId('D01', seq)), storedOrder(makeOrder({ seq, loc }), extra));
+      await order(1);
+      await order(2, { status: 'DELIVERED', billId: 'D01-000001' });
+      await order(3, { status: 'CANCELLED' });
+      await order(4, {}, LOC.MNJ);
+    });
+    const sm = collection(t.db('smPtb'), 'locations', LOC.PTB, 'orders');
+    const open = await assertSucceeds(getDocs(query(sm, where('status', '==', 'OPEN'), orderBy('dueDate'))));
+    expect(open.size).toBe(1);
+    const closed = await assertSucceeds(
+      getDocs(query(sm, where('status', 'in', ['DELIVERED', 'CANCELLED']), orderBy('clientCreatedAt', 'desc'), limit(50))),
+    );
+    expect(closed.size).toBe(2);
+    const all = collectionGroup(t.db('admin'), 'orders');
+    const everyone = await assertSucceeds(getDocs(query(all, orderBy('dueDate'), limit(300))));
+    expect(everyone.size).toBe(4);
+    const openAll = await assertSucceeds(
+      getDocs(query(all, where('status', '==', 'OPEN'), where('dueDate', '>=', TODAY), where('dueDate', '<=', '2026-12-31'), orderBy('dueDate'), limit(300))),
+    );
+    expect(openAll.size).toBe(2);
+    const ranged = await assertSucceeds(getDocs(query(all, where('dueDate', '>=', TODAY), where('dueDate', '<=', '2026-12-31'), orderBy('dueDate'))));
+    expect(ranged.size).toBe(4);
   });
 
   it('expenses of one location by date (Admin)', async () => {

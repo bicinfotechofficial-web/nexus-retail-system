@@ -9,12 +9,15 @@ import 'package:hive_ce/hive_ce.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'api/admin.dart';
+import 'api/attendance.dart';
 import 'api/catalog.dart';
 import 'api/customers.dart';
 import 'api/device.dart';
+import 'api/orders.dart';
 import 'api/reports.dart';
 import 'api/sales.dart';
 import 'api/session.dart';
+import 'api/staff.dart';
 import 'api/stock.dart';
 import 'api/sync.dart';
 import 'counters/counter_store.dart';
@@ -22,10 +25,13 @@ import 'counters/durable_store.dart';
 import 'firestore/device_service.dart';
 import 'firestore/firebase_auth_service.dart';
 import 'firestore/firestore_admin_repositories.dart';
+import 'firestore/firestore_attendance_repository.dart';
 import 'firestore/firestore_audit_repository.dart';
 import 'firestore/firestore_catalog_repository.dart';
 import 'firestore/firestore_customer_repository.dart';
+import 'firestore/firestore_order_repository.dart';
 import 'firestore/firestore_sales_repository.dart';
+import 'firestore/firestore_staff_repository.dart';
 import 'firestore/firestore_stock_repository.dart';
 import 'firestore/firestore_summary_repository.dart';
 import 'firestore/firestore_user_service.dart';
@@ -35,7 +41,10 @@ import 'sync/local_offline_guard.dart';
 import 'sync/local_sync_state.dart';
 import 'sync/sync_ledger.dart';
 import 'write/firestore_admin_services.dart';
+import 'write/firestore_attendance_service.dart';
+import 'write/firestore_order_service.dart';
 import 'write/firestore_sales_service.dart';
+import 'write/firestore_staff_service.dart';
 import 'write/firestore_stock_service.dart';
 import 'write/plan_committer.dart';
 import 'write/write_env.dart';
@@ -72,6 +81,12 @@ final class NexusBackend {
     required this.users,
     required this.expenseRepo,
     required this.expenses,
+    required this.staffRepo,
+    required this.staff,
+    required this.attendanceRepo,
+    required this.attendance,
+    required this.orderRepo,
+    required this.orders,
     required this.sync,
     required this.offlineGuard,
     required this.env,
@@ -105,6 +120,20 @@ final class NexusBackend {
   final UserService users;
   final ExpenseRepository expenseRepo;
   final ExpenseService expenses;
+
+  /// The staff roster (D-042). The Admin changes it, online only.
+  final StaffRepository staffRepo;
+  final StaffService staff;
+
+  /// Daily attendance marks (D-042), written offline-safe by the POS and
+  /// read by the Admin.
+  final AttendanceRepository attendanceRepo;
+  final AttendanceService attendance;
+
+  /// Pre-orders (D-043): taken, delivered and cancelled offline-safe on the
+  /// POS, read-only for the Admin.
+  final OrderRepository orderRepo;
+  final OrderService orders;
 
   /// Call [FirestoreSyncService.appResumed] from a lifecycle observer if
   /// the backend was built with `observeLifecycle: false`.
@@ -224,6 +253,7 @@ final class NexusBackend {
     final now = clock ?? DateTime.now;
     final auth = FirebaseAuthService(auth: firebaseAuth, firestore: db);
     final salesRepo = FirestoreSalesRepository(db, clock: now);
+    final orderRepo = FirestoreOrderRepository(db, clock: now);
     final syncState = LocalSyncState(deviceStore);
     final counters = CounterStore(deviceStore);
 
@@ -244,7 +274,7 @@ final class NexusBackend {
       counters: counters,
       committer: committer,
       ledger: ledger,
-      reads: FirestoreWriteReads(db, salesRepo, clock: now),
+      reads: FirestoreWriteReads(db, salesRepo, orderRepo, clock: now),
       clock: now,
       onCommitted: (paths, ack) => sync.observeAck(paths, ack),
     );
@@ -307,6 +337,19 @@ final class NexusBackend {
       ),
       expenseRepo: FirestoreExpenseRepository(db, clock: now),
       expenses: FirestoreExpenseService(env),
+      staffRepo: FirestoreStaffRepository(db, clock: now),
+      // The roster is online only, so it waits for the server whatever the
+      // app's own committer does.
+      staff: FirestoreStaffService(
+        env: env,
+        firestore: db,
+        committer: FirestorePlanCommitter(db, awaitServer: true),
+        network: network,
+      ),
+      attendanceRepo: FirestoreAttendanceRepository(db, clock: now),
+      attendance: FirestoreAttendanceService(env),
+      orderRepo: orderRepo,
+      orders: FirestoreOrderService(env, offline: guard.evaluate),
       sync: sync,
       offlineGuard: guard,
       env: env,

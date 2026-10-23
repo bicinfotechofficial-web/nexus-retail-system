@@ -116,6 +116,78 @@ void main() {
     expect(after!.status, BillStatus.cancelled);
   });
 
+  test(
+    'the new services are wired: an order is taken, delivered and read back, '
+    'attendance is marked, and the roster is refused to a Store Manager',
+    () async {
+      await backend.auth.signIn(email: 'sm1@example.com', password: 'x');
+      await settle();
+      await put(db, FirestorePaths.device('PTB', 'D01'), {
+        ...const Device(
+          code: 'D01',
+          label: 'Counter 1',
+          registeredBy: 'sm1',
+          lastBillSeq: 0,
+          retired: false,
+        ).toMap(),
+      });
+      await store.write(FirestoreDeviceService.deviceIdKey, 'D01');
+      await store.write(FirestoreDeviceService.locationIdKey, 'PTB');
+
+      final now = DateTime.now();
+      final due = BusinessDate.of(now.add(const Duration(days: 3)));
+      final order = await backend.orders.create(
+        NewOrder(
+          customer: BillCustomer(name: 'Test Customer', phone: '9876543210'),
+          dueDate: due,
+          description: 'Truffle',
+          price: const Money(150000),
+          advance: const Money(50000),
+          advanceMode: PaymentMode.upi,
+        ),
+      );
+      expect(order.id, 'D01-O000001');
+      expect(store.disk[CounterStore.key('D01', SeqKind.order)], 1);
+      final dev = await db.doc(FirestorePaths.device('PTB', 'D01')).get();
+      expect(dev.data()!['lastOrderSeq'], 1);
+      expect(
+        (await backend.orderRepo.watchOpen('PTB').first).single.id,
+        order.id,
+      );
+
+      final bill = await backend.orders.deliver(
+        orderId: order.id,
+        payments: const [
+          Payment(mode: PaymentMode.cash, amount: Money(100000)),
+        ],
+      );
+      expect(bill.orderId, order.id);
+      final delivered = await backend.orderRepo.getOrder('PTB', order.id);
+      expect(delivered!.status, OrderStatus.delivered);
+      expect(delivered.billId, bill.id);
+
+      final today = BusinessDate.of(now);
+      await backend.attendance.mark(today, const [
+        AttendanceMark(
+          staffId: 's1',
+          staffName: 'Asha',
+          status: AttendanceStatus.present,
+        ),
+      ]);
+      expect(
+        (await backend.attendanceRepo.watchDay('PTB', today).first)
+            .single
+            .staffId,
+        's1',
+      );
+      expect(await backend.staffRepo.watchAll('PTB').first, isEmpty);
+      await expectLater(
+        backend.staff.create(locationId: 'PTB', name: 'Asha'),
+        throwsA(isA<DataFailure>()),
+      );
+    },
+  );
+
   test('FirestorePlanCommitter commits a batch and hands back the server '
       'outcome, locally-first or awaited', () async {
     for (final awaitServer in [false, true]) {

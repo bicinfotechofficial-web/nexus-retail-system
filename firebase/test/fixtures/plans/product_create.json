@@ -16,6 +16,7 @@
         "scope": "GLOBAL",
         "status": "ACTIVE",
         "recipe": null,
+        "openPrice": false,
         "sortOrder": 3,
         "createdBy": "admin",
         "createdAt": {

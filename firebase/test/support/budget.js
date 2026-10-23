@@ -61,6 +61,23 @@ export const TARGETS = {
     line: 'allow update: if validCustomerWrite(loc, customerId, customerBill(loc))',
     padded: (p) => `allow update: if ${p} && validCustomerWrite(loc, customerId, customerBill(loc))`,
   },
+  attendanceWrite: {
+    line: "allow create, update: if canAt('attendance.mark', loc) && validAttendance(docId);",
+    padded: (p) => `allow create, update: if canAt('attendance.mark', loc) && validAttendance(docId) && ${p};`,
+  },
+  orderCreate: {
+    line: "allow create: if canAt('order.manage', loc) && validNewOrder(loc, orderId);",
+    padded: (p) => `allow create: if canAt('order.manage', loc) && validNewOrder(loc, orderId) && ${p};`,
+  },
+  orderUpdate: {
+    line: 'allow update: if isOrderDeliver(loc, orderId) || isOrderCancel(loc, orderId);',
+    padded: (p) => `allow update: if (isOrderDeliver(loc, orderId) || isOrderCancel(loc, orderId)) && ${p};`,
+  },
+  // Used by the daily and monthly summary rules alike; one padded line each.
+  summaryWrite: {
+    line: 'allow create, update: if isBusinessDate(day) && validSummaryWrite(loc);',
+    padded: (p) => `allow create, update: if isBusinessDate(day) && validSummaryWrite(loc) && ${p};`,
+  },
   stockCreate: {
     line: 'allow create: if activeAt(loc) && validNewStock(loc, itemKey);',
     padded: (p) => `allow create: if activeAt(loc) && validNewStock(loc, itemKey) && ${p};`,

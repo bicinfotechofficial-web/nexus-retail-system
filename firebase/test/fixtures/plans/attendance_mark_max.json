@@ -1,0 +1,310 @@
+{
+  "description": "One full batch of 15 attendance marks",
+  "uid": "sm-ptb",
+  "arrange": [
+    {
+      "path": "locations/PTB/devices/D01",
+      "data": {
+        "code": "D01",
+        "label": "Counter 1",
+        "registeredBy": "sm-ptb",
+        "lastBillSeq": 0,
+        "lastMovementSeq": 0,
+        "lastReturnSeq": 0,
+        "lastOrderSeq": 0,
+        "retired": false,
+        "registeredAt": {
+          "__op": "timestamp",
+          "value": "2026-09-26T04:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "ops": [
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0001",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0001",
+        "staffName": "Test Staff 1",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0002",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0002",
+        "staffName": "Test Staff 2",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": "Note 2",
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0003",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0003",
+        "staffName": "Test Staff 3",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0004",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0004",
+        "staffName": "Test Staff 4",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": "Note 4",
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0005",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0005",
+        "staffName": "Test Staff 5",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0006",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0006",
+        "staffName": "Test Staff 6",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": "Note 6",
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0007",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0007",
+        "staffName": "Test Staff 7",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0008",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0008",
+        "staffName": "Test Staff 8",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": "Note 8",
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0009",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0009",
+        "staffName": "Test Staff 9",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0010",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0010",
+        "staffName": "Test Staff 10",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": "Note 10",
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0011",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0011",
+        "staffName": "Test Staff 11",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0012",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0012",
+        "staffName": "Test Staff 12",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": "Note 12",
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0013",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0013",
+        "staffName": "Test Staff 13",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0014",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0014",
+        "staffName": "Test Staff 14",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": "Note 14",
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    },
+    {
+      "path": "locations/PTB/attendance/2026-09-26_st-0015",
+      "kind": "create",
+      "data": {
+        "staffId": "st-0015",
+        "staffName": "Test Staff 15",
+        "businessDate": "2026-09-26",
+        "status": "PRESENT",
+        "note": null,
+        "markedBy": {
+          "uid": "sm-ptb",
+          "name": "Store Manager PTB"
+        },
+        "deviceId": "D01",
+        "editedAt": {
+          "__op": "serverTimestamp"
+        }
+      }
+    }
+  ]
+}

@@ -39,16 +39,22 @@ final class _FailingStore implements DurableStore {
   }
 }
 
-Device _device(String code, {int bill = 0, int movement = 0, int ret = 0}) =>
-    Device(
-      code: code,
-      label: 'Counter',
-      registeredBy: 'sm-ptb',
-      lastBillSeq: bill,
-      lastMovementSeq: movement,
-      lastReturnSeq: ret,
-      retired: false,
-    );
+Device _device(
+  String code, {
+  int bill = 0,
+  int movement = 0,
+  int ret = 0,
+  int order = 0,
+}) => Device(
+  code: code,
+  label: 'Counter',
+  registeredBy: 'sm-ptb',
+  lastBillSeq: bill,
+  lastMovementSeq: movement,
+  lastReturnSeq: ret,
+  lastOrderSeq: order,
+  retired: false,
+);
 
 void main() {
   test('numbers start at 1 and go up, per device and per kind', () async {
@@ -57,6 +63,8 @@ void main() {
     expect(await s.next('D01', SeqKind.bill), 2);
     expect(await s.next('D01', SeqKind.movement), 1);
     expect(await s.next('D01', SeqKind.returned), 1);
+    expect(await s.next('D01', SeqKind.order), 1);
+    expect(await s.next('D01', SeqKind.order), 2);
     expect(await s.next('D02', SeqKind.bill), 1);
     expect(s.current('D01', SeqKind.bill), 2);
   });
@@ -130,12 +138,15 @@ void main() {
       await s.next('D01', SeqKind.bill);
     }
     await s.next('D01', SeqKind.returned);
+    await s.next('D01', SeqKind.order);
     // Server: bills behind (offline writes not synced yet), movements and
     // returns ahead (local data lost).
-    await s.recover(_device('D01', bill: 3, movement: 41, ret: 7));
+    await s.recover(_device('D01', bill: 3, movement: 41, ret: 7, order: 12));
     expect(s.current('D01', SeqKind.bill), 5);
     expect(s.current('D01', SeqKind.movement), 41);
     expect(s.current('D01', SeqKind.returned), 7);
+    expect(s.current('D01', SeqKind.order), 12);
+    expect(await s.next('D01', SeqKind.order), 13);
     expect(await s.next('D01', SeqKind.bill), 6);
     expect(await s.next('D01', SeqKind.movement), 42);
     expect(await s.next('D01', SeqKind.returned), 8);

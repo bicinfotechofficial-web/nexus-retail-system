@@ -256,6 +256,7 @@ void main() {
         'scope': 'PTB',
         'status': 'PENDING',
         'recipe': null,
+        'openPrice': false,
         'sortOrder': 0,
         'createdBy': Fx.smUid,
         'createdAt': serverTimestamp,
@@ -323,6 +324,7 @@ void main() {
           'scope': 'GLOBAL',
           'status': 'ACTIVE',
           'recipe': null,
+          'openPrice': false,
           'sortOrder': 3,
           'updatedAt': serverTimestamp,
         });

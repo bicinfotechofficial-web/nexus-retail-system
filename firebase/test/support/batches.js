@@ -2,9 +2,19 @@
 // BE-10's plan fixtures replace them. By default they leave out summaries and
 // audit docs; pass `full: true` for the complete batch.
 
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
-import { TODAY, customerWrite, makeAudit, makeCancel, makeMovement, stockWrite, summaryWrite } from './builders.js';
+import {
+  TODAY,
+  customerWrite,
+  makeAudit,
+  makeCancel,
+  makeMovement,
+  makeOrderCancel,
+  orderId as orderIdOf,
+  stockWrite,
+  summaryWrite,
+} from './builders.js';
 
 /** Adds the daily and monthly summary increments for `ref` (#9). */
 export function addSummaries(b, db, { loc = LOC.PTB, ref, fields, date = TODAY }) {
@@ -25,6 +35,7 @@ export async function arrangeDevice(t, loc = LOC.PTB, counters = {}) {
       lastBillSeq: 0,
       lastMovementSeq: 0,
       lastReturnSeq: 0,
+      lastOrderSeq: 0,
       retired: false,
       ...counters,
     }),
@@ -136,5 +147,65 @@ export function stockBatch(db, { loc = LOC.PTB, mid, movement, seq, names = {} }
     });
   }
   b.set(at(db, loc, 'devices', movement.deviceId), { lastMovementSeq: seq }, { merge: true });
+  return b;
+}
+
+/**
+ * Create a pre-order: the order, the device's lastOrderSeq and, when the
+ * advance is above zero, the summaries' advanceReceived naming the order
+ * (#18, #20). `full: false` leaves the summaries out.
+ */
+export function orderCreateBatch(db, order, { loc = LOC.PTB, full = true } = {}) {
+  const id = orderIdOf(order.deviceId, order.seq);
+  const b = writeBatch(db);
+  b.set(at(db, loc, 'orders', id), order);
+  b.set(at(db, loc, 'devices', order.deviceId), { lastOrderSeq: order.seq }, { merge: true });
+  if (full && order.advance > 0) {
+    addSummaries(b, db, {
+      loc,
+      ref: `locations/${loc}/orders/${id}`,
+      date: order.businessDate,
+      fields: { advanceReceived: order.advance },
+    });
+  }
+  return b;
+}
+
+/**
+ * Deliver an open order: the delivery bill's whole batch (billBatch) plus the
+ * order update (#18 (a), #19). `bill` must carry `orderId` and the ADVANCE
+ * payment; `orderUpdate` overrides the update's data for tampered cases.
+ */
+export function deliverBatch(db, bill, { loc = LOC.PTB, orderUpdate = {}, ...opts } = {}) {
+  const id = `${bill.deviceId}-${String(bill.seq).padStart(6, '0')}`;
+  const b = billBatch(db, bill, { loc, full: true, ...opts });
+  b.update(at(db, loc, 'orders', bill.orderId), {
+    status: 'DELIVERED',
+    billId: id,
+    deliveredAt: serverTimestamp(),
+    ...orderUpdate,
+  });
+  return b;
+}
+
+/**
+ * Cancel an open order: the order update, the ORDER_CANCEL audit
+ * `{loc}-{orderId}-X` and, when something is refunded, the summaries'
+ * advanceRefunded naming that audit entry (#18 (b), #20).
+ */
+export function orderCancelBatch(db, orderId, { loc = LOC.PTB, uid = ACTORS.smPtb.uid, refunded = 0, deviceId = 'D01', cancel = {}, date = TODAY } = {}) {
+  const x = `${orderId}-X`;
+  const b = writeBatch(db);
+  b.update(at(db, loc, 'orders', orderId), {
+    status: 'CANCELLED',
+    cancel: { ...makeOrderCancel({ uid, refunded, businessDate: date }), ...cancel },
+  });
+  b.set(
+    doc(db, 'auditLog', `${loc}-${x}`),
+    makeAudit({ action: 'ORDER_CANCEL', entityPath: `locations/${loc}/orders/${orderId}`, locationId: loc, uid, deviceId, reason: 'Customer cancelled' }),
+  );
+  if (refunded > 0) {
+    addSummaries(b, db, { loc, ref: `auditLog/${loc}-${x}`, date, fields: { advanceRefunded: refunded } });
+  }
   return b;
 }
