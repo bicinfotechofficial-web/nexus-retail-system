@@ -187,6 +187,18 @@ class _ReportBody extends StatelessWidget {
           ],
         );
 
+    List<DataColumn> headerColumns() => [
+      const DataColumn(label: Text('')),
+      for (final (col, _) in columns)
+        DataColumn(
+          numeric: true,
+          label: Text(switch (col) {
+            'total' => multi ? 'Total' : _header(locations.single),
+            _ => _header(locations.firstWhere((l) => l.code == col)),
+          }),
+        ),
+    ];
+
     final top = report.topProducts();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,17 +220,7 @@ class _ReportBody extends StatelessWidget {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            columns: [
-              const DataColumn(label: Text('')),
-              for (final (col, _) in columns)
-                DataColumn(
-                  numeric: true,
-                  label: Text(switch (col) {
-                    'total' => multi ? 'Total' : _header(locations.single),
-                    _ => _header(locations.firstWhere((l) => l.code == col)),
-                  }),
-                ),
-            ],
+            columns: headerColumns(),
             rows: [
               line('gross', 'Gross sales', (s) => s.grossSales.format()),
               line('discounts', 'Discounts', (s) => (-s.discounts).format()),
@@ -244,6 +246,32 @@ class _ReportBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
+        Text('Pre-order advances', style: theme.textTheme.titleMedium),
+        Text(
+          'Money taken ahead on pre-orders, kept apart from sales. The sale '
+          'itself counts on the delivery day, through its bill.',
+          key: const Key('advance-help'),
+          style: theme.textTheme.bodySmall,
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: headerColumns(),
+            rows: [
+              line(
+                'advance-received',
+                'Advance received',
+                (s) => s.advanceReceived.format(),
+              ),
+              line(
+                'advance-refunded',
+                'Advance refunded',
+                (s) => s.advanceRefunded.format(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
         Text('By payment mode', style: theme.textTheme.titleMedium),
         DataTable(
           columns: const [
@@ -260,7 +288,27 @@ class _ReportBody extends StatelessWidget {
                   ),
                 ],
               ),
+            DataRow(
+              cells: [
+                DataCell(Text('Total', style: theme.textTheme.titleSmall)),
+                DataCell(
+                  Text(
+                    report.byMode
+                        .fold(Money.zero, (sum, e) => sum + e.$2)
+                        .format(),
+                    key: const Key('mode-total'),
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
           ],
+        ),
+        Text(
+          '"Advance paid" is the part of a delivery bill the customer paid '
+          'earlier, as an advance.',
+          key: const Key('advance-mode-help'),
+          style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: 24),
         Text('Top products', style: theme.textTheme.titleMedium),

@@ -77,6 +77,30 @@ final auditRepositoryProvider = Provider<AuditRepository>(
       throw UnimplementedError('auditRepositoryProvider is not overridden'),
 );
 
+/// The staff roster, attendance and order interfaces (D-042, D-043). Until
+/// `NexusBackend` carries `staffRepo`, `staff`, `attendanceRepo` and
+/// `orderRepo`, these throw unless a test or the composition root overrides
+/// them; see `AdminServices.overrides` for the one-line wiring.
+final staffRepositoryProvider = Provider<StaffRepository>(
+  (ref) =>
+      throw UnimplementedError('staffRepositoryProvider is not overridden'),
+);
+
+final staffServiceProvider = Provider<StaffService>(
+  (ref) => throw UnimplementedError('staffServiceProvider is not overridden'),
+);
+
+final attendanceRepositoryProvider = Provider<AttendanceRepository>(
+  (ref) => throw UnimplementedError(
+    'attendanceRepositoryProvider is not overridden',
+  ),
+);
+
+final orderRepositoryProvider = Provider<OrderRepository>(
+  (ref) =>
+      throw UnimplementedError('orderRepositoryProvider is not overridden'),
+);
+
 /// The current instant. Tests override it to pin "today".
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
