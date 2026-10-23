@@ -29,6 +29,7 @@ String paymentModeLabel(PaymentMode mode) => switch (mode) {
   PaymentMode.card => 'Card',
   PaymentMode.wallet => 'Wallet',
   PaymentMode.other => 'Other',
+  PaymentMode.advance => 'Advance paid',
 };
 
 /// An instant in IST (D-022), e.g. `26 Sep 2026, 4:30 PM`.

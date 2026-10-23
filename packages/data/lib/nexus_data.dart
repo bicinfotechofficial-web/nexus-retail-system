@@ -8,13 +8,16 @@
 library;
 
 export 'src/api/admin.dart';
+export 'src/api/attendance.dart';
 export 'src/api/catalog.dart';
 export 'src/api/customers.dart';
 export 'src/api/device.dart';
 export 'src/api/failures.dart';
+export 'src/api/orders.dart';
 export 'src/api/reports.dart';
 export 'src/api/sales.dart';
 export 'src/api/session.dart';
+export 'src/api/staff.dart';
 export 'src/api/stock.dart';
 export 'src/api/sync.dart';
 export 'src/backend.dart';

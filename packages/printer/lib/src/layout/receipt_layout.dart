@@ -141,6 +141,7 @@ String _modeLabel(PaymentMode mode) => switch (mode) {
   PaymentMode.card => 'Card',
   PaymentMode.wallet => 'Wallet',
   PaymentMode.other => 'Other',
+  PaymentMode.advance => 'Advance paid',
 };
 
 /// `25-09-2026 14:35`, from IST wall-clock fields.

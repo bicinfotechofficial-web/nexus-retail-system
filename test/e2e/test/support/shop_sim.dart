@@ -675,7 +675,8 @@ final class ShopSim {
     return [
       for (var i = 0; i < parts; i++)
         Payment(
-          mode: PaymentMode.values[random.nextInt(PaymentMode.values.length)],
+          mode: PaymentMode
+              .selectable[random.nextInt(PaymentMode.selectable.length)],
           amount: Money.rupees(points[i + 1] - points[i]),
           ref: random.nextInt(3) == 0 ? 'REF$i' : null,
         ),

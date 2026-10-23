@@ -460,7 +460,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                             ),
                             initialValue: _rows[i].mode,
                             items: [
-                              for (final m in PaymentMode.values)
+                              for (final m in PaymentMode.selectable)
                                 DropdownMenuItem(
                                   value: m,
                                   child: Text(Messages.paymentMode(m)),

@@ -20,6 +20,8 @@ final class Summary {
     this.byProduct = const {},
     this.expenses = Money.zero,
     this.byExpenseCategory = const {},
+    this.advanceReceived = Money.zero,
+    this.advanceRefunded = Money.zero,
     this.lastWriteRef,
   });
 
@@ -46,6 +48,8 @@ final class Summary {
         for (final e in r.intMap('byExpenseCategory').entries)
           ExpenseCategory.fromWire(e.key): Money(e.value),
       },
+      advanceReceived: m('advanceReceived'),
+      advanceRefunded: m('advanceRefunded'),
       lastWriteRef: r.stringOrNull('lastWriteRef'),
     );
   }
@@ -77,6 +81,12 @@ final class Summary {
 
   /// Monthly only.
   final Map<ExpenseCategory, Money> byExpenseCategory;
+
+  /// Advances taken on pre-orders on this day, and the part of a cancelled
+  /// order's advance given back (D-043). The sale itself is counted on the
+  /// delivery day, through the bill.
+  final Money advanceReceived;
+  final Money advanceRefunded;
   final String? lastWriteRef;
 
   /// netSales − returns − cancelled (02-DATA-MODEL).
@@ -105,6 +115,8 @@ final class Summary {
     },
     expenses: expenses + o.expenses,
     byExpenseCategory: _mergeMoney(byExpenseCategory, o.byExpenseCategory),
+    advanceReceived: advanceReceived + o.advanceReceived,
+    advanceRefunded: advanceRefunded + o.advanceRefunded,
   );
 
   Map<String, Object?> toMap() => {
@@ -123,6 +135,8 @@ final class Summary {
     'byExpenseCategory': {
       for (final e in byExpenseCategory.entries) e.key.wire: e.value.paise,
     },
+    'advanceReceived': advanceReceived.paise,
+    'advanceRefunded': advanceRefunded.paise,
     'lastWriteRef': lastWriteRef,
   };
 }

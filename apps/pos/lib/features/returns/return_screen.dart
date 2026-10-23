@@ -417,7 +417,7 @@ class _ReturnFormState extends ConsumerState<_ReturnForm> {
                   ),
                   initialValue: _rows[i].mode,
                   items: [
-                    for (final m in PaymentMode.values)
+                    for (final m in PaymentMode.selectable)
                       DropdownMenuItem(
                         value: m,
                         child: Text(Messages.paymentMode(m)),

@@ -22,6 +22,9 @@ The permissions are the contract. The UI hides actions the user doesn't have per
 | `user.manage` | Create and disable users |
 | `location.manage` | Create and edit locations and devices |
 | `device.register` | Register this device for your own location |
+| `staff.manage` | Create and edit the staff roster of any location (D-042) |
+| `attendance.mark` | Mark staff attendance at your own location (D-042) |
+| `order.manage` | Take, deliver and cancel pre-orders at your own location (D-043) |
 
 ## Role matrix
 | Permission | ADMIN | STORE_MANAGER | *CASHIER (future)* |
@@ -43,6 +46,9 @@ The permissions are the contract. The UI hides actions the user doesn't have per
 | user.manage | ✓ | | |
 | location.manage | ✓ | | |
 | device.register | ✓ | ✓ | ✓ |
+| staff.manage | ✓ | | |
+| attendance.mark | ✓ | ✓ | |
+| order.manage | ✓ | ✓ | |
 
 `ADMIN.allLocations = true`. Every other role is scoped to `users/{uid}.locationId`.
 
@@ -88,6 +94,15 @@ function canAt(p, loc)   { return can(p) && atLoc(loc); }
 11. `products`: reads need `catalog.view`. Creating with status PENDING needs `catalog.suggest` and `scope == me().locationId`. Everything else needs `catalog.manage`.
 12. `expenses`: `expense.manage` only.
 13. Tests must prove that an SM at `PTB` cannot read or write anything under `locations/MNJ/**`.
+
+15. `locations/{loc}/staff/{staffId}`: create and update need `staff.manage` (the Admin passes every location). Create requires `active` bool, `name` 1–60 chars and `role` string ≤ 30, `createdBy == request.auth.uid` and `createdAt == request.time`; update may change only `name`, `role`, `active`, `updatedBy`, `updatedAt`. No delete. **Read:** `attendance.mark`, `staff.manage` or `report.own` at `loc`, and `report.all`.
+16. `locations/{loc}/attendance/{docId}`: create and update need `attendance.mark` at `loc`. The ID must be `{businessDate}_{staffId}` with `data.businessDate` and `data.staffId` equal to its parts, `businessDate` a `YYYY-MM-DD` string, `status` one of PRESENT, ABSENT, HALF_DAY, `note` null or a string ≤ 100, `markedBy.uid == request.auth.uid`, `staffName` a string of 1–60 chars, and `editedAt == request.time`. No delete. The rules do not read the staff document (a batch of 15 marks must stay inside the get() budget) and do not check the date window (D-031). **Read:** `attendance.mark` or `report.own` at `loc`, and `report.all`.
+17. Tests for #15 and #16: an SM at `PTB` cannot write the roster, cannot mark at `MNJ`, cannot delete a mark, cannot write a mismatched ID, an unknown status or a note over 100 characters; the Admin can write the roster and read every location's attendance; a batch of 15 marks passes the rules budget.
+
+18. `locations/{loc}/orders/{orderId}`: **create** with `order.manage` at `loc` and `!exists`, the ID equal to `{deviceId}-O{seq:6}` with `deviceId` a registered device code, `orderNo == loc + '-' + orderId`, `status == 'OPEN'`, `billId == null`, no `cancel`, the customer fields as in #6, `description` 1–500 chars, `price` a positive multiple of 100, `advance` a multiple of 100 with `0 ≤ advance ≤ price`, `advanceMode` null exactly when `advance == 0` and otherwise one of CASH, UPI, CARD, WALLET, OTHER, `createdBy == request.auth.uid`, and in the same batch the device's `lastOrderSeq` equal to `seq` (#4). **Update (a) deliver:** `order.manage` plus the order was OPEN, `status` → DELIVERED, `billId` names a bill that is new in the batch (`!exists`, `existsAfter`) whose `orderId` is this order, and only `status`, `billId` and `deliveredAt` change. **Update (b) cancel:** `order.manage`, the order was OPEN, `status` → CANCELLED with a `cancel` map (`reason` 1–100 chars, `by == request.auth.uid`, `refunded` a multiple of 100 with `0 ≤ refunded ≤ advance`) and the audit entry `{loc}-{orderId}-X` created in the batch (`existsAfter`), and only `status` and `cancel` change. A delivered or cancelled order can't change again, and there is no delete. **Read:** `order.manage` or `report.own` at `loc`, and `report.all`.
+19. Bill create (#5, #6) also accepts `orderId` (null or a string). When it is set, the order must exist and be OPEN before the batch and DELIVERED after it (`get` and `getAfter`), with `billId` equal to this bill, and `payments` must contain exactly one ADVANCE entry whose amount equals the order's `advance` (skip the entry when the advance is 0, and then none is allowed). The other payment modes are unchanged. An ADVANCE payment is **not** accepted on a bill without `orderId`.
+20. Summaries (#9): a summary write may also name a **pre-order** as its `lastWriteRef` when that order is new in the batch (an order created with an advance), or a cancelled one's audit entry `{loc}-{orderId}-X`. `advanceReceived` may only go up by the new order's `advance`; `advanceRefunded` only by the cancel's `refunded`.
+21. Tests for #18–#20: an advance above the price (denied), an ADVANCE payment on an ordinary bill (denied), a delivery bill whose ADVANCE entry isn't the order's advance (denied), delivering twice or delivering a cancelled order (denied), a cancel whose refund is above the advance (denied), an SM at `PTB` reading or writing `MNJ` orders (denied), and an order create followed by a delivery in the offline replay fixtures.
 
 `report.all` and `allLocations` roles pass every `atLoc` check, so the Admin reads every location with the permissions above.
 

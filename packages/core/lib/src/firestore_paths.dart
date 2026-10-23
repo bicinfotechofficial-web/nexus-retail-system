@@ -32,6 +32,17 @@ abstract final class FirestorePaths {
   static String customer(String loc, String customerId) =>
       '${customers(loc)}/$customerId';
 
+  static String staff(String loc) => '${location(loc)}/staff';
+  static String staffMember(String loc, String staffId) =>
+      '${staff(loc)}/$staffId';
+
+  static String attendance(String loc) => '${location(loc)}/attendance';
+  static String attendanceDoc(String loc, String docId) =>
+      '${attendance(loc)}/$docId';
+
+  static String orders(String loc) => '${location(loc)}/orders';
+  static String order(String loc, String orderId) => '${orders(loc)}/$orderId';
+
   static String returns(String loc) => '${location(loc)}/returns';
   static String saleReturn(String loc, String returnId) =>
       '${returns(loc)}/$returnId';

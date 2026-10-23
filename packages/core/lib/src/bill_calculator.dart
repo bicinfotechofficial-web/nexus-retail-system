@@ -329,6 +329,10 @@ enum CancelBlocker {
 
   /// A bill with returns can't be cancelled (D-025).
   hasReturns,
+
+  /// A bill that delivers a pre-order can't be cancelled, because its
+  /// advance was taken earlier (D-043). Use a return instead.
+  deliversOrder,
 }
 
 /// Whether a bill can still be cancelled on [today] (a business date).
@@ -339,5 +343,6 @@ CancelBlocker? cancelBlocker(Bill bill, String today) {
   if (bill.returnedQty.values.any((q) => q > 0)) {
     return CancelBlocker.hasReturns;
   }
+  if (bill.orderId != null) return CancelBlocker.deliversOrder;
   return null;
 }

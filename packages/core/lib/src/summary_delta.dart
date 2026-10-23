@@ -2,6 +2,7 @@ import 'bill_calculator.dart';
 import 'business_date.dart';
 import 'enums.dart';
 import 'models/admin.dart';
+import 'models/order.dart';
 import 'models/sales.dart';
 import 'models/summary.dart';
 import 'money.dart';
@@ -43,6 +44,16 @@ abstract final class SummaryDeltas {
         l.productId: ProductTally(qty: -l.qty, amount: -l.amount),
     },
   );
+
+  /// A new pre-order: the advance taken, counted on the day it is taken
+  /// (D-043). The sale itself is counted on the delivery day, by the bill.
+  static Summary forOrderCreated(PreOrder order) =>
+      Summary(advanceReceived: order.advance);
+
+  /// A cancelled pre-order: the part of the advance handed back, counted on
+  /// the day of the cancellation (D-043).
+  static Summary forOrderCancelled(OrderCancel cancel) =>
+      Summary(advanceRefunded: cancel.refunded);
 
   /// The monthly-summary increments for creating ([before] null) or editing
   /// an expense. An edit that moves the expense to another month or
@@ -93,6 +104,8 @@ abstract final class SummaryDeltas {
     put('netSales', d.netSales.paise);
     put('returns', d.returns.paise);
     put('cancelled', d.cancelled.paise);
+    put('advanceReceived', d.advanceReceived.paise);
+    put('advanceRefunded', d.advanceRefunded.paise);
     for (final e in d.byMode.entries) {
       put('byMode.${e.key.wire}', e.value.paise);
     }

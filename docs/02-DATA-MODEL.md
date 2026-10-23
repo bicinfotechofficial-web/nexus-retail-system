@@ -68,7 +68,7 @@ Seed data: `ADMIN`, `STORE_MANAGER`. Only the seeding script writes these. There
 | label | string | e.g. "Counter 1 – Redmi" |
 | registeredBy, registeredAt | | |
 | lastSeenAt | Timestamp | Updated on each successful server round trip, at most once every 5 minutes |
-| lastBillSeq, lastMovementSeq, lastReturnSeq | int | Updated in the same batch as each bill, movement or return. They only go up, and they recover the local counters (03-SYNC §3) |
+| lastBillSeq, lastMovementSeq, lastReturnSeq, lastOrderSeq | int | Updated in the same batch as each bill, movement, return or pre-order (D-043). They only go up, and they recover the local counters (03-SYNC §3) |
 | retired | bool | |
 
 ### locations/{loc}/stock/{itemKey}
@@ -119,6 +119,7 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | soldQty | map productId → int | The qty of each line, written at creation so the rules can cap returns (D-029) |
 | returnedQty | map productId → int | Starts empty. Incremented by returns, never with 0. Must stay ≤ `soldQty` |
 | lastReturnId | string \| null | The return that last raised `returnedQty`, written in the same batch |
+| orderId | string \| null | The pre-order this bill delivers (D-043). Then `payments` holds an `ADVANCE` entry for the advance already paid, and the bill can't be cancelled |
 | customerId | string | `{phone}_{nameKey}` (D-037) |
 | customerName | string | Required, trimmed, 1–60 chars (D-034). Bills made before D-034 have none, and readers show "—" |
 | customerPhone | string | Required, 10 digits, `^[6-9][0-9]{9}$`, India only (D-034) |
@@ -135,6 +136,50 @@ PRODUCE example: `lines: [{RM_cakemix, -1000}, {RM_cream, -500}, {FG_bf1kg, +2}]
 | lastBillAt | timestamp | Server time of the last bill |
 | billCount, totalSpend | int | Incremented per bill, as billed (cancellations are not reversed) |
 | lastWriteRef | string | The bill that last changed it |
+
+### locations/{loc}/staff/{staffId}
+The store's staff roster (D-042). Staff are not app users and have no logins. Created and edited by the Admin in the admin console (online, so the ID is a Firestore auto ID). Never deleted: a person who leaves is set `active: false`, so old attendance still has a name.
+| Field | Type | Notes |
+|---|---|---|
+| name | string | Required, trimmed, 1–60 chars (`Limits.staffNameMax`) |
+| role | string | A free label such as "Baker" or "Helper", 0–30 chars (`Limits.staffRoleMax`) |
+| active | bool | Only active staff appear on the POS attendance screen |
+| createdBy, createdAt, updatedBy, updatedAt | | `*By` is the uid. Timestamps are server time |
+
+### locations/{loc}/attendance/{businessDate}_{staffId}
+One document per staff member per day (D-042), e.g. `2026-10-23_8fK2xQ`. Written with `set`, so marking again overwrites it, and a retry or a second phone is harmless (last write wins).
+| Field | Type | Notes |
+|---|---|---|
+| staffId | string | Must equal the ID's second part |
+| staffName | string | The name at the time of marking, so a report never needs the roster |
+| businessDate | string | `YYYY-MM-DD` (D-022). Must equal the ID's first part |
+| status | enum | `PRESENT`, `ABSENT`, `HALF_DAY` |
+| note | string \| null | Optional, up to 100 chars (`Limits.attendanceNoteMax`) |
+| markedBy | `{uid, name}` | Who wrote it last |
+| deviceId | string | The device that wrote it last |
+| editedAt | timestamp | Server time of the last write. There is no separate create time |
+The POS lets the manager mark today and up to 7 days back; the rules don't check the date window (D-031). At most `Limits.maxAttendanceBatch` (15) documents go in one batch, so the rules budget holds (D-030).
+
+### locations/{loc}/orders/{orderId}
+`orderId` = `{deviceId}-O{seq:6}` (e.g. `D01-O000007`), using a per-device order counter (`lastOrderSeq` on the device document, D-043). Created with `!exists`; afterwards only two updates are allowed: delivery and cancellation.
+| Field | Type | Notes |
+|---|---|---|
+| orderNo | string | `{loc}-{orderId}`, e.g. `PTB-D01-O000007` |
+| deviceId, seq | | |
+| customerId, customerName, customerPhone, customerWhatsapp | | The same four flat fields and rules as a bill (D-034, D-037). Creating an order does not write the customer record; the delivery bill does |
+| dueDate | string | `YYYY-MM-DD`, not before the business date it is taken on (client-checked) |
+| dueTime | string \| null | `HH:mm` (24-hour) or null |
+| description | string | Required, 1–500 chars (`Limits.orderDescriptionMax`) |
+| price | int | Paise, a positive multiple of 100 |
+| advance | int | Paise, a multiple of 100, `0 ≤ advance ≤ price` |
+| advanceMode | enum \| null | CASH, UPI, CARD, WALLET or OTHER; null exactly when `advance == 0`. Never ADVANCE |
+| status | enum | `OPEN` → `DELIVERED` or `CANCELLED` |
+| billId | string \| null | Set on delivery, to a bill that is new in the same batch |
+| deliveredAt | timestamp \| null | Server time, set on delivery |
+| cancel | map \| null | `{reason (1–100 chars), by, at, businessDate, refunded}`; `refunded` is paise, a multiple of 100, `0 ≤ refunded ≤ advance` |
+| servedBy | `{uid, name}` | |
+| businessDate, clientCreatedAt, serverCreatedAt, createdBy | | |
+Creating an order, in one batch: the order, `devices/{id}.lastOrderSeq`, and the daily and monthly summaries incremented by `advanceReceived` (only when the advance is above zero, with `lastWriteRef` naming the order). Delivering: the bill with its customer record, stock movement and summaries as for any bill (D-037), plus the order update. Cancelling: the order update, the audit entry `{loc}-{orderId}-X`, and the summaries' `advanceRefunded` when the refund is above zero.
 
 ### locations/{loc}/returns/{returnId}
 `returnId` = `{deviceId}-R{seq:6}` (e.g. `D01-R000007`), using a separate per-device return counter.
@@ -165,6 +210,7 @@ Same shape for both. Every numeric field is written **only with `increment()`**.
 | byProduct | map productId → `{qty:int, amount:int}` — `amount` is net of the bill discount (D-024) |
 | expenses | int (monthly only) |
 | byExpenseCategory | map category → int (monthly only) |
+| advanceReceived, advanceRefunded | int, paise: advances taken on pre-orders on that day, and the part of a cancelled order's advance handed back (D-043). `byMode` also gets an `ADVANCE` key on a delivery day |
 | lastWriteRef | string — full path (from the database root) of the *new* doc created in the same batch: the bill, return, CANCEL movement (`{billId}-X`) or expense audit doc. The rules check it (`04-PERMISSIONS.md` #9) |
 
 Net revenue for a period = `netSales − returns − cancelled`. Profit = that figure − `expenses`.

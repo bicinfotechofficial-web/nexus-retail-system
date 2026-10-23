@@ -66,6 +66,9 @@ abstract final class Messages {
     CancelBlocker.hasReturns =>
       "This bill has returns, so it can't be cancelled. The remaining items "
           'can still be returned.',
+    CancelBlocker.deliversOrder =>
+      "This bill delivers a pre-order, so it can't be cancelled. Use a return "
+          'instead.',
   };
 
   static String returnError(ReturnError error) => switch (error) {
@@ -92,5 +95,6 @@ abstract final class Messages {
     PaymentMode.card => 'Card',
     PaymentMode.wallet => 'Wallet',
     PaymentMode.other => 'Other',
+    PaymentMode.advance => 'Advance paid',
   };
 }

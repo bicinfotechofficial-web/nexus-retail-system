@@ -17,6 +17,7 @@ final class Product {
     this.unit = StockUnit.pcs,
     this.gstRate,
     this.recipe,
+    this.openPrice = false,
     this.reviewedBy,
     this.reviewNote,
     this.reviewedAt,
@@ -39,6 +40,7 @@ final class Product {
       scope: r.string('scope'),
       status: r.enumValue('status', ProductStatus.fromWire),
       recipe: r.objectsOrNull('recipe', RecipeLine._fromReader),
+      openPrice: r.booleanOr('openPrice', false),
       sortOrder: r.integerOr('sortOrder', 0),
       createdBy: r.string('createdBy'),
       reviewedBy: r.stringOrNull('reviewedBy'),
@@ -78,6 +80,11 @@ final class Product {
 
   /// Reserved for BOM.
   final List<RecipeLine>? recipe;
+
+  /// The cashier types the price at the counter instead of using [price]
+  /// (the seeded `CUSTOM-CAKE` item that delivers a pre-order, D-043). Only
+  /// the Admin can create such a product.
+  final bool openPrice;
   final int sortOrder;
   final String createdBy;
 
@@ -111,6 +118,7 @@ final class Product {
     'scope': scope,
     'status': status.wire,
     'recipe': recipe?.map((l) => l.toMap()).toList(),
+    'openPrice': openPrice,
     'sortOrder': sortOrder,
     'createdBy': createdBy,
     if (reviewedBy != null) 'reviewedBy': reviewedBy,

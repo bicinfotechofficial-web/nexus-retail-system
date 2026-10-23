@@ -18,6 +18,9 @@ abstract final class Permission {
   static const String userManage = 'user.manage';
   static const String locationManage = 'location.manage';
   static const String deviceRegister = 'device.register';
+  static const String staffManage = 'staff.manage';
+  static const String attendanceMark = 'attendance.mark';
+  static const String orderManage = 'order.manage';
 
   static const List<String> all = [
     catalogView,
@@ -37,6 +40,9 @@ abstract final class Permission {
     userManage,
     locationManage,
     deviceRegister,
+    staffManage,
+    attendanceMark,
+    orderManage,
   ];
 }
 
@@ -61,5 +67,7 @@ abstract final class SeedRoles {
     Permission.stockThreshold,
     Permission.reportOwn,
     Permission.deviceRegister,
+    Permission.attendanceMark,
+    Permission.orderManage,
   ];
 }

@@ -69,3 +69,18 @@ Already on main in `packages/core` and `packages/data/lib/src/api/`. The data pa
 - `StockRepository.watchMovements(locationId, businessDate)`.
 - Core: `CustomerValidator`, `CustomerId`, `BillCustomer`, `Customer`, `WhatsappReceipt` (text and `wa.me` link).
 - Note for the POS agent: `CatalogService.addRawMaterial` already exists, so the "New raw material" button on the POS stock-in screen needs only the UI.
+
+## CR-pilot-3 (from Bicy, after the client demo prep)
+- **Accepted:** the Caramel Cottage logo is part of the bill, on the printout and on the receipt image (D-041). The WhatsApp share is the formatted receipt image only; the plain-text `wa.me` option is removed (D-041).
+- **Accepted:** staff attendance that the Admin can view (D-042). Chosen scope: the Store Manager marks Present, Absent or Half-day per day; the Admin keeps the roster and sees a daily list and a monthly grid. Included in the ₹1,00,000 build fee. Check-in and out times, leave types and a payroll export are out of scope and would be quoted separately.
+- **Needs from Bicy:** the logo file (PNG, a square or wide image with a clean background, at least 600 px wide), saved as `packages/printer/assets/brand/logo.png`.
+
+## CR-pilot-4 (from Bicy, a missed requirement)
+- **Accepted:** pre-orders (D-043). Customers order customised cakes about three days ahead and pay an advance. The Store Manager adds the order and is reminded of orders due today and tomorrow inside the app. Delivery makes an ordinary bill with the advance credited. The Admin can see every store's orders. Included in the ₹1,00,000 build fee. A reference photo, further advances and phone or push notifications are out of scope.
+
+## Contract change for CR-pilot-3 and CR-pilot-4 (central)
+Already on main in `packages/core` and `packages/data/lib/src/api/`:
+- Core: `AttendanceStatus`, `StaffMember`, `AttendanceRecord`, `AttendanceId`, `AttendanceMonth` (per-person totals), `FirestorePaths.staff/staffMember/attendance/attendanceDoc`, `Limits.staffNameMax/staffRoleMax/attendanceNoteMax/maxAttendanceBatch/attendanceBackDays`, `Permission.staffManage/attendanceMark`, and both added to the seeded roles.
+- Data API: `StaffRepository` (`watchActive`, `watchAll`, `create`, `update`) and `AttendanceService` (`mark` a batch, `watchDay`, `watchMonth`, `watchMarkedToday` for the Admin's all-stores view).
+- `WhatsappReceipt` is removed from core (D-041).
+- Pre-orders (D-043): `PreOrder`, `OrderCancel`, `OrderStatus`, `OrderDue`, `OrderValidator`, `Ids.orderId/orderNo`, `Device.lastOrderSeq`, `Bill.orderId`, `PaymentMode.advance` (never offered at the counter: use **`PaymentMode.selectable`** for every picker), `Summary.advanceReceived/advanceRefunded` with `SummaryDeltas.forOrderCreated/forOrderCancelled`, `CancelBlocker.deliversOrder`, `Product.openPrice`, `Permission.orderManage`, `AuditAction.orderCancel`.

@@ -19,10 +19,18 @@ enum PaymentMode {
   upi('UPI'),
   card('CARD'),
   wallet('WALLET'),
-  other('OTHER');
+  other('OTHER'),
+
+  /// An advance paid earlier on a pre-order and credited on its delivery
+  /// bill (D-043). Never offered as a choice at the counter.
+  advance('ADVANCE');
 
   const PaymentMode(this.wire);
   final String wire;
+
+  /// The modes a cashier can pick when taking or refunding money. Excludes
+  /// [advance], which only the delivery of a pre-order creates.
+  static const List<PaymentMode> selectable = [cash, upi, card, wallet, other];
   static PaymentMode fromWire(String w) => _fromWire(values, w, (v) => v.wire);
 }
 
@@ -136,9 +144,36 @@ enum AuditAction {
   userEnable('USER_ENABLE'),
   offlineOverride('OFFLINE_OVERRIDE'),
   thresholdChange('THRESHOLD_CHANGE'),
-  locationUpdate('LOCATION_UPDATE');
+  locationUpdate('LOCATION_UPDATE'),
+  orderCancel('ORDER_CANCEL');
 
   const AuditAction(this.wire);
   final String wire;
   static AuditAction fromWire(String w) => _fromWire(values, w, (v) => v.wire);
+}
+
+/// A staff member's attendance for one day (D-042).
+enum AttendanceStatus {
+  present('PRESENT', 1),
+  halfDay('HALF_DAY', 0.5),
+  absent('ABSENT', 0);
+
+  const AttendanceStatus(this.wire, this.dayValue);
+  final String wire;
+
+  /// What the day adds to a monthly total.
+  final double dayValue;
+  static AttendanceStatus fromWire(String w) =>
+      _fromWire(values, w, (v) => v.wire);
+}
+
+/// A pre-order's state (D-043).
+enum OrderStatus {
+  open('OPEN'),
+  delivered('DELIVERED'),
+  cancelled('CANCELLED');
+
+  const OrderStatus(this.wire);
+  final String wire;
+  static OrderStatus fromWire(String w) => _fromWire(values, w, (v) => v.wire);
 }

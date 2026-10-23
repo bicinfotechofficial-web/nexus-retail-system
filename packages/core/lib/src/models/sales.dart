@@ -23,6 +23,7 @@ final class Bill {
     required this.clientCreatedAt,
     required this.createdBy,
     this.customer,
+    this.orderId,
     this.discount,
     this.taxLines = const [],
     this.cashTendered,
@@ -61,6 +62,7 @@ final class Bill {
       lastReturnId: r.stringOrNull('lastReturnId'),
       servedBy: ServedBy.fromReader(r.child('servedBy')),
       customer: BillCustomer.fromBillMap(r),
+      orderId: r.stringOrNull('orderId'),
       businessDate: r.string('businessDate'),
       clientCreatedAt: r.dateTime('clientCreatedAt'),
       serverCreatedAt: r.dateTimeOrNull('serverCreatedAt'),
@@ -110,6 +112,11 @@ final class Bill {
   /// Who bought. Required on every new bill (D-034), but bills made before
   /// that have none, so reading tolerates a missing one.
   final BillCustomer? customer;
+
+  /// The pre-order this bill delivers, or null for an ordinary bill (D-043).
+  /// Its `payments` then include an ADVANCE entry for the advance already
+  /// paid.
+  final String? orderId;
   final String businessDate;
   final DateTime clientCreatedAt;
   final DateTime? serverCreatedAt;

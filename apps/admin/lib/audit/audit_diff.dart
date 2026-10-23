@@ -127,4 +127,5 @@ String auditActionLabel(AuditAction a) => switch (a) {
   AuditAction.offlineOverride => 'Offline override',
   AuditAction.thresholdChange => 'Threshold change',
   AuditAction.locationUpdate => 'Location update',
+  AuditAction.orderCancel => 'Pre-order cancelled',
 };

@@ -135,13 +135,13 @@ void main() {
   });
 
   group('permissions', () {
-    test('the catalogue has 17 unique permissions', () {
-      expect(Permission.all.toSet(), hasLength(17));
+    test('the catalogue has 20 unique permissions', () {
+      expect(Permission.all.toSet(), hasLength(20));
     });
 
     test('Admin has every permission; Store Manager matches the matrix', () {
       expect(SeedRoles.adminPermissions, Permission.all);
-      expect(SeedRoles.storeManagerPermissions.toSet(), hasLength(11));
+      expect(SeedRoles.storeManagerPermissions.toSet(), hasLength(13));
       expect(
         Permission.all.toSet().difference(
           SeedRoles.storeManagerPermissions.toSet(),
@@ -153,6 +153,7 @@ void main() {
           Permission.auditView,
           Permission.userManage,
           Permission.locationManage,
+          Permission.staffManage,
         },
       );
     });

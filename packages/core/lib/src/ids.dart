@@ -4,6 +4,10 @@ abstract final class Ids {
   static final RegExp _location = RegExp(r'^[A-Z]{2,4}$');
   static final RegExp _device = RegExp(r'^D\d{2}$');
   static final RegExp _safeKey = RegExp(r'^[A-Za-z0-9_-]{1,100}$');
+  static final RegExp _date = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+  static final RegExp _attendance = RegExp(
+    r'^(\d{4}-\d{2}-\d{2})_([A-Za-z0-9_-]{1,100})$',
+  );
 
   /// Seq numbers are zero-padded to 6 digits so IDs sort in order (D-024).
   static const int seqWidth = 6;
@@ -42,6 +46,31 @@ abstract final class Ids {
   /// `D01-R000007`.
   static String returnId(String deviceId, int seq) =>
       '${_dev(deviceId)}-R${_seq(seq)}';
+
+  /// `D01-O000007`: a pre-order (D-043), with its own per-device counter.
+  static String orderId(String deviceId, int seq) =>
+      '${_dev(deviceId)}-O${_seq(seq)}';
+
+  /// `PTB-D01-O000007`: shown to the customer on the advance slip.
+  static String orderNo(String locationId, String orderId) =>
+      '${_loc(locationId)}-$orderId';
+
+  /// `2026-10-23_8fK2xQ`: one attendance document per staff member per day
+  /// (D-042).
+  static String attendanceId(String businessDate, String staffId) {
+    if (!_date.hasMatch(businessDate)) {
+      throw ArgumentError.value(businessDate, 'businessDate');
+    }
+    return '${businessDate}_${_key(staffId)}';
+  }
+
+  /// Splits an attendance ID into its business date and staff ID, or null
+  /// when it is not one.
+  static ({String businessDate, String staffId})? parseAttendanceId(String id) {
+    final m = _attendance.firstMatch(id);
+    if (m == null) return null;
+    return (businessDate: m.group(1)!, staffId: m.group(2)!);
+  }
 
   /// The SALE movement of a bill shares the bill's ID.
   static String saleMovementId(String billId) => billId;

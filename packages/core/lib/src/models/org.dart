@@ -179,6 +179,7 @@ final class Device {
     required this.retired,
     this.lastMovementSeq = 0,
     this.lastReturnSeq = 0,
+    this.lastOrderSeq = 0,
     this.registeredAt,
     this.lastSeenAt,
   });
@@ -194,6 +195,7 @@ final class Device {
       lastBillSeq: r.integerOr('lastBillSeq', 0),
       lastMovementSeq: r.integerOr('lastMovementSeq', 0),
       lastReturnSeq: r.integerOr('lastReturnSeq', 0),
+      lastOrderSeq: r.integerOr('lastOrderSeq', 0),
       retired: r.booleanOr('retired', false),
     );
   }
@@ -215,6 +217,9 @@ final class Device {
   final int lastBillSeq;
   final int lastMovementSeq;
   final int lastReturnSeq;
+
+  /// The last pre-order number this device used (D-043).
+  final int lastOrderSeq;
   final bool retired;
 
   Map<String, Object?> toMap() => {
@@ -224,6 +229,7 @@ final class Device {
     'lastBillSeq': lastBillSeq,
     'lastMovementSeq': lastMovementSeq,
     'lastReturnSeq': lastReturnSeq,
+    'lastOrderSeq': lastOrderSeq,
     'retired': retired,
   };
 }
