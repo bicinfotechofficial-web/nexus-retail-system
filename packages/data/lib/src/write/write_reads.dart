@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:nexus_core/nexus_core.dart';
 
+import '../api/orders.dart';
 import '../api/sales.dart';
 import '../convert/firestore_values.dart';
 import '../firestore/failure_mapping.dart';
@@ -10,6 +11,9 @@ import '../firestore/failure_mapping.dart';
 abstract interface class WriteReads {
   /// The bill to cancel or return against.
   Future<Bill?> bill(String locationId, String billId);
+
+  /// The pre-order to deliver or cancel (D-043).
+  Future<PreOrder?> order(String locationId, String orderId);
 
   /// A stock doc: the device's view of `qty` for an Adjust (03-SYNC §5),
   /// and the item's name and unit.
@@ -27,14 +31,19 @@ abstract interface class WriteReads {
 /// [WriteReads] on Firestore with the default source: the server when it
 /// is reachable (so a return is worked out from the bill's latest
 /// `lastReturnId`, D-029), otherwise the local cache. Either way the result
-/// includes this device's own pending writes. Bills come from the sales
-/// repository, the same read the bill screens use.
+/// includes this device's own pending writes. Bills and orders come from the
+/// sales and order repositories, the same reads the screens use.
 final class FirestoreWriteReads implements WriteReads {
-  FirestoreWriteReads(this._db, this._sales, {DateTime Function()? clock})
-    : _now = clock ?? DateTime.now;
+  FirestoreWriteReads(
+    this._db,
+    this._sales,
+    this._orders, {
+    DateTime Function()? clock,
+  }) : _now = clock ?? DateTime.now;
 
   final FirebaseFirestore _db;
   final SalesRepository _sales;
+  final OrderRepository _orders;
   final DateTime Function() _now;
 
   Future<T?> _get<T>(
@@ -61,6 +70,10 @@ final class FirestoreWriteReads implements WriteReads {
   @override
   Future<Bill?> bill(String locationId, String billId) =>
       _sales.getBill(locationId, billId);
+
+  @override
+  Future<PreOrder?> order(String locationId, String orderId) =>
+      _orders.getOrder(locationId, orderId);
 
   @override
   Future<StockItem?> stockItem(String locationId, String itemKey) => _get(

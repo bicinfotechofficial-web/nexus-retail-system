@@ -42,6 +42,7 @@ final class FakeCommitter implements PlanCommitter {
 /// [WriteReads] from maps.
 final class FakeReads implements WriteReads {
   final Map<String, Bill> bills = {};
+  final Map<String, PreOrder> orders = {};
   final Map<String, StockItem> stock = {};
   final Map<String, Product> products = {};
   final Map<String, RawMaterial> materials = {};
@@ -53,6 +54,10 @@ final class FakeReads implements WriteReads {
   @override
   Future<Bill?> bill(String locationId, String billId) async =>
       bills[FirestorePaths.bill(locationId, billId)];
+
+  @override
+  Future<PreOrder?> order(String locationId, String orderId) async =>
+      orders[FirestorePaths.order(locationId, orderId)];
 
   @override
   Future<StockItem?> stockItem(String locationId, String itemKey) async =>
@@ -191,6 +196,13 @@ final class Harness {
     offline: () => offline,
   );
   late final FirestoreStockService stock = FirestoreStockService(env);
+  late final FirestoreOrderService orders = FirestoreOrderService(
+    env,
+    offline: () => offline,
+  );
+  late final FirestoreAttendanceService attendance = FirestoreAttendanceService(
+    env,
+  );
 
   List<String> get ledgerPaths => [for (final e in ledger.entries) e.path];
 }

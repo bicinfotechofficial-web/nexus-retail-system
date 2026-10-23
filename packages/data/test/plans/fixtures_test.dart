@@ -51,6 +51,7 @@ Map<String, Object?> _device({
   int bill = 0,
   int movement = 0,
   int ret = 0,
+  int order = 0,
 }) => {
   ...Device(
     code: code,
@@ -59,6 +60,7 @@ Map<String, Object?> _device({
     lastBillSeq: bill,
     lastMovementSeq: movement,
     lastReturnSeq: ret,
+    lastOrderSeq: order,
     retired: false,
   ).toMap(),
   'registeredAt': Fx.now,
@@ -553,8 +555,164 @@ List<_Fixture> _buildFixtures() {
         active: false,
       ).plan,
     ),
+    _Fixture(
+      'staff_create',
+      'Admin adds a staff member to the PTB roster (D-041)',
+      Fx.adminUid,
+      StaffPlans.create(
+        ctx: Fx.admin(),
+        locationId: 'PTB',
+        staffId: 'st-0001',
+        name: 'Test Baker',
+        role: 'Baker',
+      ).plan,
+    ),
+    _Fixture(
+      'staff_update',
+      'Admin renames a staff member and deactivates them',
+      Fx.adminUid,
+      StaffPlans.update(
+        ctx: Fx.admin(at: Fx.now.add(const Duration(hours: 1))),
+        locationId: 'PTB',
+        staffId: 'st-0001',
+        name: 'Test Baker Two',
+        active: false,
+      ),
+      arrange: {
+        'locations/PTB/staff/st-0001': {
+          'name': 'Test Baker',
+          'role': 'Baker',
+          'active': true,
+          'createdBy': Fx.adminUid,
+          'createdAt': Fx.now,
+        },
+      },
+    ),
+    _Fixture(
+      'attendance_mark',
+      'The Store Manager marks three staff for today, one with a note',
+      Fx.smUid,
+      AttendancePlans.mark(
+        ctx: sm,
+        businessDate: sm.businessDate,
+        markedByName: 'Store Manager PTB',
+        marks: const [
+          AttendanceMark(
+            staffId: 'st-0001',
+            staffName: 'Test Baker',
+            status: AttendanceStatus.present,
+          ),
+          AttendanceMark(
+            staffId: 'st-0002',
+            staffName: 'Test Packer',
+            status: AttendanceStatus.halfDay,
+            note: 'Left at noon',
+          ),
+          AttendanceMark(
+            staffId: 'st-0003',
+            staffName: 'Test Helper',
+            status: AttendanceStatus.absent,
+          ),
+        ],
+      ).single,
+      arrange: {d01: _device()},
+    ),
+    _Fixture(
+      'attendance_mark_max',
+      'One full batch of ${Limits.maxAttendanceBatch} attendance marks',
+      Fx.smUid,
+      AttendancePlans.mark(
+        ctx: sm,
+        businessDate: sm.businessDate,
+        markedByName: 'Store Manager PTB',
+        marks: [
+          for (var i = 1; i <= Limits.maxAttendanceBatch; i++)
+            AttendanceMark(
+              staffId: 'st-${i.toString().padLeft(4, '0')}',
+              staffName: 'Test Staff $i',
+              status: AttendanceStatus.present,
+              note: i.isEven ? 'Note $i' : null,
+            ),
+        ],
+      ).single,
+      arrange: {d01: _device()},
+    ),
+    _Fixture(
+      'order_create',
+      'Create pre-order D01-O000004 with a 500.00 advance by UPI',
+      Fx.smUid,
+      _orderCreate(sm, advance: const Money(50000)).plan,
+      arrange: {d01: _device(order: 3)},
+    ),
+    _Fixture(
+      'order_create_no_advance',
+      'Create pre-order D01-O000004 with no advance: no summary write',
+      Fx.smUid,
+      _orderCreate(sm, advance: Money.zero).plan,
+      arrange: {d01: _device(order: 3)},
+    ),
+    _Fixture(
+      'order_deliver',
+      'Deliver order D01-O000004 from device D02 as bill D02-000007: '
+          'ADVANCE entry first, the balance in cash',
+      Fx.smUid,
+      OrderPlans.deliver(
+        ctx: Fx.sm(at: Fx.now.add(const Duration(days: 2)), deviceId: 'D02'),
+        seq: 7,
+        order: _storedOrder(),
+        payments: const [
+          Payment(mode: PaymentMode.cash, amount: Money(100000)),
+        ],
+        servedByName: 'Store Manager PTB',
+      ).plan,
+      arrange: {
+        _orderDocPath: _orderStored(),
+        'locations/PTB/devices/D02': _device(code: 'D02', bill: 6),
+      },
+    ),
+    _Fixture(
+      'order_cancel',
+      'Cancel order D01-O000004 the next day with a 300.00 refund of the '
+          'advance, with the ORDER_CANCEL audit',
+      Fx.smUid,
+      OrderPlans.cancel(
+        ctx: Fx.sm(at: Fx.now.add(const Duration(days: 1))),
+        order: _storedOrder(),
+        reason: 'Customer changed plans',
+        refund: const Money(30000),
+      ).plan,
+      arrange: {_orderDocPath: _orderStored(), d01: _device(order: 4)},
+    ),
   ];
 }
+
+const String _orderDocPath = 'locations/PTB/orders/D01-O000004';
+
+PlannedWrite<PreOrder> _orderCreate(
+  PlanContext ctx, {
+  required Money advance,
+}) => OrderPlans.create(
+  ctx: ctx,
+  seq: 4,
+  input: NewOrder(
+    customer: Fx.customer,
+    dueDate: '2026-09-28',
+    dueTime: '16:30',
+    description: 'Two layer truffle, 1.5 kg, "Happy Birthday"',
+    price: const Money(150000),
+    advance: advance,
+    advanceMode: advance.isZero ? null : PaymentMode.upi,
+  ),
+  servedByName: 'Store Manager PTB',
+);
+
+/// The order as the server holds it (the create fixture's data, stamped).
+Map<String, Object?> _orderStored() => {
+  ..._orderCreate(Fx.sm(), advance: const Money(50000)).value.toMap(),
+  'serverCreatedAt': Fx.now,
+};
+
+PreOrder _storedOrder() => PreOrder.fromMap('D01-O000004', _orderStored());
 
 const String _ktlHash =
     r'Zml4dHVyZS1LVEw=$My24sNIbFGHL5UnbIT0eNVqKrnJiurgKBAVJXK0RRcc=';

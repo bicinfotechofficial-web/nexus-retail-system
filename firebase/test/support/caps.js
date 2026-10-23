@@ -4,10 +4,25 @@
 // `arrange` writes the starting state with the rules off, and `run` commits
 // the batch as the Store Manager at PTB.
 
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { ACTORS, LOC } from './fixtures.js';
-import { billId, makeBill, makeMovement, makeReturn, manyLines, movementId, returnId, storedBill, storedCustomer } from './builders.js';
-import { billBatch, returnBatch, stockBatch } from './batches.js';
+import {
+  attendanceId,
+  billId,
+  makeAttendance,
+  makeBill,
+  makeMovement,
+  makeOrder,
+  makeReturn,
+  manyLines,
+  movementId,
+  orderId,
+  returnId,
+  storedBill,
+  storedCustomer,
+  storedOrder,
+} from './builders.js';
+import { billBatch, deliverBatch, orderCancelBatch, orderCreateBatch, returnBatch, stockBatch } from './batches.js';
 import { readLimits } from '../../scripts/lib/core.js';
 
 // The caps come from Limits in packages/core, so a change there moves these
@@ -15,6 +30,7 @@ import { readLimits } from '../../scripts/lib/core.js';
 const LIMITS = readLimits();
 export const MAX_BILL_LINES = LIMITS.maxBillLines;
 export const MAX_MOVEMENT_LINES = LIMITS.maxMovementLines;
+export const MAX_ATTENDANCE_BATCH = LIMITS.maxAttendanceBatch;
 if (LIMITS.maxPayments !== 4 || LIMITS.maxRefunds !== 4) {
   throw new Error('caps.js: fourWay() and the rules spell out 4 payments and refunds; update both with Limits');
 }
@@ -39,6 +55,7 @@ function device(db, counters = {}) {
     lastBillSeq: 0,
     lastMovementSeq: 0,
     lastReturnSeq: 0,
+    lastOrderSeq: 0,
     retired: false,
     ...counters,
   });
@@ -139,6 +156,60 @@ export const largestProduce = {
   },
 };
 
+/** A batch of 15 attendance marks (Limits.maxAttendanceBatch), the cap of #16. */
+export const largestAttendanceBatch = {
+  name: `attendance: ${MAX_ATTENDANCE_BATCH} marks`,
+  run: (dbAs) => {
+    const db = dbAs('smPtb');
+    const b = writeBatch(db);
+    for (let i = 1; i <= MAX_ATTENDANCE_BATCH; i++) {
+      const m = makeAttendance({ staffId: `staff${String(i).padStart(2, '0')}`, note: i % 2 ? 'x'.repeat(100) : null });
+      b.set(doc(db, 'locations', LOC.PTB, 'attendance', attendanceId(m.businessDate, m.staffId)), m);
+    }
+    return b.commit();
+  },
+};
+
+const ORDER = orderId('D01', 1);
+
+/** A pre-order with an advance: the order, `lastOrderSeq` and both summaries. */
+export const orderWithAdvance = {
+  name: 'order: create with an advance',
+  arrange: (db) => device(db),
+  run: (dbAs) => orderCreateBatch(dbAs('smPtb'), makeOrder()).commit(),
+};
+
+/** Delivering it: the delivery bill (ADVANCE entry plus a balance payment), stock, customer, summaries and the order update. */
+export const orderDelivery = {
+  name: 'order: deliver (bill with ADVANCE, order update)',
+  arrange: async (db) => {
+    await device(db, { lastOrderSeq: 1 });
+    await setDoc(doc(db, 'locations', LOC.PTB, 'orders', ORDER), storedOrder(makeOrder()));
+  },
+  run: (dbAs) => {
+    const o = makeOrder();
+    const bill = makeBill({
+      lines: [['CUSTOM-CAKE', 1, o.price]],
+      payments: [
+        { mode: 'ADVANCE', amount: o.advance },
+        { mode: 'CASH', amount: o.price - o.advance },
+      ],
+      orderId: ORDER,
+    });
+    return deliverBatch(dbAs('smPtb'), bill).commit();
+  },
+};
+
+/** Cancelling it with a refund: the order update, the audit entry and the summaries' advanceRefunded. */
+export const orderCancellation = {
+  name: 'order: cancel with a refund',
+  arrange: async (db) => {
+    await device(db, { lastOrderSeq: 1 });
+    await setDoc(doc(db, 'locations', LOC.PTB, 'orders', ORDER), storedOrder(makeOrder()));
+  },
+  run: (dbAs) => orderCancelBatch(dbAs('smPtb'), ORDER, { refunded: 30000 }).commit(),
+};
+
 /** Every cap case, with the rules each one is measured on. */
 export const CAP_CASES = [
   { scenario: largestBill, targets: ['billCreate', 'customerCreate'] },
@@ -146,4 +217,8 @@ export const CAP_CASES = [
   { scenario: largestFirstReturn, targets: ['billUpdate', 'returnCreate'] },
   { scenario: largestSecondReturn, targets: ['billUpdate', 'returnCreate'] },
   { scenario: largestProduce, targets: ['movementCreate', 'stockCreate'] },
+  { scenario: largestAttendanceBatch, targets: ['attendanceWrite'] },
+  { scenario: orderWithAdvance, targets: ['orderCreate', 'summaryWrite'] },
+  { scenario: orderDelivery, targets: ['billCreate', 'orderUpdate'] },
+  { scenario: orderCancellation, targets: ['orderUpdate', 'summaryWrite'] },
 ];

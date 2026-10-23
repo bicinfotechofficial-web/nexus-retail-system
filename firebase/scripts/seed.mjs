@@ -65,6 +65,19 @@ export const PRODUCTS = [
   ['blueberry-pastry', 'Blueberry Pastry', 'Pastries', 11000],
 ];
 
+/**
+ * The item that delivers a pre-order (D-043): global, ACTIVE, price 0, and
+ * `openPrice` so the order's own price is what is billed. Only `catalog.manage`
+ * can set `openPrice` on a product (rules #8).
+ */
+export const CUSTOM_CAKE = {
+  id: 'CUSTOM-CAKE',
+  name: 'Custom cake',
+  category: 'Cakes',
+  price: 0,
+  openPrice: true,
+};
+
 /** [id, name, unit] */
 export const RAW_MATERIALS = [
   ['maida', 'Maida', 'G'],
@@ -99,6 +112,7 @@ function productDoc([, name, category, price], i) {
     price,
     proposedPrice: null,
     unit: 'PCS',
+    openPrice: false,
     gstRate: null,
     scope: 'GLOBAL',
     status: 'ACTIVE',
@@ -183,6 +197,12 @@ export async function seed({ db, auth, inputs }) {
   for (const [i, product] of PRODUCTS.entries()) {
     const ref = db.doc(`products/${product[0]}`);
     report[ref.path] = await createIfMissing(ref, productDoc(product, i));
+  }
+
+  {
+    const ref = db.doc(`products/${CUSTOM_CAKE.id}`);
+    const doc = productDoc([CUSTOM_CAKE.id, CUSTOM_CAKE.name, CUSTOM_CAKE.category, CUSTOM_CAKE.price], PRODUCTS.length);
+    report[ref.path] = await createIfMissing(ref, { ...doc, openPrice: true });
   }
 
   for (const [id, name, unit] of RAW_MATERIALS) {

@@ -15,6 +15,11 @@ abstract final class SalesPlans {
   /// record (`set(merge)` in every bill, D-037; see [customerWrite]) and the
   /// device's `lastBillSeq`.
   ///
+  /// With [delivers] (a pre-order, D-043) the bill carries `orderId` and the
+  /// plan adds the order's update to DELIVERED naming this bill, so the two
+  /// land in one batch; the payments then hold the order's ADVANCE entry (see
+  /// `OrderPlans.deliver`, the only caller that passes it).
+  ///
   /// Throws the calculator's `BillValidationException`, or
   /// `DataFailure(ruleViolation)` when the payments don't check out.
   static PlannedWrite<Bill> createBill({
@@ -23,6 +28,7 @@ abstract final class SalesPlans {
     required NewBill input,
     required String servedByName,
     int? maxDiscountPct,
+    PreOrder? delivers,
   }) {
     final loc = ctx.requireLocation();
     final dev = ctx.requireDevice();
@@ -63,15 +69,17 @@ abstract final class SalesPlans {
       clientCreatedAt: ctx.now,
       createdBy: ctx.uid,
       customer: input.customer,
+      orderId: delivers?.id,
     );
 
     final billPath = FirestorePaths.bill(loc, id);
     final movementId = Ids.saleMovementId(id);
     final b = PlanBuilder()
-      ..create(
-        billPath,
-        withServerTimestamps(bill.toMap(), Bill.serverTimestampFields),
-      );
+      ..create(billPath, {
+        ...withServerTimestamps(bill.toMap(), Bill.serverTimestampFields),
+        // `Bill.toMap` leaves the key out; only a delivery bill carries it.
+        'orderId': ?bill.orderId,
+      });
     for (final l in bill.lines) {
       final ref = StockRef.product(l.productId, l.name);
       b.setMerge(
@@ -102,6 +110,13 @@ abstract final class SalesPlans {
         customerWrite(input.customer, billId: id, total: bill.total),
       )
       ..update(FirestorePaths.device(loc, dev), {'lastBillSeq': seq});
+    if (delivers != null) {
+      b.update(FirestorePaths.order(loc, delivers.id), {
+        'status': OrderStatus.delivered.wire,
+        'billId': id,
+        'deliveredAt': serverTimestamp,
+      });
+    }
     return PlannedWrite(bill, b.build());
   }
 

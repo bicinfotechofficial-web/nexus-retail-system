@@ -41,10 +41,7 @@ abstract interface class AttendanceRepository {
 
   /// The marks of one month (`YYYY-MM`) at [locationId], by date then name.
   /// About 30 reads per staff member, so the Admin loads one store at a time.
-  Stream<List<AttendanceRecord>> watchMonth(
-    String locationId,
-    String monthKey,
-  );
+  Stream<List<AttendanceRecord>> watchMonth(String locationId, String monthKey);
 
   /// One day's marks across every location, for the Admin's "who hasn't
   /// marked today" view (`report.all`). A collection-group query.

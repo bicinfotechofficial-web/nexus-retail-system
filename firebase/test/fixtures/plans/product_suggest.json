@@ -16,6 +16,7 @@
         "scope": "PTB",
         "status": "PENDING",
         "recipe": null,
+        "openPrice": false,
         "sortOrder": 0,
         "createdBy": "sm-ptb",
         "createdAt": {

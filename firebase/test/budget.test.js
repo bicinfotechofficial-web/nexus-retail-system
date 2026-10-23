@@ -10,15 +10,19 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   CAP_CASES,
+  largestAttendanceBatch,
   largestBill,
   largestFirstReturn,
   largestProduce,
   largestRepeatBill,
   largestSecondReturn,
+  orderCancellation,
+  orderDelivery,
+  orderWithAdvance,
   overCapBill,
 } from './support/caps.js';
 import { ACCESS_LIMIT_DOC, EXPRESSION_LIMIT, calibrate, comparisonsFor, probe } from './support/budget.js';
-import { assertFails, assertSucceeds, useRulesEnv } from './support/env.js';
+import { assertFails, assertSucceeds, seedFixtures, useRulesEnv } from './support/env.js';
 
 const t = useRulesEnv();
 
@@ -46,6 +50,20 @@ describe('rules budget: the largest batches are accepted (D-030)', () => {
 
   it('accepts a 20-line PRODUCE with its 20 new stock docs', async () => {
     await assertSucceeds(accept(largestProduce));
+  });
+
+  it('accepts a batch of 15 attendance marks (#16)', async () => {
+    await assertSucceeds(accept(largestAttendanceBatch));
+  });
+
+  it('accepts the pre-order batches: create with an advance, deliver, and cancel with a refund (#18 to #20)', async () => {
+    await assertSucceeds(accept(orderWithAdvance));
+    await t.env.clearFirestore();
+    await seedFixtures(t.env);
+    await assertSucceeds(accept(orderDelivery));
+    await t.env.clearFirestore();
+    await seedFixtures(t.env);
+    await assertSucceeds(accept(orderCancellation));
   });
 
   it('denies the complete bill batch with 16 lines', async () => {

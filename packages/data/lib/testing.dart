@@ -65,6 +65,14 @@
 /// call it before the app's Firestore instance is used for anything else.
 /// The debug manifest must allow cleartext traffic for the Auth emulator
 /// (QA-043 (a), POS agent).
+///
+/// ## In-memory fakes
+/// `FakeStaffRepository`/`FakeStaffService`, `FakeAttendanceRepository`/
+/// `FakeAttendanceService` and `FakeOrderRepository`/`FakeOrderService`
+/// implement the staff, attendance and pre-order contracts in memory, on the
+/// real pure plan builders, for widget tests and demo builds (no Firebase).
+/// See `src/testing/fakes.dart`.
 library;
 
+export 'src/testing/fakes.dart';
 export 'src/testing/test_device.dart';

@@ -14,7 +14,7 @@ import { deleteApp, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readLimits, readPermissions, verifyPin } from '../scripts/lib/core.js';
-import { CLIENT_DEMO_PROJECT, LOCATIONS, PRODUCTS, PROD_PROJECT, RAW_MATERIALS, resolveTarget } from '../scripts/seed.mjs';
+import { CLIENT_DEMO_PROJECT, CUSTOM_CAKE, LOCATIONS, PRODUCTS, PROD_PROJECT, RAW_MATERIALS, resolveTarget } from '../scripts/seed.mjs';
 
 const run = promisify(execFile);
 const SEED = fileURLToPath(new URL('../scripts/seed.mjs', import.meta.url));
@@ -81,9 +81,9 @@ afterAll(async () => {
 });
 
 describe('BE-14 seed script', () => {
-  it('seeds roles, the Admin, both locations, 10 products and 5 raw materials', async () => {
+  it('seeds roles, the Admin, both locations, 10 products plus CUSTOM-CAKE and 5 raw materials', async () => {
     const out = await seed();
-    expect(out).toMatch(/Done: 21 created or updated\./);
+    expect(out).toMatch(/Done: 22 created or updated\./);
 
     const perms = readPermissions();
     expect((await db.doc(`roles/${perms.adminId}`).get()).data()).toEqual({
@@ -96,6 +96,10 @@ describe('BE-14 seed script', () => {
       permissions: perms.storeManagerPermissions,
       allLocations: false,
     });
+    // The permissions Change set 2 added: staff.manage is Admin only.
+    expect(perms.adminPermissions).toEqual(expect.arrayContaining(['staff.manage', 'attendance.mark', 'order.manage']));
+    expect(perms.storeManagerPermissions).toEqual(expect.arrayContaining(['attendance.mark', 'order.manage']));
+    expect(perms.storeManagerPermissions).not.toContain('staff.manage');
 
     const admin = await auth.getUserByEmail(EMAIL);
     const user = (await db.doc(`users/${admin.uid}`).get()).data();
@@ -126,10 +130,15 @@ describe('BE-14 seed script', () => {
     expect(ptb.data().overridePinHash).not.toBe(mnj.data().overridePinHash);
 
     const products = (await db.collection('products').get()).docs;
-    expect(products.map((d) => d.id).sort()).toEqual(PRODUCTS.map(([id]) => id).sort());
+    expect(products.map((d) => d.id).sort()).toEqual([...PRODUCTS.map(([id]) => id), CUSTOM_CAKE.id].sort());
     for (const d of products) {
       const p = d.data();
       expect(p).toMatchObject({ status: 'ACTIVE', scope: 'GLOBAL', unit: 'PCS', proposedPrice: null });
+      if (d.id === CUSTOM_CAKE.id) {
+        expect(p).toMatchObject({ name: 'Custom cake', price: 0, openPrice: true });
+        continue;
+      }
+      expect(p.openPrice).toBe(false);
       expect(Number.isInteger(p.price) && p.price > 0 && p.price % 100 === 0).toBe(true);
       expect(['Cakes', 'Pastries']).toContain(p.category);
     }
@@ -142,7 +151,7 @@ describe('BE-14 seed script', () => {
   it('changes nothing when run twice, and needs no password or PIN the second time', async () => {
     await seed();
     const before = await snapshot();
-    expect(Object.keys(before.docs)).toHaveLength(2 + 1 + 2 + 10 + 5);
+    expect(Object.keys(before.docs)).toHaveLength(2 + 1 + 2 + 11 + 5);
     expect(before.users).toHaveLength(1);
 
     const out = await seed({ SEED_ADMIN_PASSWORD: undefined, SEED_OVERRIDE_PIN: undefined });

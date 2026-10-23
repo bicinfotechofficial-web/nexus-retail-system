@@ -14,6 +14,7 @@
         "scope": "GLOBAL",
         "status": "ACTIVE",
         "recipe": null,
+        "openPrice": false,
         "sortOrder": 3,
         "createdBy": "admin",
         "createdAt": {
@@ -41,6 +42,7 @@
         "scope": "GLOBAL",
         "status": "ACTIVE",
         "recipe": null,
+        "openPrice": false,
         "sortOrder": 3,
         "updatedAt": {
           "__op": "serverTimestamp"
