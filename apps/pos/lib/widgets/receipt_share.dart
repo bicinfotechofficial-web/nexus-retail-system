@@ -5,53 +5,28 @@ import 'package:nexus_printer/nexus_printer.dart';
 
 import '../app/providers.dart';
 
-/// The shop name in the WhatsApp text (D-036).
-const String shopName = 'Caramel Cottage';
-
-/// WhatsApp message and image buttons for a saved bill (POS-14, D-036).
-/// Nothing is sent automatically and nothing is recorded as sent: the
-/// cashier presses Send in WhatsApp, or picks the chat in the share sheet.
-/// Hidden when the bill's customer isn't on WhatsApp. Opening or sharing
-/// never touches the bill, so a failure only shows a message.
-class WhatsappActions extends ConsumerStatefulWidget {
-  const WhatsappActions({required this.bill, super.key});
+/// Shares a saved bill's receipt as an image through the share sheet
+/// (D-036b, D-041). The cashier picks the customer's chat there, because the
+/// contact can't be preset, so the customer's WhatsApp number is shown above
+/// the button to help find it. Nothing is sent automatically and nothing is
+/// recorded as sent. Hidden when the customer isn't on WhatsApp (D-034).
+/// Sharing never touches the bill, so a failure only shows a message.
+class ReceiptShare extends ConsumerStatefulWidget {
+  const ReceiptShare({required this.bill, this.showNumber = true, super.key});
 
   final Bill bill;
 
+  /// Whether to print the WhatsApp number above the button. The bill page
+  /// already lists it with the customer.
+  final bool showNumber;
+
   @override
-  ConsumerState<WhatsappActions> createState() => _WhatsappActionsState();
+  ConsumerState<ReceiptShare> createState() => _ReceiptShareState();
 }
 
-class _WhatsappActionsState extends ConsumerState<WhatsappActions> {
-  bool _opening = false;
+class _ReceiptShareState extends ConsumerState<ReceiptShare> {
   bool _sharing = false;
   String? _problem;
-
-  Future<void> _message(String number, Location? location) async {
-    if (_opening) return;
-    setState(() {
-      _opening = true;
-      _problem = null;
-    });
-    final text = WhatsappReceipt.build(
-      shopName: shopName,
-      locationName: location?.name ?? '',
-      bill: widget.bill,
-    );
-    var opened = false;
-    try {
-      opened = await ref
-          .read(linkLauncherProvider)
-          .open(WhatsappReceipt.link(number, text));
-    } on Object {
-      opened = false;
-    }
-    if (!mounted) return;
-    setState(() {
-      _opening = false;
-      if (!opened) _problem = "WhatsApp isn't installed on this phone.";
-    });
-  }
 
   Future<void> _image(Location? location) async {
     if (_sharing) return;
@@ -89,19 +64,34 @@ class _WhatsappActionsState extends ConsumerState<WhatsappActions> {
 
   @override
   Widget build(BuildContext context) {
-    final number = widget.bill.customer?.whatsapp;
-    if (number == null) return const SizedBox.shrink();
+    final customer = widget.bill.customer;
+    if (customer == null) return const SizedBox.shrink();
+    final number = customer.whatsapp;
+    final theme = Theme.of(context);
+    if (number == null) {
+      return widget.showNumber
+          ? Text(
+              'No WhatsApp',
+              key: const Key('whatsapp-number'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            )
+          : const SizedBox.shrink();
+    }
     final location = ref.watch(sessionProvider).value?.location;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OutlinedButton.icon(
-          key: const Key('whatsapp-message'),
-          onPressed: _opening ? null : () => _message(number, location),
-          icon: const Icon(Icons.chat_outlined),
-          label: const Text('WhatsApp message'),
-        ),
-        const SizedBox(height: 8),
+        if (widget.showNumber)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'WhatsApp: $number',
+              key: const Key('whatsapp-number'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
         OutlinedButton.icon(
           key: const Key('whatsapp-image'),
           onPressed: _sharing ? null : () => _image(location),
@@ -120,7 +110,7 @@ class _WhatsappActionsState extends ConsumerState<WhatsappActions> {
               _problem!,
               key: const Key('whatsapp-problem'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: TextStyle(color: theme.colorScheme.error),
             ),
           ),
       ],

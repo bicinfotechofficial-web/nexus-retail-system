@@ -67,7 +67,6 @@ PosServices servicesOf(FakeBackend b, {AuthService? auth}) {
     printer: s.printer,
     customers: s.customers,
     phoneStore: s.phoneStore,
-    linkLauncher: s.linkLauncher,
     receiptSharer: s.receiptSharer,
   );
 }
@@ -177,7 +176,6 @@ void main() {
       'printerServiceProvider': () => c.read(printerServiceProvider),
       'customerRepositoryProvider': () => c.read(customerRepositoryProvider),
       'phoneStoreProvider': () => c.read(phoneStoreProvider),
-      'linkLauncherProvider': () => c.read(linkLauncherProvider),
       'receiptSharerProvider': () => c.read(receiptSharerProvider),
     };
     for (final e in reads.entries) {

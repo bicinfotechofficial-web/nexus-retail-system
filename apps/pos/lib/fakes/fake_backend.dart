@@ -38,11 +38,9 @@ final class FakeBackend {
     DateTime Function()? now,
     bool registered = true,
     PhoneStore? phoneStore,
-    LinkLauncher? linkLauncher,
     ReceiptSharer? receiptSharer,
     ReceiptImageRenderer? renderer,
   }) : phoneStore = phoneStore ?? MemoryPhoneStore(),
-       _linkLauncher = linkLauncher,
        _receiptSharer = receiptSharer,
        _renderer = renderer,
        auth = FakeAuthService(
@@ -93,16 +91,13 @@ final class FakeBackend {
   /// restart the app on the same phone.
   final PhoneStore phoneStore;
 
-  /// What the WhatsApp buttons use. The fakes record their calls, unless
+  /// What the receipt image share uses. The fakes record their calls, unless
   /// `FAKE_DATA` on a real phone passes the real ones.
-  final FakeLinkLauncher fakeLinks = FakeLinkLauncher();
   final FakeReceiptSharer fakeShares = FakeReceiptSharer();
   final FakeReceiptRenderer fakeRenders = FakeReceiptRenderer();
-  final LinkLauncher? _linkLauncher;
   final ReceiptSharer? _receiptSharer;
   final ReceiptImageRenderer? _renderer;
 
-  LinkLauncher get linkLauncher => _linkLauncher ?? fakeLinks;
   ReceiptSharer get receiptSharer => _receiptSharer ?? fakeShares;
   ReceiptImageRenderer get renderer => _renderer ?? fakeRenders.call;
 
@@ -122,7 +117,6 @@ final class FakeBackend {
     printer: printer,
     customers: customers,
     phoneStore: phoneStore,
-    linkLauncher: linkLauncher,
     receiptSharer: receiptSharer,
   );
 

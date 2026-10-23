@@ -57,9 +57,6 @@ final customerRepositoryProvider = Provider<CustomerRepository>(
 final phoneStoreProvider = Provider<PhoneStore>(
   (ref) => _notConfigured('PhoneStore'),
 );
-final linkLauncherProvider = Provider<LinkLauncher>(
-  (ref) => _notConfigured('LinkLauncher'),
-);
 final receiptSharerProvider = Provider<ReceiptSharer>(
   (ref) => _notConfigured('ReceiptSharer'),
 );

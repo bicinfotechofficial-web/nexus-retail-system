@@ -6,11 +6,11 @@ import 'package:nexus_core/nexus_core.dart';
 import '../../app/providers.dart';
 import '../../widgets/pos_scaffold.dart';
 import '../../widgets/print_panel.dart';
+import '../../widgets/receipt_share.dart';
 import '../../widgets/total_row.dart';
-import '../../widgets/whatsapp_actions.dart';
 
 /// Shown after the bill is saved (D-035). The bill is already stored, so
-/// Print and the WhatsApp buttons are optional follow-ups: a printer fault
+/// Print and the receipt image share are optional follow-ups: a printer fault
 /// offers a retry, never an error (POS-6), and Done is always available. The
 /// receipt preview below is the exact text sent to the printer.
 class BillSavedScreen extends ConsumerWidget {
@@ -71,9 +71,9 @@ class BillSavedScreen extends ConsumerWidget {
             job: (printer, location, {required printedBefore}) =>
                 printer.printBill(bill, location, reprint: printedBefore),
           ),
-          if (bill.customer?.whatsapp != null) ...[
+          if (bill.customer != null) ...[
             const SizedBox(height: 12),
-            WhatsappActions(bill: bill),
+            ReceiptShare(bill: bill),
           ],
           if (location != null) ...[
             const SizedBox(height: 24),

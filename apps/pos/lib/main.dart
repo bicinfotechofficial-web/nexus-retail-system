@@ -22,13 +22,12 @@ const bool fakeFirstRun = bool.fromEnvironment('FAKE_FIRST_RUN');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (useFakeData) {
-    // Fake data, but the real WhatsApp link, share sheet and phone settings,
+    // Fake data, but the real share sheet and phone settings,
     // so a demo run on a phone behaves like the real thing.
     final fake = FakeBackend(
       signedIn: !fakeFirstRun,
       registered: !fakeFirstRun,
       phoneStore: const SharedPrefsPhoneStore(),
-      linkLauncher: const UrlLinkLauncher(),
       receiptSharer: const SharePlusReceiptSharer(),
       renderer: renderReceiptImage,
     );

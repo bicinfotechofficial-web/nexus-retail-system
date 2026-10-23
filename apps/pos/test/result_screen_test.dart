@@ -7,7 +7,7 @@ import 'package:nexus_printer/nexus_printer.dart';
 
 import 'helpers.dart';
 
-/// POS-13 result screen and POS-14 WhatsApp sharing (D-035, D-036).
+/// POS-13 result screen and the WhatsApp receipt image (D-035, D-041).
 Future<void> saveBill(
   WidgetTester tester, {
   String name = 'Test Customer',
@@ -24,15 +24,9 @@ Future<void> saveBill(
   await tapKey(tester, 'confirm');
 }
 
-String expectedText(FakeBackend b) => WhatsappReceipt.build(
-  shopName: 'Caramel Cottage',
-  locationName: Seed.location.name,
-  bill: b.bills.all(Seed.locationId).single,
-);
-
 void main() {
   group('result screen', () {
-    testWidgets('shows the bill number and total, with all four buttons', (
+    testWidgets('shows the bill number and total, with print, share and done', (
       tester,
     ) async {
       final b = await pumpPos(tester);
@@ -41,12 +35,13 @@ void main() {
       expect(textOf(tester, 'bill-no'), 'PTB-D01-000001');
       expect(find.text('₹450.00'), findsWidgets);
       expect(find.byKey(const Key('print-button')), findsOneWidget);
-      expect(find.byKey(const Key('whatsapp-message')), findsOneWidget);
       expect(find.byKey(const Key('whatsapp-image')), findsOneWidget);
+      // There is no text-message option any more (D-041).
+      expect(find.textContaining('WhatsApp message'), findsNothing);
+      expect(textOf(tester, 'whatsapp-number'), 'WhatsApp: 9876543210');
       expect(find.widgetWithText(FilledButton, 'Done'), findsOneWidget);
       // Nothing was printed or shared by itself.
       expect(b.printer.printedBills, isEmpty);
-      expect(b.fakeLinks.opened, isEmpty);
       expect(b.fakeShares.shared, isEmpty);
     });
 
@@ -72,69 +67,30 @@ void main() {
       expect(textOf(tester, 'print-failed'), contains('The bill is saved'));
       // The other buttons and Done still work after the fault.
       expect(isEnabled(tester, 'new-bill'), isTrue);
-      await tapKey(tester, 'whatsapp-message');
-      expect(b.fakeLinks.opened, hasLength(1));
+      await tapKey(tester, 'whatsapp-image');
+      expect(b.fakeShares.shared, hasLength(1));
       await tapKey(tester, 'new-bill');
       expect(find.widgetWithText(AppBar, 'Billing'), findsOneWidget);
       expect(b.sales.createCalls, hasLength(1));
     });
 
-    testWidgets('the WhatsApp buttons are hidden for No WhatsApp', (
+    testWidgets('shows the typed WhatsApp number when it differs', (
       tester,
     ) async {
+      await pumpPos(tester);
+      await saveBill(tester, choice: 'wa-different', whatsapp: '9123456780');
+      expect(textOf(tester, 'whatsapp-number'), 'WhatsApp: 9123456780');
+    });
+
+    testWidgets('the share button is hidden for No WhatsApp', (tester) async {
       final b = await pumpPos(tester);
       await saveBill(tester, choice: 'wa-none');
       expect(textOf(tester, 'bill-no'), 'PTB-D01-000001');
-      expect(find.byKey(const Key('whatsapp-message')), findsNothing);
       expect(find.byKey(const Key('whatsapp-image')), findsNothing);
+      expect(textOf(tester, 'whatsapp-number'), 'No WhatsApp');
       expect(find.byKey(const Key('print-button')), findsOneWidget);
       expect(find.byKey(const Key('new-bill')), findsOneWidget);
       expect(b.bills.all(Seed.locationId).single.customer?.whatsapp, isNull);
-    });
-  });
-
-  group('WhatsApp message', () {
-    testWidgets('opens the wa.me link with the receipt text', (tester) async {
-      final b = await pumpPos(tester);
-      await saveBill(tester);
-      await tapKey(tester, 'whatsapp-message');
-      final link = b.fakeLinks.opened.single;
-      expect(link.host, 'wa.me');
-      expect(link.path, '/919876543210');
-      expect(link.queryParameters['text'], expectedText(b));
-      expect(link, WhatsappReceipt.link('9876543210', expectedText(b)));
-      expect(link.queryParameters['text'], contains('PTB-D01-000001'));
-      expect(link.queryParameters['text'], contains('Caramel Cottage'));
-      expect(link.queryParameters['text'], contains(Seed.location.name));
-      expect(link.queryParameters['text'], contains('Hi Test Customer'));
-      expect(find.byKey(const Key('whatsapp-problem')), findsNothing);
-      // Opening WhatsApp creates nothing.
-      expect(b.sales.createCalls, hasLength(1));
-    });
-
-    testWidgets('goes to the different number when one was typed', (
-      tester,
-    ) async {
-      final b = await pumpPos(tester);
-      await saveBill(tester, choice: 'wa-different', whatsapp: '9123456780');
-      await tapKey(tester, 'whatsapp-message');
-      expect(b.fakeLinks.opened.single.path, '/919123456780');
-    });
-
-    testWidgets("says so when WhatsApp isn't installed", (tester) async {
-      final b = await pumpPos(tester);
-      b.fakeLinks.canOpen = false;
-      await saveBill(tester);
-      await tapKey(tester, 'whatsapp-message');
-      expect(
-        textOf(tester, 'whatsapp-problem'),
-        "WhatsApp isn't installed on this phone.",
-      );
-      // The buttons stay usable, so it can be tried again.
-      b.fakeLinks.canOpen = true;
-      await tapKey(tester, 'whatsapp-message');
-      expect(find.byKey(const Key('whatsapp-problem')), findsNothing);
-      expect(b.fakeLinks.opened, hasLength(2));
     });
   });
 
@@ -196,9 +152,7 @@ void main() {
   });
 
   group('saved bill detail', () {
-    testWidgets('shows the customer and re-sends by message and image', (
-      tester,
-    ) async {
+    testWidgets('shows the customer and re-shares the image', (tester) async {
       final b = fakeBackend();
       final bill = await addBill(
         b,
@@ -217,18 +171,12 @@ void main() {
         contains('9988776655'),
       );
 
-      await tapKey(tester, 'whatsapp-message');
-      expect(b.fakeLinks.opened.single.path, '/919988776655');
-      expect(
-        b.fakeLinks.opened.single.queryParameters['text'],
-        contains('Hi Sample Buyer'),
-      );
       await tapKey(tester, 'whatsapp-image');
       expect(b.fakeShares.shared.single.fileName, '${bill.id}.png');
       expect(b.sales.createCalls, isEmpty);
     });
 
-    testWidgets('no WhatsApp buttons for a customer without WhatsApp', (
+    testWidgets('no share button for a customer without WhatsApp', (
       tester,
     ) async {
       final b = fakeBackend();
@@ -240,7 +188,6 @@ void main() {
         textOf(tester, 'detail-customer-whatsapp'),
         contains('No WhatsApp'),
       );
-      expect(find.byKey(const Key('whatsapp-message')), findsNothing);
       expect(find.byKey(const Key('whatsapp-image')), findsNothing);
     });
 
@@ -258,7 +205,8 @@ void main() {
       b.bills.put(Seed.locationId, old);
       await openBill(tester, b, old.id);
       expect(textOf(tester, 'detail-customer-name'), contains('—'));
-      expect(find.byKey(const Key('whatsapp-message')), findsNothing);
+      expect(find.byKey(const Key('whatsapp-image')), findsNothing);
+      expect(find.byKey(const Key('whatsapp-number')), findsNothing);
     });
 
     testWidgets("the bills list shows each customer's name", (tester) async {
