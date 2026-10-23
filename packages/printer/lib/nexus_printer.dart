@@ -18,10 +18,14 @@ export 'src/image/receipt_image.dart'
     show
         receiptGlyphWidth,
         receiptRowHeight,
+        renderOrderSlipPng,
         renderReceiptPng,
         renderReturnSlipPng;
 export 'src/image/receipt_sharer.dart'
     show ReceiptSharer, SharePlusReceiptSharer;
+export 'src/logo/receipt_logo.dart'
+    show AssetReceiptLogo, LogoBitmap, NoReceiptLogo, ReceiptLogo;
+export 'src/receipt/order_slip.dart' show OrderSlipDocument;
 export 'src/receipt/receipt_document.dart'
     show ReceiptDocument, ReturnSlipDocument;
 export 'src/widgets/printer_test_screen.dart' show PrinterTestScreen;

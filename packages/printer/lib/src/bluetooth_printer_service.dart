@@ -8,6 +8,9 @@ import 'escpos/escpos_encoder.dart';
 import 'layout/line_builder.dart';
 import 'layout/print_line.dart';
 import 'layout/receipt_layout.dart';
+import 'logo/logo_raster.dart';
+import 'logo/receipt_logo.dart';
+import 'receipt/order_slip.dart';
 import 'receipt/receipt_document.dart';
 import 'transport/printer_link.dart';
 import 'transport/printer_settings.dart';
@@ -27,7 +30,9 @@ final class BluetoothPrinterService implements PrinterService {
     required PrinterLink link,
     required PairedPrinter? printer,
     required PaperWidth paperWidth,
-  }) : _transport = transport,
+    required ReceiptLogo logo,
+  }) : _logo = logo,
+       _transport = transport,
        _permissions = permissions,
        _settings = settings,
        _link = link,
@@ -44,6 +49,10 @@ final class BluetoothPrinterService implements PrinterService {
     PrinterSettingsStore? settings,
     CodePage codePage = CodePage.pc437,
     PrinterLink? link,
+
+    /// The shop logo (D-041). Defaults to the bundled asset, which prints
+    /// nothing while the asset is missing.
+    ReceiptLogo? logo,
   }) async {
     final store = settings ?? SharedPrefsPrinterSettings();
     return BluetoothPrinterService._(
@@ -51,6 +60,7 @@ final class BluetoothPrinterService implements PrinterService {
       permissions: permissions,
       settings: store,
       codePage: codePage,
+      logo: logo ?? defaultReceiptLogo,
       link: link ?? PrinterLink(transport),
       printer: await store.loadPrinter(),
       paperWidth: await store.loadPaperWidth() ?? PaperWidth.mm80,
@@ -61,6 +71,7 @@ final class BluetoothPrinterService implements PrinterService {
   final BluetoothPermissions _permissions;
   final PrinterSettingsStore _settings;
   final PrinterLink _link;
+  final ReceiptLogo _logo;
 
   /// The printer's character table. Decides ₹ or `Rs.` (PR-3).
   final CodePage codePage;
@@ -133,6 +144,11 @@ final class BluetoothPrinterService implements PrinterService {
         _layout.returnSlip(ReturnSlipDocument.fromReturn(ret, bill, location)),
   );
 
+  /// The advance slip for a new order (D-043). Not on [PrinterService] yet:
+  /// see CR-printer-1.
+  Future<PrintResult> printOrderSlip(OrderSlipDocument doc) =>
+      _print(() => _layout.orderSlip(doc));
+
   @override
   Future<PrintResult> testPrint() => _print(
     () => testPage(
@@ -140,6 +156,7 @@ final class BluetoothPrinterService implements PrinterService {
       codePage: codePage,
       printerName: _printer?.name ?? '',
     ),
+    withLogo: false,
   );
 
   @override
@@ -156,6 +173,10 @@ final class BluetoothPrinterService implements PrinterService {
         _layout.returnSlip(ReturnSlipDocument.fromReturn(ret, bill, location)),
       );
 
+  /// The advance slip as plain text, exactly as it would print.
+  String previewOrderSlip(OrderSlipDocument doc) =>
+      renderText(_layout.orderSlip(doc));
+
   /// Closes the socket and the status stream.
   Future<void> dispose() async {
     await _link.close();
@@ -167,7 +188,22 @@ final class BluetoothPrinterService implements PrinterService {
   ReceiptLayout get _layout =>
       ReceiptLayout(_paperWidth, currencySymbol: codePage.currencySymbol);
 
-  Future<PrintResult> _print(List<PrintLine> Function() layOut) async {
+  /// The logo as a raster for the current paper, or null. A logo problem
+  /// never stops a print: the slip goes out as text only.
+  Future<LogoRaster?> _logoRaster() async {
+    try {
+      final bitmap = await loadLogoSafely(_logo);
+      if (bitmap == null) return null;
+      return rasterizeLogo(bitmap, dotWidth: _paperWidth.dots);
+    } on Object {
+      return null;
+    }
+  }
+
+  Future<PrintResult> _print(
+    List<PrintLine> Function() layOut, {
+    bool withLogo = true,
+  }) async {
     final printer = _printer;
     if (printer == null) {
       _emit(const NoPrinter());
@@ -180,7 +216,10 @@ final class BluetoothPrinterService implements PrinterService {
           _ => permissionRefused,
         });
       }
-      final bytes = EscPosEncoder(codePage: codePage).encode(layOut());
+      final lines = layOut();
+      final bytes = EscPosEncoder(
+        codePage: codePage,
+      ).encode(lines, logo: withLogo ? await _logoRaster() : null);
       if (!_link.isConnectedTo(printer.address)) _emit(Connecting(printer));
       final result = await _link.send(printer.address, bytes);
       if (_printer?.address == printer.address) {

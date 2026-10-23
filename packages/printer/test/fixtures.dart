@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:nexus_core/nexus_core.dart';
+import 'package:nexus_printer/nexus_printer.dart';
 
 /// Receipt fixtures shared by the model, layout and golden tests. Totals
 /// come from the core calculators, so they match what the POS saves.
@@ -183,4 +186,152 @@ SaleReturn partialReturn(Bill bill) {
     deviceId: 'D01',
     clientCreatedAt: returnTime,
   );
+}
+
+/// A bill that delivers an order (D-043): one custom-cake line, an ADVANCE
+/// payment of the advance, and the balance paid in cash with change.
+Bill deliveryBill() {
+  const cake = CartLine(
+    productId: 'CUSTOM-CAKE',
+    name: 'Custom Cake',
+    qty: 1,
+    unitPrice: Money.rupees(2400),
+  );
+  final t = BillCalculator.compute([cake]);
+  const advance = Money.rupees(1000);
+  return _bill(
+    t,
+    seq: 126,
+    payments: [
+      const Payment(mode: PaymentMode.advance, amount: advance),
+      Payment(mode: PaymentMode.cash, amount: t.total - advance),
+    ],
+    cashTendered: const Money.rupees(1500),
+  );
+}
+
+/// 2026-10-23 16:20 IST.
+final DateTime orderTime = DateTime.utc(2026, 10, 23, 10, 50);
+
+PreOrder _order({
+  required int seq,
+  required String description,
+  required Money price,
+  required Money advance,
+  PaymentMode? advanceMode,
+  String dueDate = '2026-10-26',
+  String? dueTime,
+}) {
+  final id = Ids.orderId('D01', seq);
+  return PreOrder(
+    id: id,
+    orderNo: Ids.orderNo(pilotLocation.code, id),
+    deviceId: 'D01',
+    seq: seq,
+    customer: BillCustomer(
+      name: 'Anita Menon',
+      phone: '9847012345',
+      whatsapp: '9847012345',
+    ),
+    dueDate: dueDate,
+    dueTime: dueTime,
+    description: description,
+    price: price,
+    advance: advance,
+    advanceMode: advanceMode,
+    status: OrderStatus.open,
+    servedBy: storeManager,
+    businessDate: BusinessDate.of(orderTime),
+    clientCreatedAt: orderTime,
+    createdBy: storeManager.uid,
+  );
+}
+
+/// Short description, UPI advance, a due time.
+PreOrder normalOrder() => _order(
+  seq: 7,
+  description: 'Chocolate truffle, 2 kg, 2 layers. "Happy Birthday Riya"',
+  price: const Money.rupees(2400),
+  advance: const Money.rupees(1000),
+  advanceMode: PaymentMode.upi,
+  dueTime: '16:30',
+);
+
+/// A long description with line breaks, a cash advance, no due time.
+PreOrder longDescriptionOrder() => _order(
+  seq: 8,
+  description:
+      'Three tier wedding cake, vanilla sponge with strawberry filling and '
+      'white chocolate ganache, about 5 kg.\n'
+      'Message on top tier: "Rahul & Meera, 12-11-2026".\n'
+      'Eggless. Fondant flowers in pale pink. No nuts, one guest is allergic.',
+  price: const Money.rupees(7500),
+  advance: const Money.rupees(2500),
+  advanceMode: PaymentMode.cash,
+  dueDate: '2026-11-12',
+);
+
+/// No advance taken: advance 0 and no mode.
+PreOrder noAdvanceOrder() => _order(
+  seq: 9,
+  description: 'Pineapple cake, 1 kg',
+  price: const Money.rupees(900),
+  advance: Money.zero,
+  dueTime: '09:00',
+);
+
+/// A synthetic brand logo drawn in code: a 800 x 300 image with a
+/// transparent background, a brown disc shaded from light to dark, and a
+/// dark bar with a gradient under it. It is not a real brand logo.
+LogoBitmap syntheticLogo({int width = 800, int height = 300}) {
+  final rgba = Uint8List(width * height * 4);
+  final cx = width * 0.3;
+  final cy = height * 0.5;
+  final r = height * 0.42;
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      final i = (y * width + x) * 4;
+      final dx = x - cx;
+      final dy = y - cy;
+      final inDisc = dx * dx + dy * dy <= r * r;
+      final inBar =
+          x >= width * 0.55 &&
+          x <= width * 0.95 &&
+          y >= height * 0.4 &&
+          y <= height * 0.6;
+      if (inDisc) {
+        final shade = (dx + r) / (2 * r); // 0 on the left, 1 on the right
+        rgba[i] = (200 - 120 * shade).round();
+        rgba[i + 1] = (120 - 80 * shade).round();
+        rgba[i + 2] = (60 - 40 * shade).round();
+        rgba[i + 3] = 255;
+      } else if (inBar) {
+        final g = 30 + ((x - width * 0.55) / (width * 0.4) * 150).round();
+        rgba[i] = g;
+        rgba[i + 1] = g;
+        rgba[i + 2] = g;
+        rgba[i + 3] = 255;
+      }
+    }
+  }
+  return LogoBitmap(width: width, height: height, rgba: rgba);
+}
+
+/// A [ReceiptLogo] that returns [bitmap].
+final class FakeReceiptLogo implements ReceiptLogo {
+  FakeReceiptLogo(this.bitmap);
+  final LogoBitmap? bitmap;
+  int loads = 0;
+
+  @override
+  Future<LogoBitmap?> load() async {
+    loads++;
+    return bitmap;
+  }
+}
+
+/// A [ReceiptLogo] whose load throws, which a good logo never does.
+final class ThrowingReceiptLogo implements ReceiptLogo {
+  @override
+  Future<LogoBitmap?> load() => throw StateError('decode failed');
 }

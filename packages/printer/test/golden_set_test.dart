@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_printer/src/api.dart';
 import 'package:nexus_printer/src/layout/print_line.dart';
 import 'package:nexus_printer/src/layout/receipt_layout.dart';
+import 'package:nexus_printer/src/receipt/order_slip.dart';
 import 'package:nexus_printer/src/receipt/receipt_document.dart';
 
 import 'fixtures.dart';
@@ -31,6 +32,24 @@ final Map<String, List<PrintLine> Function(ReceiptLayout)> requiredSlips = {
   'bill_cancelled_reprint': (l) => l.bill(
     ReceiptDocument.fromBill(cancelledBill(), pilotLocation, reprint: true),
   ),
+};
+
+// PR-8 and PR-9: the logo variants print the same text as their plain slip
+// (the raster is skipped when decoding), the delivery bill and the advance
+// slips join the set.
+final Map<String, List<PrintLine> Function(ReceiptLayout)> moreSlips = {
+  'bill_normal_logo': requiredSlips['bill_normal']!,
+  'bill_delivery': (l) =>
+      l.bill(ReceiptDocument.fromBill(deliveryBill(), pilotLocation)),
+  'order_slip': (l) =>
+      l.orderSlip(OrderSlipDocument.fromOrder(normalOrder(), pilotLocation)),
+  'order_slip_logo': (l) =>
+      l.orderSlip(OrderSlipDocument.fromOrder(normalOrder(), pilotLocation)),
+  'order_slip_long': (l) => l.orderSlip(
+    OrderSlipDocument.fromOrder(longDescriptionOrder(), pilotLocation),
+  ),
+  'order_slip_no_advance': (l) =>
+      l.orderSlip(OrderSlipDocument.fromOrder(noAdvanceOrder(), pilotLocation)),
 };
 
 final Directory goldens = Directory('test/goldens');
@@ -76,7 +95,7 @@ void main() {
         final rupee = match.group(3) == 'rupee';
 
         final printed = _decode(_readHex(hex), rupeeByte: rupee ? 0xB9 : null);
-        final layOut = requiredSlips[slip];
+        final layOut = requiredSlips[slip] ?? moreSlips[slip];
         expect(layOut, isNotNull, reason: 'no builder for $slip');
         final preview = renderText(
           layOut!(
@@ -110,7 +129,15 @@ String _decode(List<int> b, {int? rupeeByte}) {
   final out = StringBuffer();
   while (i < b.length) {
     final x = b[i];
-    if (x == 0x1B || x == 0x1D) {
+    if (x == 0x1D && b[i + 1] == 0x76) {
+      // GS v 0 m xL xH yL yH data: a logo raster, skipped. Its layout is
+      // pinned in logo_raster_test.dart.
+      expect(b.sublist(i + 2, i + 4), [0x30, 0x00], reason: 'GS v 0, m 0');
+      final bytes = b[i + 4] + 256 * b[i + 5];
+      final rows = b[i + 6] + 256 * b[i + 7];
+      expect(bytes * rows, greaterThan(0));
+      i += 8 + bytes * rows;
+    } else if (x == 0x1B || x == 0x1D) {
       final cmd = [x, b[i + 1]];
       final known = {
         '1b74': 3, // ESC t n
