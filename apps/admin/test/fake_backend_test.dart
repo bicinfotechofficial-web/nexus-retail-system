@@ -48,10 +48,15 @@ void main() {
 
   test('has audit history of every action', () async {
     final all = await backend.audit.query(const AuditQuery(limit: 1000));
-    // USER_ENABLE (D-032) only appears once a user is re-enabled.
+    // USER_ENABLE (D-032) only appears once a user is re-enabled, and
+    // ORDER_CANCEL (D-043) is written by the POS when it cancels a pre-order,
+    // which the console's fake has no way to do.
     expect(
       all.map((e) => e.action).toSet(),
-      AuditAction.values.toSet().difference({AuditAction.userEnable}),
+      AuditAction.values.toSet().difference({
+        AuditAction.userEnable,
+        AuditAction.orderCancel,
+      }),
     );
     expect(backend.audit.actions, isEmpty);
   });

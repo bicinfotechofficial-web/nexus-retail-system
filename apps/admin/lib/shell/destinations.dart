@@ -43,6 +43,26 @@ const List<Destination> destinations = [
     anyOf: [Permission.reportAll],
   ),
   Destination(
+    path: '/orders',
+    label: 'Orders',
+    icon: Icons.cake_outlined,
+    // Every store's pre-orders, read only (D-043): the Admin.
+    anyOf: [Permission.reportAll],
+  ),
+  Destination(
+    path: '/attendance',
+    label: 'Attendance',
+    icon: Icons.event_available_outlined,
+    // Every store's attendance, read only (D-042): the Admin.
+    anyOf: [Permission.reportAll],
+  ),
+  Destination(
+    path: '/staff',
+    label: 'Staff',
+    icon: Icons.badge_outlined,
+    anyOf: [Permission.staffManage],
+  ),
+  Destination(
     path: '/financials',
     label: 'Financials',
     icon: Icons.account_balance_outlined,

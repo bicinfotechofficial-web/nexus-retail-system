@@ -62,17 +62,31 @@ class AdminShell extends ConsumerWidget {
         body: Row(
           children: [
             if (visible.isNotEmpty)
-              NavigationRail(
-                extended: true,
-                selectedIndex: current < 0 ? null : current,
-                onDestinationSelected: (i) => context.go(visible[i].path),
-                destinations: [
-                  for (final d in visible)
-                    NavigationRailDestination(
-                      icon: Icon(d.icon),
-                      label: Text(d.label),
+              // The rail does not scroll, so a short laptop window scrolls
+              // it instead of overflowing.
+              LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                ],
+                    child: IntrinsicHeight(
+                      child: NavigationRail(
+                        extended: true,
+                        selectedIndex: current < 0 ? null : current,
+                        onDestinationSelected: (i) =>
+                            context.go(visible[i].path),
+                        destinations: [
+                          for (final d in visible)
+                            NavigationRailDestination(
+                              icon: Icon(d.icon),
+                              label: Text(d.label),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             const VerticalDivider(width: 1),
             Expanded(child: child),
@@ -124,21 +138,32 @@ class LocationSwitcher extends ConsumerWidget {
     if (!showAll && selected == null && allowed.isNotEmpty) {
       selected = allowed.first.code;
     }
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String?>(
-        key: const Key('location-switcher'),
-        value: selected,
-        icon: const Icon(Icons.store_outlined),
-        onChanged: (v) => ref.read(selectedLocationProvider.notifier).select(v),
-        items: [
-          if (showAll)
-            const DropdownMenuItem<String?>(value: null, child: Text(allLabel)),
-          for (final l in allowed)
-            DropdownMenuItem<String?>(
-              value: l.code,
-              child: Text(locationLabel(l)),
-            ),
-        ],
+    // A fixed width, narrower on a phone, so the top bar never overflows;
+    // a long store name is cut with an ellipsis.
+    final wide = MediaQuery.sizeOf(context).width >= wideLayoutMinWidth;
+    return SizedBox(
+      width: wide ? 240 : 150,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          key: const Key('location-switcher'),
+          value: selected,
+          isExpanded: true,
+          icon: const Icon(Icons.store_outlined),
+          onChanged: (v) =>
+              ref.read(selectedLocationProvider.notifier).select(v),
+          items: [
+            if (showAll)
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text(allLabel, overflow: TextOverflow.ellipsis),
+              ),
+            for (final l in allowed)
+              DropdownMenuItem<String?>(
+                value: l.code,
+                child: Text(locationLabel(l), overflow: TextOverflow.ellipsis),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -192,7 +192,8 @@ void main() {
     await _tapTooltip(tester, 'Previous');
 
     // In "All locations", as its own column, marked inactive.
-    expect(find.text('KTL (inactive)'), findsOneWidget);
+    // (Once in the breakdown and once in the advances table.)
+    expect(find.text('KTL (inactive)'), findsNWidgets(2));
     expect(_text(tester, 'KTL-net-sales'), '₹30,000.00');
     expect(_text(tester, 'KTL-net-revenue'), '₹29,500.00');
 

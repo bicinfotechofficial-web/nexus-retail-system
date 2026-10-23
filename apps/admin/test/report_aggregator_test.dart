@@ -75,6 +75,9 @@ void main() {
         (PaymentMode.card, const Money(393975)),
         (PaymentMode.wallet, const Money(230000)),
         (PaymentMode.other, Money.zero),
+        // The advance mode is listed too, so the modes always add up to the
+        // net revenue on a delivery day (D-043).
+        (PaymentMode.advance, Money.zero),
       ]);
       final top = r.topProducts();
       expect(top.map((p) => p.productId), ['bf1kg', 'rv1kg', 'vegpuff']);
