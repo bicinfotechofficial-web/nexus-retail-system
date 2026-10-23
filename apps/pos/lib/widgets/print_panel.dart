@@ -28,6 +28,7 @@ class PrintPanel extends ConsumerStatefulWidget {
     required this.label,
     this.autoStart = false,
     this.savedWhat = 'bill',
+    this.noun = 'receipt',
     super.key,
   });
 
@@ -35,8 +36,11 @@ class PrintPanel extends ConsumerStatefulWidget {
   final String label;
   final bool autoStart;
 
-  /// What the failure message says is saved: "bill" or "return".
+  /// What the failure message says is saved: "bill", "return" or "order".
   final String savedWhat;
+
+  /// What is printed: "receipt", or "slip" for an order's advance slip.
+  final String noun;
 
   @override
   ConsumerState<PrintPanel> createState() => _PrintPanelState();
@@ -87,15 +91,15 @@ class _PrintPanelState extends ConsumerState<PrintPanel> {
   Widget build(BuildContext context) {
     final result = _result;
     if (_printing) {
-      return const Row(
+      return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox.square(
+          const SizedBox.square(
             dimension: 20,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          SizedBox(width: 12),
-          Text('Printing receipt…'),
+          const SizedBox(width: 12),
+          Text('Printing ${widget.noun}…'),
         ],
       );
     }
@@ -109,7 +113,13 @@ class _PrintPanelState extends ConsumerState<PrintPanel> {
       Printed() => Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Flexible(child: Text('Receipt printed.', key: Key('print-ok'))),
+          Flexible(
+            child: Text(
+              '${widget.noun[0].toUpperCase()}${widget.noun.substring(1)} '
+              'printed.',
+              key: const Key('print-ok'),
+            ),
+          ),
           TextButton(
             key: const Key('print-again'),
             onPressed: _print,
@@ -121,8 +131,8 @@ class _PrintPanelState extends ConsumerState<PrintPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            "The ${widget.savedWhat} is saved, but the receipt didn't print: "
-            '$reason',
+            "The ${widget.savedWhat} is saved, but the ${widget.noun} didn't "
+            'print: $reason',
             key: const Key('print-failed'),
             textAlign: TextAlign.center,
           ),

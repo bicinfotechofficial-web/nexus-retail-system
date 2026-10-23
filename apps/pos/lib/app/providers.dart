@@ -3,6 +3,7 @@ import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 import 'package:nexus_printer/nexus_printer.dart';
 
+import 'order_slip.dart';
 import 'phone_store.dart';
 import 'share.dart';
 
@@ -53,6 +54,29 @@ final stockServiceProvider = Provider<StockService>(
 );
 final customerRepositoryProvider = Provider<CustomerRepository>(
   (ref) => _notConfigured('CustomerRepository'),
+);
+
+/// Staff, attendance and pre-orders (D-042, D-043). Until the backend fields
+/// are wired in `PosServices` they throw, and the screens show the failure.
+final staffRepositoryProvider = Provider<StaffRepository>(
+  (ref) => _notConfigured('StaffRepository'),
+);
+final attendanceServiceProvider = Provider<AttendanceService>(
+  (ref) => _notConfigured('AttendanceService'),
+);
+final attendanceRepositoryProvider = Provider<AttendanceRepository>(
+  (ref) => _notConfigured('AttendanceRepository'),
+);
+final orderServiceProvider = Provider<OrderService>(
+  (ref) => _notConfigured('OrderService'),
+);
+final orderRepositoryProvider = Provider<OrderRepository>(
+  (ref) => _notConfigured('OrderRepository'),
+);
+
+/// Print and share the advance slip of an order (D-043).
+final orderSlipActionsProvider = Provider<OrderSlipActions>(
+  (ref) => _notConfigured('OrderSlipActions'),
 );
 final phoneStoreProvider = Provider<PhoneStore>(
   (ref) => _notConfigured('PhoneStore'),
@@ -242,3 +266,46 @@ final movementsForDayProvider = StreamProvider.autoDispose
           .watch(stockRepositoryProvider)
           .watchMovements(loc, businessDate);
     });
+
+/// Active staff of the session's location, by name (D-042).
+final activeStaffProvider = StreamProvider.autoDispose<List<StaffMember>>((
+  ref,
+) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref.watch(staffRepositoryProvider).watchActive(loc);
+});
+
+/// One day's attendance marks at the session's location (D-042).
+final attendanceForDayProvider = StreamProvider.autoDispose
+    .family<List<AttendanceRecord>, String>((ref, businessDate) {
+      final loc = ref.watch(locationCodeProvider);
+      if (loc == null) return Stream.value(const []);
+      return ref
+          .watch(attendanceRepositoryProvider)
+          .watchDay(loc, businessDate);
+    });
+
+/// Open pre-orders at the session's location, soonest due first (D-043).
+final openOrdersProvider = StreamProvider<List<PreOrder>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref.watch(orderRepositoryProvider).watchOpen(loc);
+});
+
+/// The latest delivered and cancelled pre-orders (D-043).
+final closedOrdersProvider = StreamProvider.autoDispose<List<PreOrder>>((ref) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Stream.value(const []);
+  return ref.watch(orderRepositoryProvider).watchClosed(loc);
+});
+
+/// One pre-order at the session's location. Invalidate it after a cancel.
+final orderProvider = FutureProvider.autoDispose.family<PreOrder?, String>((
+  ref,
+  orderId,
+) {
+  final loc = ref.watch(locationCodeProvider);
+  if (loc == null) return Future.value();
+  return ref.watch(orderRepositoryProvider).getOrder(loc, orderId);
+});

@@ -57,6 +57,12 @@ abstract final class Messages {
     FailureReason.unknown => 'Something went wrong. Please try again.',
   };
 
+  /// The message for anything thrown by a data call: the mapped text for a
+  /// [DataFailure], the generic one otherwise.
+  static String anyError(Object error) => failure(
+    error is DataFailure ? error : const DataFailure(FailureReason.unknown),
+  );
+
   /// Why Cancel is unavailable (D-009, D-025).
   static String cancelBlocker(CancelBlocker blocker) => switch (blocker) {
     CancelBlocker.notCompleted => 'This bill is already cancelled.',

@@ -3,11 +3,16 @@ import 'package:go_router/go_router.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 
+import '../features/attendance/attendance_screen.dart';
 import '../features/billing/billing_screen.dart';
 import '../features/bills/bill_detail_screen.dart';
 import '../features/bills/bills_screen.dart';
 import '../features/login/login_screen.dart';
 import '../features/offline/sync_health_screen.dart';
+import '../features/orders/new_order_screen.dart';
+import '../features/orders/order_detail_screen.dart';
+import '../features/orders/order_saved_screen.dart';
+import '../features/orders/orders_screen.dart';
 import '../features/payment/bill_saved_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/payment/review_screen.dart';
@@ -44,6 +49,18 @@ abstract final class Routes {
   /// Movements of one day, with In / Out (D-039).
   static const String stockHistory = '/stock/history';
 
+  /// A new pre-order, and the page after it is saved (D-043).
+  static const String newOrder = '/orders/new';
+  static const String orderSaved = '/orders/saved';
+
+  /// `/orders/D01-O000007`: one order, with Deliver and Cancel.
+  static String order(String orderId) => '${Destinations.orders.path}/$orderId';
+
+  /// Delivering an order: the payment page in delivery mode, then its
+  /// review (D-043).
+  static String deliver(String orderId) => '${order(orderId)}/deliver';
+  static String deliverReview(String orderId) => '${deliver(orderId)}/review';
+
   /// Any signed-in user with a POS screen may open it.
   static const String syncHealth = '/sync';
 
@@ -66,6 +83,7 @@ abstract final class Routes {
 
   static final RegExp _billPath = RegExp(r'^/bills/[^/]+$');
   static final RegExp _returnPath = RegExp(r'^/bills/[^/]+/return$');
+  static final RegExp _orderPath = RegExp(r'^/orders/.+$');
   static final RegExp _thresholdPath = RegExp(r'^/stock/threshold/[^/]+$');
 
   /// Pages that aren't drawer destinations, with the permissions that open
@@ -79,7 +97,7 @@ abstract final class Routes {
       Permission.stockAdjust,
       Permission.stockThreshold,
     ],
-    billSaved: [Permission.billCreate],
+    billSaved: [Permission.billCreate, Permission.orderManage],
     stockIn: [Permission.stockMove],
     stockOut: [Permission.stockMove],
     stockWastage: [Permission.stockMove],
@@ -113,6 +131,7 @@ abstract final class Routes {
     final needs =
         _extra[path] ??
         (_returnPath.hasMatch(path) ? const [Permission.returnCreate] : null) ??
+        (_orderPath.hasMatch(path) ? const [Permission.orderManage] : null) ??
         (_thresholdPath.hasMatch(path)
             ? const [Permission.stockThreshold]
             : null) ??
@@ -181,6 +200,54 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: Destinations.orders.path,
+        builder: (context, state) => const OrdersScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const NewOrderScreen(),
+          ),
+          GoRoute(
+            path: 'saved',
+            redirect: (context, state) =>
+                state.extra is PreOrder ? null : Destinations.orders.path,
+            builder: (context, state) =>
+                OrderSavedScreen(order: state.extra! as PreOrder),
+          ),
+          GoRoute(
+            path: ':orderId',
+            builder: (context, state) =>
+                OrderDetailScreen(orderId: state.pathParameters['orderId']!),
+            routes: [
+              GoRoute(
+                path: 'deliver',
+                // The order comes from the detail page; without it (a
+                // restored route) go back to the order.
+                redirect: (context, state) => state.extra is PreOrder
+                    ? null
+                    : Routes.order(state.pathParameters['orderId']!),
+                builder: (context, state) =>
+                    PaymentScreen(delivery: state.extra! as PreOrder),
+              ),
+              // A sibling, not a child, of `deliver`: a parent's redirect
+              // would also see this route's own `extra`.
+              GoRoute(
+                path: 'deliver/review',
+                redirect: (context, state) => state.extra is ReviewArgs
+                    ? null
+                    : Routes.order(state.pathParameters['orderId']!),
+                builder: (context, state) =>
+                    ReviewScreen(args: state.extra! as ReviewArgs),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: Destinations.attendance.path,
+        builder: (context, state) => const AttendanceScreen(),
       ),
       GoRoute(
         path: Destinations.stock.path,

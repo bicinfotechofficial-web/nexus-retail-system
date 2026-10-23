@@ -50,6 +50,19 @@ abstract final class Destinations {
     anyOf: [Permission.reportOwn],
   );
 
+  static const Destination orders = Destination(
+    path: '/orders',
+    label: 'Orders',
+    icon: Icons.event_note,
+    anyOf: [Permission.orderManage],
+  );
+  static const Destination attendance = Destination(
+    path: '/attendance',
+    label: 'Attendance',
+    icon: Icons.how_to_reg,
+    anyOf: [Permission.attendanceMark],
+  );
+
   static const Destination suggest = Destination(
     path: '/suggest',
     label: 'Suggest special',
@@ -59,9 +72,11 @@ abstract final class Destinations {
 
   static const List<Destination> all = [
     billing,
+    orders,
     bills,
     stock,
     summary,
+    attendance,
     suggest,
   ];
 

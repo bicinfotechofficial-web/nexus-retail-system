@@ -13,6 +13,7 @@ import '../../widgets/section_card.dart';
 import '../../widgets/total_row.dart';
 import '../billing/cart.dart';
 import '../offline/billing_blocked.dart';
+import '../orders/order_summary.dart' show customCakeName, customCakeProductId;
 import 'customer_section.dart';
 import 'review_screen.dart';
 import 'submit.dart';
@@ -32,8 +33,17 @@ class _PaymentRow {
 /// Every amount comes from `BillCalculator`; the button is enabled only when
 /// `checkPayments(...).isValid` and the customer is valid, and the save
 /// disables on the first tap (03-SYNC §4).
+///
+/// With [delivery] it is the delivery mode of a pre-order (D-043): the cart is
+/// the single `CUSTOM-CAKE` line at the order's price, the customer is the
+/// order's and read-only, there is no discount, and the payments only
+/// collect the balance after the advance already paid (skipped when it is
+/// zero). The shop's cart is left alone.
 class PaymentScreen extends ConsumerStatefulWidget {
-  const PaymentScreen({super.key});
+  const PaymentScreen({this.delivery, super.key});
+
+  /// The open order being delivered, or null for an ordinary bill.
+  final PreOrder? delivery;
 
   @override
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
@@ -65,13 +75,29 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _locked = false;
   String? _error;
 
+  /// What the payment rows must add up to: the bill total, or the balance of
+  /// the order being delivered.
+  Money _toCollect(Money total) => widget.delivery?.balance ?? total;
+
   @override
   void initState() {
     super.initState();
-    _cart = ref.read(cartProvider);
+    final order = widget.delivery;
+    _cart = order == null
+        ? ref.read(cartProvider)
+        : [
+            CartLine(
+              productId: customCakeProductId,
+              name: customCakeName,
+              qty: 1,
+              unitPrice: order.price,
+            ),
+          ];
     _location = ref.read(sessionProvider).value?.location;
     final total = _form().totals?.total ?? Money.zero;
-    _rows.add(_PaymentRow(PaymentMode.cash, _plain(total)));
+    if (order == null || order.balance.isPositive) {
+      _rows.add(_PaymentRow(PaymentMode.cash, _plain(_toCollect(total))));
+    }
   }
 
   @override
@@ -160,7 +186,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final check = totals == null
         ? null
         : BillCalculator.checkPayments(
-            totals.total,
+            _toCollect(totals.total),
             payments,
             cashTendered: tendered,
           );
@@ -180,7 +206,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void _followTotal() {
     if (_amountsEdited || _rows.length != 1) return;
     final total = _form().totals?.total;
-    if (total != null) _rows.single.amount.text = _plain(total);
+    if (total != null) _rows.single.amount.text = _plain(_toCollect(total));
   }
 
   void _onDiscountChanged() {
@@ -189,7 +215,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   void _addRow(_Form form) {
     final used = _rows.map((r) => r.mode).toSet();
-    final mode = PaymentMode.values.firstWhere(
+    final mode = PaymentMode.selectable.firstWhere(
       (m) => !used.contains(m),
       orElse: () => PaymentMode.other,
     );
@@ -217,14 +243,21 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     if (_saving || _locked || _reviewing) return;
     final totals = form.totals;
     final check = form.check;
-    final customer = _customer.customer;
+    final order = widget.delivery;
+    final customer = order?.customer ?? _customer.customer;
     if (totals == null || check == null || customer == null || !form.canSave) {
       return;
     }
     final bill = NewBill(
       cart: _cart,
       discount: form.discount,
-      payments: form.payments,
+      // The advance already paid comes first, so the review shows the whole
+      // bill. Delivering sends only the rest: the service adds the advance.
+      payments: [
+        if (order != null && order.advance.isPositive)
+          Payment(mode: PaymentMode.advance, amount: order.advance),
+        ...form.payments,
+      ],
       cashTendered: form.tendered,
       customer: customer,
     );
@@ -234,11 +267,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         _error = null;
       });
       await context.push(
-        Routes.paymentReview,
+        order == null ? Routes.paymentReview : Routes.deliverReview(order.id),
         extra: ReviewArgs(
           bill: bill,
           totals: totals,
           check: check,
+          order: order,
           maxDiscountPct: _location?.maxDiscountPct,
           onLocked: (message) {
             if (mounted) {
@@ -257,11 +291,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       _saving = true;
       _error = null;
     });
-    final result = await submitBill(
-      ref,
-      bill,
-      maxDiscountPct: _location?.maxDiscountPct,
-    );
+    final result = order == null
+        ? await submitBill(ref, bill, maxDiscountPct: _location?.maxDiscountPct)
+        : await submitDelivery(
+            ref,
+            order,
+            payments: form.payments,
+            cashTendered: form.tendered,
+          );
     final saved = result.bill;
     if (saved == null) {
       _failed(result.message!, lock: result.lock);
@@ -269,7 +306,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
     if (!mounted) return;
     context.go(Routes.billSaved, extra: saved);
-    ref.read(cartProvider.notifier).clear();
+    if (order == null) ref.read(cartProvider.notifier).clear();
   }
 
   void _failed(String message, {bool lock = false}) {
@@ -285,9 +322,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Widget build(BuildContext context) {
     // A block mid-payment swaps the page, keeping what was entered for
     // after a sync or override (03-SYNC §7).
+    final order = widget.delivery;
+    final title = order == null ? 'Payment' : 'Deliver order';
     if (ref.watch(offlineViewProvider.select((v) => v.blocked)) && !_saving) {
-      return const PosScaffold(
-        title: 'Payment',
+      return PosScaffold(
+        title: title,
         showDrawer: false,
         body: BillingBlockedView(),
       );
@@ -298,7 +337,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final theme = Theme.of(context);
     if (totals == null || location == null) {
       return PosScaffold(
-        title: 'Payment',
+        title: title,
         showDrawer: false,
         body: Center(
           child: Padding(
@@ -316,9 +355,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final cap = location.maxDiscountPct;
     final review = reviewIsOn(ref);
     final hasCash = _rows.any((r) => r.mode == PaymentMode.cash);
+    final toCollect = _toCollect(totals.total);
 
     return PosScaffold(
-      title: 'Payment',
+      title: title,
       showDrawer: false,
       bottom: Padding(
         padding: const EdgeInsets.all(12),
@@ -339,7 +379,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               key: const Key('save'),
               onPressed:
                   form.canSave &&
-                      _customer.customer != null &&
+                      (order != null || _customer.customer != null) &&
                       !_saving &&
                       !_locked
                   ? () => _save(form)
@@ -351,7 +391,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     )
                   : const Icon(Icons.check),
               label: Text(
-                '${review ? 'Review' : 'Save'} ${totals.total.format()}',
+                order == null
+                    ? '${review ? 'Review' : 'Save'} ${totals.total.format()}'
+                    : '${review ? 'Review' : 'Deliver'}'
+                          '${toCollect.isPositive ? ' · collect ${toCollect.format()}' : ''}',
               ),
             ),
           ],
@@ -368,169 +411,222 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 for (final l in totals.lines)
                   TotalRow('${l.name} × ${l.qty}', l.lineTotal.format()),
                 const Divider(),
-                TotalRow('Subtotal', totals.subtotal.format()),
-                if (totals.discount != null)
+                if (order == null) ...[
+                  TotalRow('Subtotal', totals.subtotal.format()),
+                  if (totals.discount != null)
+                    TotalRow(
+                      'Discount',
+                      (-totals.discount!.amount).format(),
+                      key: const Key('discount-amount'),
+                    ),
                   TotalRow(
-                    'Discount',
-                    (-totals.discount!.amount).format(),
-                    key: const Key('discount-amount'),
+                    'Round-off',
+                    totals.roundOff.format(),
+                    key: const Key('round-off'),
                   ),
-                TotalRow(
-                  'Round-off',
-                  totals.roundOff.format(),
-                  key: const Key('round-off'),
-                ),
+                ],
                 TotalRow(
                   'Total',
                   totals.total.format(),
                   key: const Key('total'),
                   style: theme.textTheme.titleLarge,
                 ),
-              ],
-            ),
-            CustomerSection(form: _customer, onChanged: () => setState(() {})),
-            SectionCard(
-              title: 'Discount',
-              children: [
-                SegmentedButton<_DiscountKind>(
-                  segments: const [
-                    ButtonSegment(
-                      value: _DiscountKind.none,
-                      label: Text('None'),
-                    ),
-                    ButtonSegment(
-                      value: _DiscountKind.flat,
-                      label: Text('₹ Flat'),
-                    ),
-                    ButtonSegment(
-                      value: _DiscountKind.percent,
-                      label: Text('% Off'),
-                    ),
-                  ],
-                  selected: {_discountKind},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) {
-                    _discountKind = s.single;
-                    _discount.clear();
-                    _onDiscountChanged();
-                  },
-                ),
-                if (_discountKind != _DiscountKind.none) ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('discount-input'),
-                    controller: _discount,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: _discountKind == _DiscountKind.flat
-                          ? 'Discount (₹)'
-                          : 'Discount (%)',
-                      helperText: cap == null
-                          ? null
-                          : 'Up to $cap% at this store',
-                      errorText: form.discountError,
-                    ),
-                    onChanged: (_) => _onDiscountChanged(),
+                if (order != null) ...[
+                  TotalRow(
+                    Messages.paymentMode(PaymentMode.advance),
+                    (-order.advance).format(),
+                    key: const Key('delivery-advance'),
+                  ),
+                  TotalRow(
+                    'Balance to collect',
+                    order.balance.format(),
+                    key: const Key('delivery-balance'),
+                    style: theme.textTheme.titleLarge,
                   ),
                 ],
               ],
             ),
-            SectionCard(
-              title: 'Payment',
-              children: [
-                for (var i = 0; i < _rows.length; i++)
-                  Padding(
-                    key: ObjectKey(_rows[i]),
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      key: Key('payment-row-$i'),
-                      children: [
-                        SizedBox(
-                          width: 132,
-                          child: DropdownButtonFormField<PaymentMode>(
-                            key: Key('payment-mode-$i'),
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 16,
-                              ),
-                            ),
-                            initialValue: _rows[i].mode,
-                            items: [
-                              for (final m in PaymentMode.selectable)
-                                DropdownMenuItem(
-                                  value: m,
-                                  child: Text(Messages.paymentMode(m)),
-                                ),
-                            ],
-                            onChanged: (m) {
-                              if (m != null) setState(() => _rows[i].mode = m);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            key: Key('payment-amount-$i'),
-                            controller: _rows[i].amount,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Amount (₹)',
-                            ),
-                            onChanged: (_) =>
-                                setState(() => _amountsEdited = true),
-                          ),
-                        ),
-                        if (_rows.length > 1)
-                          IconButton(
-                            key: Key('payment-remove-$i'),
-                            tooltip: 'Remove payment',
-                            icon: const Icon(Icons.close),
-                            onPressed: () => _removeRow(i),
-                          ),
-                      ],
-                    ),
-                  ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    key: const Key('add-payment'),
-                    onPressed: _rows.length < BillCalculator.maxPayments
-                        ? () => _addRow(form)
-                        : null,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Split payment'),
-                  ),
-                ),
-                TotalRow('Paid', check.paid.format(), key: const Key('paid')),
-                if (!check.remaining.isZero)
+            if (order == null)
+              CustomerSection(form: _customer, onChanged: () => setState(() {}))
+            else
+              SectionCard(
+                title: 'Customer',
+                children: [
                   TotalRow(
-                    check.remaining.isNegative ? 'Over by' : 'Remaining',
-                    (check.remaining.isNegative
-                            ? -check.remaining
-                            : check.remaining)
-                        .format(),
-                    key: const Key('remaining'),
-                    style: TextStyle(color: theme.colorScheme.error),
+                    'Name',
+                    order.customer.name,
+                    key: const Key('delivery-customer-name'),
                   ),
-                for (final e in check.errors)
-                  if (e != PaymentError.tenderedTooLow &&
-                      e != PaymentError.tenderedWithoutCash)
+                  TotalRow(
+                    'Mobile',
+                    order.customer.phone,
+                    key: const Key('delivery-customer-phone'),
+                  ),
+                  TotalRow(
+                    'WhatsApp',
+                    order.customer.whatsapp ?? 'No WhatsApp',
+                    key: const Key('delivery-customer-whatsapp'),
+                  ),
+                  TotalRow('Order', order.orderNo),
+                ],
+              ),
+            if (order == null)
+              SectionCard(
+                title: 'Discount',
+                children: [
+                  SegmentedButton<_DiscountKind>(
+                    segments: const [
+                      ButtonSegment(
+                        value: _DiscountKind.none,
+                        label: Text('None'),
+                      ),
+                      ButtonSegment(
+                        value: _DiscountKind.flat,
+                        label: Text('₹ Flat'),
+                      ),
+                      ButtonSegment(
+                        value: _DiscountKind.percent,
+                        label: Text('% Off'),
+                      ),
+                    ],
+                    selected: {_discountKind},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (s) {
+                      _discountKind = s.single;
+                      _discount.clear();
+                      _onDiscountChanged();
+                    },
+                  ),
+                  if (_discountKind != _DiscountKind.none) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('discount-input'),
+                      controller: _discount,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: _discountKind == _DiscountKind.flat
+                            ? 'Discount (₹)'
+                            : 'Discount (%)',
+                        helperText: cap == null
+                            ? null
+                            : 'Up to $cap% at this store',
+                        errorText: form.discountError,
+                      ),
+                      onChanged: (_) => _onDiscountChanged(),
+                    ),
+                  ],
+                ],
+              ),
+            if (order != null && order.balance.isZero)
+              const SectionCard(
+                title: 'Payment',
+                children: [
+                  Text(
+                    'Nothing to collect: the advance covers the price.',
+                    key: Key('nothing-to-collect'),
+                  ),
+                ],
+              )
+            else
+              SectionCard(
+                title: order == null ? 'Payment' : 'Collect the balance',
+                children: [
+                  for (var i = 0; i < _rows.length; i++)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        Messages.paymentError(e),
-                        key: Key('payment-error-${e.name}'),
-                        style: TextStyle(color: theme.colorScheme.error),
+                      key: ObjectKey(_rows[i]),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        key: Key('payment-row-$i'),
+                        children: [
+                          SizedBox(
+                            width: 132,
+                            child: DropdownButtonFormField<PaymentMode>(
+                              key: Key('payment-mode-$i'),
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
+                              ),
+                              initialValue: _rows[i].mode,
+                              items: [
+                                for (final m in PaymentMode.selectable)
+                                  DropdownMenuItem(
+                                    value: m,
+                                    child: Text(Messages.paymentMode(m)),
+                                  ),
+                              ],
+                              onChanged: (m) {
+                                if (m != null) {
+                                  setState(() => _rows[i].mode = m);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              key: Key('payment-amount-$i'),
+                              controller: _rows[i].amount,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Amount (₹)',
+                              ),
+                              onChanged: (_) =>
+                                  setState(() => _amountsEdited = true),
+                            ),
+                          ),
+                          if (_rows.length > 1)
+                            IconButton(
+                              key: Key('payment-remove-$i'),
+                              tooltip: 'Remove payment',
+                              icon: const Icon(Icons.close),
+                              onPressed: () => _removeRow(i),
+                            ),
+                        ],
                       ),
                     ),
-              ],
-            ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('add-payment'),
+                      onPressed: _rows.length < BillCalculator.maxPayments
+                          ? () => _addRow(form)
+                          : null,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Split payment'),
+                    ),
+                  ),
+                  TotalRow('Paid', check.paid.format(), key: const Key('paid')),
+                  if (!check.remaining.isZero)
+                    TotalRow(
+                      check.remaining.isNegative ? 'Over by' : 'Remaining',
+                      (check.remaining.isNegative
+                              ? -check.remaining
+                              : check.remaining)
+                          .format(),
+                      key: const Key('remaining'),
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  for (final e in check.errors)
+                    if (e != PaymentError.tenderedTooLow &&
+                        e != PaymentError.tenderedWithoutCash)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          Messages.paymentError(e),
+                          key: Key('payment-error-${e.name}'),
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ),
+                ],
+              ),
             if (hasCash)
               SectionCard(
                 title: 'Cash',

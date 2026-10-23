@@ -21,12 +21,18 @@ final class ReviewArgs {
     required this.check,
     required this.maxDiscountPct,
     required this.onLocked,
+    this.order,
   });
 
   final NewBill bill;
   final BillTotals totals;
   final PaymentCheck check;
   final int? maxDiscountPct;
+
+  /// The pre-order being delivered (D-043), or null for an ordinary bill. Then
+  /// `bill` is what the delivery will look like, with the `ADVANCE` entry
+  /// first, and Confirm calls `OrderService.deliver` with the other payments.
+  final PreOrder? order;
 
   /// Called when a save failed so that it is unclear whether the bill was
   /// written. The payment page then stops offering another save.
@@ -62,11 +68,18 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       _error = null;
     });
     final args = widget.args;
-    final result = await submitBill(
-      ref,
-      args.bill,
-      maxDiscountPct: args.maxDiscountPct,
-    );
+    final order = args.order;
+    final result = order == null
+        ? await submitBill(ref, args.bill, maxDiscountPct: args.maxDiscountPct)
+        : await submitDelivery(
+            ref,
+            order,
+            payments: [
+              for (final p in args.bill.payments)
+                if (p.mode != PaymentMode.advance) p,
+            ],
+            cashTendered: args.bill.cashTendered,
+          );
     if (!mounted) return;
     final bill = result.bill;
     if (bill == null) {
@@ -83,7 +96,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       if (!mounted) return;
     }
     context.go(Routes.billSaved, extra: bill);
-    ref.read(cartProvider.notifier).clear();
+    // A delivery doesn't use the cart, so a bill in progress stays.
+    if (order == null) ref.read(cartProvider.notifier).clear();
   }
 
   @override
@@ -101,7 +115,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     return PopScope(
       canPop: !_saving,
       child: PosScaffold(
-        title: 'Review bill',
+        title: args.order == null ? 'Review bill' : 'Review delivery',
         showDrawer: false,
         bottom: Padding(
           padding: const EdgeInsets.all(12),
@@ -184,6 +198,22 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   ),
                 ],
               ),
+              if (args.order != null)
+                SectionCard(
+                  title: 'Order',
+                  children: [
+                    TotalRow(
+                      'Order',
+                      args.order!.orderNo,
+                      key: const Key('review-order-no'),
+                    ),
+                    TotalRow(
+                      'Balance to collect',
+                      args.order!.balance.format(),
+                      key: const Key('review-order-balance'),
+                    ),
+                  ],
+                ),
               SectionCard(
                 title: 'Bill',
                 children: [

@@ -6,6 +6,7 @@ import '../app/destinations.dart';
 import '../app/providers.dart';
 import '../app/router.dart';
 import '../features/billing/cart.dart';
+import '../features/orders/due_counts.dart';
 import '../features/suggest/decisions.dart';
 import 'offline_banner.dart';
 import 'sync_chip.dart';
@@ -99,6 +100,10 @@ class PosDrawer extends ConsumerWidget {
     final low = ref.watch(_visibleLowStockProvider);
     final errors = ref.watch(syncErrorsProvider).value?.length ?? 0;
     final decisions = ref.watch(unseenDecisionsProvider).length;
+    // Orders due soon: overdue, today and tomorrow (D-043).
+    final dueSoon = session != null && Destinations.orders.allowedFor(session)
+        ? watchDueCounts(ref).attention
+        : 0;
     final syncIndex = session == null ? null : items.length;
     final onSync = here == Routes.syncHealth;
     final onSettings = here == Routes.settings;
@@ -141,6 +146,12 @@ class PosDrawer extends ConsumerWidget {
                 ? Badge(
                     key: const Key('low-stock-badge'),
                     label: Text('$low'),
+                    child: Icon(d.icon),
+                  )
+                : d == Destinations.orders && dueSoon > 0
+                ? Badge(
+                    key: const Key('orders-badge'),
+                    label: Text('$dueSoon'),
                     child: Icon(d.icon),
                   )
                 : d == Destinations.suggest && decisions > 0

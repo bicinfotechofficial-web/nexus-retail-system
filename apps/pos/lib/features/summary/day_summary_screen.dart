@@ -118,7 +118,9 @@ class _DaySummaryScreenState extends ConsumerState<DaySummaryScreen> {
             if (s.byMode.values.every((m) => m.isZero))
               const Text('No payments.')
             else
-              for (final m in PaymentMode.values)
+              // `ADVANCE` is only a label here: the advances credited on
+              // delivery bills, so the rows still add up (D-043).
+              for (final m in [...PaymentMode.selectable, PaymentMode.advance])
                 if (!(s.byMode[m] ?? Money.zero).isZero)
                   TotalRow(
                     Messages.paymentMode(m),
