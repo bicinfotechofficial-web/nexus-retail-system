@@ -54,3 +54,35 @@ Future<SubmitResult> submitBill(
     );
   }
 }
+
+/// Calls `OrderService.deliver` once and turns every failure into a message,
+/// like [submitBill] (D-043). [payments] is the balance only: the service
+/// adds the order's `ADVANCE` entry itself.
+Future<SubmitResult> submitDelivery(
+  WidgetRef ref,
+  PreOrder order, {
+  required List<Payment> payments,
+  Money? cashTendered,
+}) async {
+  try {
+    return SubmitResult.saved(
+      await ref
+          .read(orderServiceProvider)
+          .deliver(
+            orderId: order.id,
+            payments: payments,
+            cashTendered: cashTendered,
+          ),
+    );
+  } on DataFailure catch (e) {
+    return SubmitResult.failed(
+      Messages.failure(e),
+      lock: e.reason == FailureReason.unknown,
+    );
+  } catch (_) {
+    return SubmitResult.failed(
+      Messages.failure(const DataFailure(FailureReason.unknown)),
+      lock: true,
+    );
+  }
+}

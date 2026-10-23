@@ -5,22 +5,6 @@ import 'package:nexus_printer/nexus_printer.dart';
 import '../app/phone_store.dart';
 import '../app/share.dart';
 
-/// A [LinkLauncher] that records the links and can pretend that no app
-/// opens them.
-final class FakeLinkLauncher implements LinkLauncher {
-  /// Every link passed to [open], in order.
-  final List<Uri> opened = [];
-
-  /// Whether an app (WhatsApp) takes the link.
-  bool canOpen = true;
-
-  @override
-  Future<bool> open(Uri uri) async {
-    opened.add(uri);
-    return canOpen;
-  }
-}
-
 /// One call to [FakeReceiptSharer.shareImage].
 typedef SharedImage = ({Uint8List png, String fileName, String? text});
 

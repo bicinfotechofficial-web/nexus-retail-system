@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
 import 'package:nexus_pos/app/app.dart';
 import 'package:nexus_pos/app/phone_store.dart';
 import 'package:nexus_pos/fakes/fake_backend.dart';
+
+import 'support/preorder_fakes.dart';
 
 /// 10:30 IST on 2026-09-26, as a UTC instant.
 final DateTime testNow = DateTime.utc(2026, 9, 26, 5);
@@ -49,13 +52,25 @@ SessionContext sessionWith(
 );
 
 /// Pumps the whole app on a portrait phone screen (360 × 780 dp).
-Future<FakeBackend> pumpPos(WidgetTester tester, {FakeBackend? backend}) async {
+///
+/// The staff, attendance and pre-order fakes are installed too: [fakes] when
+/// given, otherwise fresh ones.
+Future<FakeBackend> pumpPos(
+  WidgetTester tester, {
+  FakeBackend? backend,
+  PreorderFakes? fakes,
+  List<Override> extraOverrides = const [],
+}) async {
   final b = backend ?? fakeBackend();
+  final extra = fakes ?? PreorderFakes(b);
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    ProviderScope(overrides: b.overrides, child: const PosApp()),
+    ProviderScope(
+      overrides: [...b.overrides, ...extra.overrides, ...extraOverrides],
+      child: const PosApp(),
+    ),
   );
   await tester.pumpAndSettle();
   return b;
@@ -98,8 +113,9 @@ String textOf(WidgetTester tester, String key) {
 }
 
 bool isEnabled(WidgetTester tester, String key) {
-  final w = tester.widget<ButtonStyleButton>(find.byKey(Key(key)));
-  return w.onPressed != null;
+  final w = tester.widget(find.byKey(Key(key)));
+  if (w is IconButton) return w.onPressed != null;
+  return (w as ButtonStyleButton).onPressed != null;
 }
 
 /// A made-up customer on WhatsApp at the same number.

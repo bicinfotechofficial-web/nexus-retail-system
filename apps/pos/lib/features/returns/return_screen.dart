@@ -86,9 +86,14 @@ class _ReturnFormState extends ConsumerState<_ReturnForm> {
   @override
   void initState() {
     super.initState();
-    final mode = _bill.payments.isEmpty
-        ? PaymentMode.cash
-        : _bill.payments.first.mode;
+    // The mode the bill was paid in, but never ADVANCE: a delivery bill
+    // starts with that entry, and money is not handed back "as advance".
+    final mode = _bill.payments
+        .map((p) => p.mode)
+        .firstWhere(
+          PaymentMode.selectable.contains,
+          orElse: () => PaymentMode.cash,
+        );
     _rows.add(_RefundRow(mode, ''));
   }
 
@@ -167,7 +172,7 @@ class _ReturnFormState extends ConsumerState<_ReturnForm> {
 
   void _addRow(_Form form) {
     final used = _rows.map((r) => r.mode).toSet();
-    final mode = PaymentMode.values.firstWhere(
+    final mode = PaymentMode.selectable.firstWhere(
       (m) => !used.contains(m),
       orElse: () => PaymentMode.other,
     );

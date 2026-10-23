@@ -13,12 +13,13 @@ String formatIstTime(DateTime instant) =>
     DateFormat('HH:mm').format(instant.toUtc().add(BusinessDate.istOffset));
 
 /// Previous day, a date picker, and next day, for screens that show one
-/// business day. It never goes past [today].
+/// business day. It never goes past [today], nor before [earliest] when given.
 class DateBar extends StatelessWidget {
   const DateBar({
     required this.date,
     required this.today,
     required this.onChanged,
+    this.earliest,
     super.key,
   });
 
@@ -26,6 +27,9 @@ class DateBar extends StatelessWidget {
   final String date;
   final String today;
   final ValueChanged<String> onChanged;
+
+  /// The oldest day that can be chosen, or null for no limit.
+  final String? earliest;
 
   static DateTime _local(String d) {
     final p = d.split('-').map(int.parse).toList();
@@ -42,7 +46,7 @@ class DateBar extends StatelessWidget {
     final picked = await showDatePicker(
       context: context,
       initialDate: _local(date),
-      firstDate: DateTime(last.year - 2),
+      firstDate: earliest == null ? DateTime(last.year - 2) : _local(earliest!),
       lastDate: last,
     );
     if (picked != null) onChanged(_key(picked));
@@ -57,7 +61,9 @@ class DateBar extends StatelessWidget {
           key: const Key('date-prev'),
           tooltip: 'Previous day',
           icon: const Icon(Icons.chevron_left),
-          onPressed: () => onChanged(BusinessDate.addDays(date, -1)),
+          onPressed: earliest != null && date.compareTo(earliest!) <= 0
+              ? null
+              : () => onChanged(BusinessDate.addDays(date, -1)),
         ),
         Expanded(
           child: TextButton.icon(

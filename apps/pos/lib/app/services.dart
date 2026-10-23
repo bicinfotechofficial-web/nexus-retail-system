@@ -4,7 +4,6 @@ import 'package:nexus_printer/nexus_printer.dart';
 
 import 'phone_store.dart';
 import 'providers.dart';
-import 'share.dart';
 
 /// Every data and printer interface the POS reads through a provider
 /// (D-026), in one place, so the real backend and the fakes install the
@@ -25,7 +24,6 @@ final class PosServices {
     required this.printer,
     required this.customers,
     required this.phoneStore,
-    required this.linkLauncher,
     required this.receiptSharer,
   });
 
@@ -35,7 +33,6 @@ final class PosServices {
       PosServices(
         customers: b.customers,
         phoneStore: const SharedPrefsPhoneStore(),
-        linkLauncher: const UrlLinkLauncher(),
         receiptSharer: const SharePlusReceiptSharer(),
         auth: b.authService,
         devices: b.deviceService,
@@ -69,9 +66,7 @@ final class PosServices {
   /// suggestion decisions).
   final PhoneStore phoneStore;
 
-  /// Opens the WhatsApp link (D-036a), and shares the receipt image
-  /// (D-036b).
-  final LinkLauncher linkLauncher;
+  /// Shares the receipt image through the share sheet (D-036b, D-041).
   final ReceiptSharer receiptSharer;
 
   /// One override for every provider in `providers.dart` that has no
@@ -91,7 +86,6 @@ final class PosServices {
     printerServiceProvider.overrideWithValue(printer),
     customerRepositoryProvider.overrideWithValue(customers),
     phoneStoreProvider.overrideWithValue(phoneStore),
-    linkLauncherProvider.overrideWithValue(linkLauncher),
     receiptSharerProvider.overrideWithValue(receiptSharer),
   ];
 }

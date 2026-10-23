@@ -10,9 +10,9 @@ import '../../app/router.dart';
 import '../../widgets/date_bar.dart';
 import '../../widgets/pos_scaffold.dart';
 import '../../widgets/print_panel.dart';
+import '../../widgets/receipt_share.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_row.dart';
-import '../../widgets/whatsapp_actions.dart';
 
 /// One bill: lines, totals, payments, returns, and the actions the session
 /// may take on it: reprint, same-day cancel with a reason (D-009, D-025),
@@ -235,7 +235,7 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                 ),
                 if (bill.customer?.whatsapp != null) ...[
                   const SizedBox(height: 8),
-                  WhatsappActions(bill: bill),
+                  ReceiptShare(bill: bill, showNumber: false),
                 ],
               ],
             ],
