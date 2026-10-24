@@ -8,7 +8,6 @@ import 'package:nexus_pos/fakes/fake_backend.dart';
 import 'package:nexus_pos/features/orders/due_counts.dart';
 
 import 'helpers.dart';
-import 'support/preorder_fakes.dart';
 
 /// POS-21: the Orders screen, the home banner and the count badges (D-043).
 /// "Today" in these tests is 2026-09-26 (10:30 IST).

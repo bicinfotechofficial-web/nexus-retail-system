@@ -10,7 +10,6 @@ import 'package:nexus_pos/app/phone_store.dart';
 import 'package:nexus_pos/fakes/fake_backend.dart';
 
 import 'helpers.dart';
-import 'support/preorder_fakes.dart';
 
 /// POS-21: the order detail, Cancel and Deliver (D-043). "Today" is
 /// 2026-09-26.

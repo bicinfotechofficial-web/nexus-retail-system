@@ -3,7 +3,7 @@ import 'package:nexus_data/nexus_data.dart';
 
 import 'live.dart';
 
-/// A pre-order as the tests write it.
+/// A pre-order as the tests and the demo write it, taken on [takenOn].
 PreOrder order(
   String locationId,
   String id, {
@@ -16,6 +16,7 @@ PreOrder order(
   int advance = 500,
   OrderStatus status = OrderStatus.open,
   OrderCancel? cancel,
+  String takenOn = '2026-09-20',
 }) => PreOrder(
   id: id,
   orderNo: '$locationId-$id',
@@ -31,20 +32,25 @@ PreOrder order(
   status: status,
   cancel: cancel,
   servedBy: const ServedBy(uid: 'sm-1', name: 'Store Manager'),
-  businessDate: '2026-09-20',
-  clientCreatedAt: DateTime.utc(2026, 9, 20, 5),
+  businessDate: takenOn,
+  clientCreatedAt: BusinessDate.startOf(
+    takenOn,
+  ).add(const Duration(hours: 10, minutes: 30)),
   createdBy: 'sm-1',
   locationId: locationId,
 );
 
-OrderCancel cancelled({required String reason, required int refunded}) =>
-    OrderCancel(
-      reason: reason,
-      by: 'sm-1',
-      at: DateTime.utc(2026, 9, 22, 5),
-      businessDate: '2026-09-22',
-      refunded: Money.rupees(refunded),
-    );
+OrderCancel cancelled({
+  required String reason,
+  required int refunded,
+  String on = '2026-09-22',
+}) => OrderCancel(
+  reason: reason,
+  by: 'sm-1',
+  at: BusinessDate.startOf(on).add(const Duration(hours: 10, minutes: 30)),
+  businessDate: on,
+  refunded: Money.rupees(refunded),
+);
 
 /// An in-memory `OrderRepository`. `watchAllLocations` applies the filters
 /// like the real query and returns the orders soonest due first. The

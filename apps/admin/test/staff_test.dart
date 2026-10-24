@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_admin/fakes/fake_backend.dart';
+import 'package:nexus_admin/fakes/fake_staff.dart';
+import 'package:nexus_admin/fakes/overrides.dart';
 import 'package:nexus_core/nexus_core.dart';
 
 import 'helpers.dart';
-import 'support/fake_staff.dart';
-import 'support/overrides.dart';
 
 StaffMember _member(
   String id,

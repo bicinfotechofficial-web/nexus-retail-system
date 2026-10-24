@@ -8,8 +8,6 @@ import 'package:nexus_pos/app/app.dart';
 import 'package:nexus_pos/app/phone_store.dart';
 import 'package:nexus_pos/fakes/fake_backend.dart';
 
-import 'support/preorder_fakes.dart';
-
 /// 10:30 IST on 2026-09-26, as a UTC instant.
 final DateTime testNow = DateTime.utc(2026, 9, 26, 5);
 

@@ -3,16 +3,18 @@ import 'dart:async';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:nexus_core/nexus_core.dart';
 import 'package:nexus_data/nexus_data.dart';
-import 'package:nexus_pos/app/order_slip.dart';
-import 'package:nexus_pos/app/providers.dart';
-import 'package:nexus_pos/fakes/fake_backend.dart';
-import 'package:nexus_pos/fakes/latest.dart';
 import 'package:nexus_printer/nexus_printer.dart';
 
+import '../app/order_slip.dart';
+import '../app/providers.dart';
+import 'fake_backend.dart';
+import 'latest.dart';
+
 /// Small in-memory stand-ins for the staff, attendance and pre-order
-/// interfaces (D-042, D-043) and the order slip seam, until the backend
-/// fields exist. They enforce the same rules the services document, so a
-/// test fails when the screen sends something the real service would refuse.
+/// interfaces (D-042, D-043) and the order slip seam. They enforce the same
+/// rules the services document, so a test fails when the screen sends
+/// something the real service would refuse, and `FAKE_DATA=true` uses them
+/// through [FakeBackend.demoOverrides].
 
 final class FakeStaffRepository implements StaffRepository {
   final Latest<List<StaffMember>> _staff = Latest(const []);

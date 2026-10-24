@@ -8,6 +8,7 @@ import 'data/emulator_switch.dart';
 import 'data/firebase_start.dart';
 import 'data/services.dart';
 import 'fakes/fake_backend.dart';
+import 'fakes/overrides.dart';
 import 'login/login_screen.dart';
 
 /// `--dart-define=FAKE_DATA=true` runs the console on in-memory fakes of
@@ -22,6 +23,7 @@ Future<void> main() async {
       ProviderScope(
         overrides: [
           ...fakes.overrides,
+          ...demoInterfaceOverrides(BusinessDate.of(DateTime.now())),
           demoLoginHintProvider.overrideWithValue(
             'Demo data. Admin: ${FakeBackend.adminEmail}, '
             'Store Manager: ${FakeBackend.storeManagerEmail}, '

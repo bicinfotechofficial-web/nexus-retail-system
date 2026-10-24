@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_admin/fakes/fake_backend.dart';
+import 'package:nexus_admin/fakes/fake_orders.dart';
+import 'package:nexus_admin/fakes/overrides.dart';
 import 'package:nexus_core/nexus_core.dart';
 
 import 'helpers.dart';
-import 'support/fake_orders.dart';
-import 'support/overrides.dart';
 
 const _longDescription =
     'Three-layer chocolate truffle cake, 2 kg, with fresh strawberries.\n'

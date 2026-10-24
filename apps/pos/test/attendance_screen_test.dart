@@ -9,7 +9,6 @@ import 'package:nexus_pos/app/router.dart';
 import 'package:nexus_pos/fakes/fake_backend.dart';
 
 import 'helpers.dart';
-import 'support/preorder_fakes.dart';
 
 /// POS-20: the Store Manager's attendance screen (D-042).
 const _today = '2026-09-26';

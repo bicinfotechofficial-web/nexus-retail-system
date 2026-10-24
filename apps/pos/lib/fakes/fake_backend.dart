@@ -12,6 +12,7 @@ import 'fake_data.dart';
 import 'fake_printer.dart';
 import 'fake_share.dart';
 import 'fake_stock.dart';
+import 'preorder_fakes.dart';
 import 'seed.dart';
 
 export 'fake_customers.dart';
@@ -19,6 +20,7 @@ export 'fake_data.dart';
 export 'fake_printer.dart';
 export 'fake_share.dart';
 export 'fake_stock.dart';
+export 'preorder_fakes.dart';
 export 'seed.dart';
 
 /// Made-up customers for the demo bills: name, mobile, WhatsApp.
@@ -26,6 +28,13 @@ const List<(String, String, String?)> _demoCustomers = [
   ('Test Customer', '9876543210', '9876543210'),
   ('Sample Buyer', '9123456780', null),
   ('Demo Visitor', '9988776655', '9812345678'),
+];
+
+/// Made-up staff for the demo roster: ID, name, role.
+const List<(String, String, String)> _demoStaff = [
+  ('staff-1', 'Staff One', 'Baker'),
+  ('staff-2', 'Staff Two', 'Counter'),
+  ('staff-3', 'Staff Three', 'Helper'),
 ];
 
 /// Every fake, wired together, plus the provider overrides that install
@@ -127,6 +136,13 @@ final class FakeBackend {
     receiptImageRendererProvider.overrideWithValue(renderer),
   ];
 
+  /// Staff, attendance and pre-orders for `FAKE_DATA=true` (D-042, D-043).
+  /// The widget tests make their own [PreorderFakes] instead.
+  late final PreorderFakes preorders = PreorderFakes(this, now: _now);
+
+  /// [overrides] plus [preorders], for `FAKE_DATA=true`.
+  List<Override> get demoOverrides => [...overrides, ...preorders.overrides];
+
   /// A few bills from today and yesterday, one returned and one cancelled,
   /// so `FAKE_DATA=true` opens on something to look at. Written through the
   /// fake service, so summaries match.
@@ -136,9 +152,52 @@ final class FakeBackend {
     auth.current = FakeAuthService.storeManagerSession;
     try {
       await _seedBills();
+      _seedPreorders();
     } finally {
       auth.current = before;
     }
+  }
+
+  /// A small roster with yesterday marked, and open orders due yesterday,
+  /// today, tomorrow and later, so the banner and every group show.
+  void _seedPreorders() {
+    final today = BusinessDate.of(_now());
+    final yesterday = BusinessDate.addDays(today, -1);
+    final roster = [
+      for (final (id, name, role) in _demoStaff)
+        StaffMember(id: id, name: name, role: role, active: true),
+    ];
+    preorders.staff.all = roster;
+    final user = FakeAuthService.storeManagerSession.user;
+    for (final (i, s) in roster.indexed) {
+      preorders.attendance.put(
+        AttendanceRecord(
+          staffId: s.id,
+          staffName: s.name,
+          businessDate: yesterday,
+          status: i == 2 ? AttendanceStatus.halfDay : AttendanceStatus.present,
+          markedBy: ServedBy(uid: user.uid, name: user.name),
+          deviceId: Seed.deviceId,
+          locationId: Seed.locationId,
+        ),
+      );
+    }
+    preorders.orders
+      ..add(dueDate: yesterday, dueTime: '18:00', customer: 'Sample Buyer')
+      ..add(dueDate: today, dueTime: '16:30')
+      ..add(
+        dueDate: BusinessDate.addDays(today, 1),
+        customer: 'Demo Visitor',
+        description: 'Red velvet, 2 kg, two layers\nWrite "Happy Anniversary"',
+        price: 2400,
+        advance: 1000,
+      )
+      ..add(
+        dueDate: BusinessDate.addDays(today, 3),
+        description: 'Pineapple, 500 g, no message',
+        price: 550,
+        advance: 0,
+      );
   }
 
   Future<void> _seedBills() async {

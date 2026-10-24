@@ -32,7 +32,7 @@ Future<void> main() async {
       renderer: renderReceiptImage,
     );
     await fake.seedDemo();
-    runApp(ProviderScope(overrides: fake.overrides, child: const PosApp()));
+    runApp(ProviderScope(overrides: fake.demoOverrides, child: const PosApp()));
     return;
   }
   await startPos();

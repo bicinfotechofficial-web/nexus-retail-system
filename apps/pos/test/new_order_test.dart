@@ -8,7 +8,6 @@ import 'package:nexus_pos/fakes/fake_backend.dart';
 import 'package:nexus_printer/nexus_printer.dart';
 
 import 'helpers.dart';
-import 'support/preorder_fakes.dart';
 
 /// POS-21: the new-order form and the saved page (D-043). "Today" is
 /// 2026-09-26.

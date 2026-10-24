@@ -32,6 +32,28 @@ void main() {
     expect(s.cancelCount, 1);
   });
 
+  testWidgets('FAKE_DATA demo seed: staff, attendance and pre-orders', (
+    tester,
+  ) async {
+    final b = fakeBackend();
+    await b.seedDemo();
+    expect(b.demoOverrides, hasLength(b.overrides.length + 6));
+    expect(b.preorders.staff.all, hasLength(3));
+    expect(b.preorders.attendance.records, hasLength(3));
+    expect(b.preorders.orders.orders, hasLength(4));
+
+    await pumpPos(tester, backend: b, fakes: b.preorders);
+    expect(find.byKey(const Key('order-banner')), findsOneWidget);
+    await openNav(tester, 'Orders');
+    for (final o in b.preorders.orders.orders) {
+      expect(find.byKey(Key('order-${o.id}')), findsOneWidget);
+    }
+    await openNav(tester, 'Attendance');
+    for (final s in b.preorders.staff.all) {
+      expect(find.byKey(Key('att-note-${s.id}')), findsOneWidget);
+    }
+  });
+
   test('the fake override PIN meets the 8-digit minimum (QA-030)', () async {
     expect(
       FakeOfflineGuard.defaultPin.length,
