@@ -135,8 +135,8 @@ Order: C-11 → BE-17 / BE-18 → PR-8 / PR-9 / POS-19 / POS-20 / POS-21 / AD-14
 | POS-21 | Pre-orders on the POS: a new-order form (customer with the D-034 rules, due date and time, description, price, advance and mode), an Orders list grouped Overdue / Due today / Due tomorrow / Later, a banner with the counts on the home screen, the order detail with **Deliver** (opens the bill flow with the `CUSTOM-CAKE` line at the agreed price, the ADVANCE credit and only the balance to collect) and **Cancel** (reason and refund). Use `PaymentMode.selectable` in every picker | BE-18, PR-9 | L | Widget tests with the fakes; deliver makes one bill and marks the order | REVIEW |
 | PR-9 | Advance slip for an order: print and receipt-image share (same logo and header as the bill, with the order number, due date and time, description, price, advance and balance), and the delivery receipt shows the advance as a paid line | C-11 | M | Golden images | REVIEW |
 | AD-15 | Admin: read-only Orders list across stores (filter by store, status and due date; shows customer, due date, price, advance and balance) and the advance fields in the daily report; the `ADVANCE` payment mode in the payment-mode breakdown | BE-18 | M | Widget tests with the fakes | REVIEW |
-| QA-10 | Scenarios: marking twice leaves one document; offline marks sync; an SM can't mark another store; the Admin sees the month totals | POS-20, AD-14 | S | Green | TODO |
-| QA-11 | Scenarios: create an order offline and deliver it after sync, giving one bill and one DELIVERED order; cancel with a refund; a delivery bill can't be cancelled; advance totals match the orders | POS-21, AD-15 | M | Green | TODO |
+| QA-10 | Scenarios: marking twice leaves one document; offline marks sync; an SM can't mark another store; the Admin sees the month totals | POS-20, AD-14 | S | Green | REVIEW |
+| QA-11 | Scenarios: create an order offline and deliver it after sync, giving one bill and one DELIVERED order; cancel with a refund; a delivery bill can't be cancelled; advance totals match the orders | POS-21, AD-15 | M | Green | REVIEW |
 
 ---
 

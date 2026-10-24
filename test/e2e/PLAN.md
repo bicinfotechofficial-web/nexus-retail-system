@@ -274,6 +274,32 @@ The rules can't check these, so each is proven on the device, and the Rules laye
 
 ---
 
+## T. Staff attendance (D-042, QA-10)
+Dart scenarios in `test/qa10_attendance_test.dart` model the server as one document per staff member per day (`{businessDate}_{staffId}`, written with `set`) and phones that queue marks offline. The field checks, the store scope and deletes are the Rules suite's (`firebase/test/attendance.test.js`, #15 and #16); the 7-day window is client-enforced (D-031) and tested in `packages/data/test/plans/staff_attendance_plans_test.dart`.
+
+| # | Scenario | Expected | Layer | Status |
+|---|---|---|---|---|
+| T-1 | Marking twice | A correction, a retry and a mark from the other phone all leave one document for that person and day; the last write wins; two people or two days are separate documents | Dart; Rules ("marking again overwrites") | Written |
+| T-2 | Offline marks | Marks taken offline reach the server on sync under the day they were marked for; two phones marking the same person offline give one document, decided by the phone that syncs last; 15 marks go in one batch, 16 do not (`Limits.maxAttendanceBatch`) | Dart; Rules (the 15-mark batch and the budget) | Written |
+| T-3 | Day boundary | 23:59 IST is that day, 00:00 IST the next; 30 Sep and 1 Oct fall in their own month grids; the POS window is today and 7 days back by IST date, across a month boundary | Dart; Data (the refusal of day 8 and of tomorrow) | Written |
+| T-4 | Month totals | Present + 0.5 per half-day per person, a corrected day counted once, a deactivated member keeps their past month, an unmarked member gets zeros; 10 staff × 30 days is 300 documents read straight from the marks | Dart (`attendanceTotals`) | Written |
+| T-5 | Permissions per role | The Store Manager has `attendance.mark` and not `staff.manage`; the Admin has both and `report.all`. Another store, a disabled user, no user, deletes and the Store Manager's all-stores query are denied | Dart (seeded roles); Rules (#15, #16) | Written |
+
+## O. Pre-orders (D-043, QA-11)
+Dart scenarios in `test/qa11_preorders_test.dart` model the server's all-or-nothing decision on each batch (04 #18, #19, #20) and phones that deliver from their own view and queue batches offline. The field-level allow and deny cases are the Rules suite's (`firebase/test/orders.test.js`); the D-027 plan fixtures `order_create`, `order_deliver` and `order_cancel` are replayed by `test/plan_fixtures_test.dart`, whose oracle counts `advanceReceived` and `advanceRefunded` from the order documents.
+
+| # | Scenario | Expected | Layer | Status |
+|---|---|---|---|---|
+| O-1 | Taken offline, delivered after sync | One bill and one DELIVERED order naming it; one `CUSTOM-CAKE` line at the agreed price; the advance on the day it was taken, the sale (with an ADVANCE payment) on the delivery day; also: taken and delivered before any sync, delivered from the other phone, paid in full ahead, no advance | Dart; Rules (#18 a, #19) | Written |
+| O-2 | Double delivery | Two phones deliver offline: the first to sync makes the bill, the second batch is rejected whole (no orphan bill, no summary) and is a sync error, and that phone then sees the real bill; a phone that has synced offers no delivery; a double tap sends one | Dart; Rules ("denies delivering twice") | Written |
+| O-3 | Cancel with a refund | Full, part or no refund, counted in `advanceRefunded` on the cancel day, the rest kept; a refund above the advance or below zero is refused on the phone and by the server; a cancel and a delivery racing offline: the first to sync stands, the other is a sync error; a delivered order can't be cancelled | Dart; Rules (#18 b) | Written |
+| O-4 | The delivery bill | `cancelBlocker` is `deliversOrder` and the server rejects the cancel; an ordinary bill of the same day still cancels; a return against the delivery bill is allowed | Dart; Rules (the return) | Written |
+| O-5 | Day boundary | An order at 23:59:59 IST and its delivery a second after midnight count on their own days; an order taken offline keeps its day, not the sync day; a cancel after midnight refunds on the new day; the Due today / tomorrow / Overdue buckets turn at IST midnight; a due date before today is refused | Dart | Written |
+| O-6 | Permissions per role | `order.manage` for the Store Manager and the Admin; only `catalog.manage` (Admin) makes `CUSTOM-CAKE` open-priced. Another store, a role without `order.manage`, a disabled user and the Store Manager's all-stores query are denied | Dart (seeded roles); Rules (#11, #18) | Written |
+| O-7 | Advance totals match the orders | Property test, four fixed seeds, three phones over five days with offline conflicts: every DELIVERED order has exactly one bill and no other order has one; per day, `advanceReceived`, `advanceRefunded`, the ADVANCE payments and `netSales` equal what the orders say; received − refunded − credited equals the advances still held | Dart | Written |
+
+---
+
 ## Traceability
 | Source | Scenarios |
 |---|---|
@@ -283,6 +309,8 @@ The rules can't check these, so each is proven on the device, and the Rules laye
 | 01 acceptance #4 | A4-1..A4-7 |
 | 01 acceptance #5 | P-01..P-05, M-1..M-4 |
 | 01 acceptance #6 | A6-1..A6-11 |
+| D-042 attendance (QA-10) | T-1..T-5 |
+| D-043 pre-orders (QA-11) | O-1..O-7 |
 | 03 §1 | S1-1 |
 | 03 §2 | S2-1..S2-7 |
 | 03 §3 | S3-1..S3-5 |

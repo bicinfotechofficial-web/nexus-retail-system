@@ -9,4 +9,7 @@ This package is pure Dart and depends only on `nexus_core`.
 - `test/pin_hash_parity_test.dart`: the override PIN hash is byte for byte the same in the Dart `PinHasher` (as exported in the location fixtures) and in `firebase/scripts/lib/core.js` (runs `node`, PLAN C-4).
 - `test/concurrent_returns_test.dart`: the D-029 conflict cases worked by hand (PLAN A1-6, A1-7, A1-8), including two offline returns within `soldQty`, where the rule on `prevReturnId` rejects the stale one (QA-024).
 
+- `test/qa10_attendance_test.dart`: QA-10, staff attendance (D-042, PLAN section T): marking twice, offline marks from two phones, the IST day boundary, the month totals and the seeded roles.
+- `test/qa11_preorders_test.dart`: QA-11, pre-orders (D-043, PLAN section O): an order taken offline and delivered after sync, two phones delivering one order, cancel with a refund, the delivery bill that can't be cancelled, the IST day boundary, and a property test that the advance totals in the summaries match the orders.
+
 Run it with `dart test` in this directory. `tool/check.sh` skips this package; `tool/check.sh --e2e` runs it together with the emulator suites (C-4).

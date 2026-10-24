@@ -276,6 +276,18 @@ Map<String, int> oracle(
       amount[l.productId] = (amount[l.productId] ?? 0) - l.amount.paise;
     }
   }
+  // Pre-orders (D-043): the advance on the day the order was taken, the
+  // refund on the day it was cancelled. The sale itself is the delivery
+  // bill's, counted above.
+  var advanceReceived = 0, advanceRefunded = 0;
+  for (final e in s.collection('locations/$loc/orders').entries) {
+    final o = PreOrder.fromMap(e.key, e.value);
+    if (inPeriod(o.businessDate)) advanceReceived += o.advance.paise;
+    final c = o.cancel;
+    if (o.status == OrderStatus.cancelled && c != null) {
+      if (inPeriod(c.businessDate)) advanceRefunded += c.refunded.paise;
+    }
+  }
   if (monthly) {
     for (final e in s.collection('expenses').entries) {
       final x = Expense.fromMap(e.key, e.value);
@@ -300,6 +312,8 @@ Map<String, int> oracle(
         for (final id in {...qty.keys, ...amount.keys})
           id: ProductTally(qty: qty[id] ?? 0, amount: Money(amount[id] ?? 0)),
       },
+      advanceReceived: Money(advanceReceived),
+      advanceRefunded: Money(advanceRefunded),
       expenses: Money(expenses),
       byExpenseCategory: {
         for (final e in byCategory.entries) e.key: Money(e.value),
@@ -576,6 +590,17 @@ void checkSummaryOps(PlanFixture f, DocStore before) {
         expect(t.id, '${t.data['refId']}-X', reason: why);
         final bill = before.docs['locations/$loc/bills/${t.data['refId']}']!;
         date = bill['businessDate']! as String;
+      case 'orders':
+        // A new pre-order: its advance on the day it was taken (D-043).
+        expect(t.locationId, loc, reason: why);
+        date = t.data['businessDate']! as String;
+      case 'auditLog' when t.data['action'] == 'ORDER_CANCEL':
+        // A cancelled pre-order: the refund on the cancel day, named by the
+        // audit entry since the order itself is not new (rules #20).
+        expect(t.data['locationId'], loc, reason: why);
+        final order = f.opAt(t.data['entityPath']! as String);
+        final cancel = order!.data['cancel']! as Map<String, Object?>;
+        date = cancel['businessDate']! as String;
       case 'auditLog':
         expect(t.data['action'], startsWith('EXPENSE_'), reason: why);
         // An expense edit that moves it names the one audit doc from both
@@ -624,13 +649,19 @@ RegExp auditIdPattern(String action, String? loc) {
     'USER_CREATE' ||
     'USER_DISABLE' ||
     'USER_ENABLE' => loc == null ? '^USR-.+-$millis\$' : '^$l-USR-.+-$millis\$',
+    'ORDER_CANCEL' => '^$l-D[0-9]{2}-O[0-9]{6}-X\$',
     'PRICE_CHANGE' => '^PRICE-$key-$millis\$',
     'PRODUCT_APPROVE' => '^APPROVE-$key-$millis\$',
+    'PRODUCT_DECLINE' => '^DECLINE-$key-$millis\$',
     _ => throw ArgumentError.value(action, 'action'),
   });
 }
 
-const Set<String> globalActions = {'PRICE_CHANGE', 'PRODUCT_APPROVE'};
+const Set<String> globalActions = {
+  'PRICE_CHANGE',
+  'PRODUCT_APPROVE',
+  'PRODUCT_DECLINE',
+};
 const Set<String> userActions = {'USER_CREATE', 'USER_DISABLE', 'USER_ENABLE'};
 
 void checkAuditOps(PlanFixture f, DocStore after) {
@@ -683,6 +714,17 @@ void checkAuditOps(PlanFixture f, DocStore after) {
         : o.path;
     expect(a.data['entityPath'], entity, reason: auditPath);
   }
+
+  // A cancelled pre-order carries `{loc}-{orderId}-X` (D-043 (e), 04 #10).
+  for (final o in f.ops) {
+    if (o.collection != 'orders' || o.data['status'] != 'CANCELLED') continue;
+    final auditPath = 'auditLog/${o.locationId}-${o.id}-X';
+    final a = f.opAt(auditPath);
+    expect(a, isNotNull, reason: '${f.name}: ${o.path} needs $auditPath');
+    expect(a!.data['action'], 'ORDER_CANCEL', reason: auditPath);
+    expect(a.data['locationId'], o.locationId, reason: auditPath);
+    expect(a.data['entityPath'], o.path, reason: auditPath);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -704,6 +746,8 @@ void checkDeviceOps(PlanFixture f) {
         want(o.locationId, id, 'lastBillSeq', int.parse(id.split('-')[1]));
       case 'returns':
         want(o.locationId, id, 'lastReturnSeq', int.parse(id.split('-R')[1]));
+      case 'orders':
+        want(o.locationId, id, 'lastOrderSeq', int.parse(id.split('-O')[1]));
       case 'movements' when id.contains('-M'):
         want(o.locationId, id, 'lastMovementSeq', int.parse(id.split('-M')[1]));
     }
