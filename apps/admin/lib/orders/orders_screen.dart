@@ -6,15 +6,26 @@ import '../common/format.dart';
 import '../common/store_picker.dart';
 import '../data/providers.dart';
 
-/// The server-side filters of the Orders page: status and due-date range.
-/// The store is filtered on the client, because the query spans all stores.
-typedef OrderQuery = ({OrderStatus? status, String? dueFrom, String? dueTo});
+/// The server-side filters of the Orders page: store (null for all),
+/// status and due-date range. A chosen store is queried on its own, so its
+/// list is not cut by the all-stores limit (AD-CR-2).
+typedef OrderQuery = ({
+  String? locationId,
+  OrderStatus? status,
+  String? dueFrom,
+  String? dueTo,
+});
 
-/// Orders across every store, soonest due first.
+/// Orders at one store or every store, soonest due first.
 final ordersProvider = StreamProvider.family<List<PreOrder>, OrderQuery>(
   (ref, q) => ref
       .watch(orderRepositoryProvider)
-      .watchAllLocations(status: q.status, dueFrom: q.dueFrom, dueTo: q.dueTo),
+      .watchAllLocations(
+        locationId: q.locationId,
+        status: q.status,
+        dueFrom: q.dueFrom,
+        dueTo: q.dueTo,
+      ),
 );
 
 /// Soonest due first: by due date, then time (orders without a time last),
@@ -76,17 +87,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final theme = Theme.of(context);
     final today = ref.watch(todayProvider);
     final locations = ref.watch(locationsProvider).value ?? const <Location>[];
-    final query = (status: _status, dueFrom: _from, dueTo: _to);
+    final store = _storeTouched ? _store : ref.watch(selectedLocationProvider);
+    final query = (
+      locationId: store,
+      status: _status,
+      dueFrom: _from,
+      dueTo: _to,
+    );
     final async = ref.watch(ordersProvider(query));
     final all = async.value;
-    final store = _storeTouched ? _store : ref.watch(selectedLocationProvider);
 
-    final shown = all == null
-        ? const <PreOrder>[]
-        : sortByDue([
-            for (final o in all)
-              if (store == null || o.locationId == store) o,
-          ]);
+    final shown = all == null ? const <PreOrder>[] : sortByDue(all);
 
     return ListView(
       padding: const EdgeInsets.all(24),

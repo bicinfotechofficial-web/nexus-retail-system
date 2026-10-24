@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_admin/catalog/catalog_providers.dart';
+import 'package:nexus_admin/common/model_copies.dart';
 import 'package:nexus_admin/fakes/fake_backend.dart';
 import 'package:nexus_admin/fakes/fake_repositories.dart';
 import 'package:nexus_admin/shell/permission_guard.dart';
@@ -383,5 +384,21 @@ void main() {
     expect(parsePositiveMoney('0'), isNull);
     expect(parsePositiveMoney('abc'), isNull);
     expect(parsePositiveMoney('-5'), isNull);
+  });
+
+  test('editing keeps openPrice, so CUSTOM-CAKE stays open-priced (D-043)', () {
+    final cake = Product(
+      id: 'CUSTOM-CAKE',
+      name: 'Custom cake',
+      category: 'Cakes',
+      scope: Product.globalScope,
+      status: ProductStatus.active,
+      sortOrder: 0,
+      createdBy: 'seed',
+      price: Money.zero,
+      openPrice: true,
+    );
+    expect(cake.copyWith(name: 'Custom cake (kg)').openPrice, isTrue);
+    expect(cake.copyWith(status: ProductStatus.inactive).openPrice, isTrue);
   });
 }

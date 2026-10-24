@@ -225,6 +225,14 @@ void main() {
             .first;
         expect(open.map((o) => o.id), ['D01-O000002', 'D01-O000001']);
         expect(await repo.watchAllLocations(limit: 2).first, hasLength(2));
+        // AD-CR-2: one store, queried on its own, with the same filters.
+        final mnj = await repo.watchAllLocations(locationId: 'MNJ').first;
+        expect(mnj.map((o) => o.id), ['D01-O000002', 'D01-O000003']);
+        expect(mnj.map((o) => o.locationId).toSet(), {'MNJ'});
+        final ptbOpen = await repo
+            .watchAllLocations(locationId: 'PTB', status: OrderStatus.open)
+            .first;
+        expect(ptbOpen.map((o) => o.id), ['D01-O000001']);
       },
     );
   });

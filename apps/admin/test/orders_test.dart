@@ -190,8 +190,11 @@ void main() {
     );
   });
 
-  testWidgets('filters by store', (tester) async {
-    await _open(tester, _repo());
+  testWidgets('filters by store, querying that store only (AD-CR-2)', (
+    tester,
+  ) async {
+    final repo = _repo();
+    await _open(tester, repo);
 
     await tester.tap(find.byKey(const Key('orders-store')));
     await tester.pumpAndSettle();
@@ -200,6 +203,7 @@ void main() {
     expect(find.text('3 orders'), findsOneWidget);
     expect(find.byKey(const Key('order-MNJ-D02-O000001')), findsOneWidget);
     expect(find.byKey(const Key('order-PTB-D01-O000001')), findsNothing);
+    expect(repo.queries.last, 'null null null @MNJ');
 
     await tester.tap(find.byKey(const Key('orders-store')));
     await tester.pumpAndSettle();

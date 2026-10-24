@@ -85,7 +85,11 @@ abstract interface class OrderRepository {
   /// Orders across every location for the Admin (`report.all`), soonest due
   /// first. [status] filters when given; [dueFrom] and [dueTo] (business
   /// dates, inclusive) bound the due date. At most [limit].
+  ///
+  /// With [locationId], only that store's orders, with the same filters and
+  /// [limit], so a store filter is exact (AD-CR-2).
   Stream<List<PreOrder>> watchAllLocations({
+    String? locationId,
     OrderStatus? status,
     String? dueFrom,
     String? dueTo,

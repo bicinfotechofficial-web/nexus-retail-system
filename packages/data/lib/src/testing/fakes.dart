@@ -442,18 +442,20 @@ final class FakeOrderRepository implements OrderRepository {
 
   @override
   Stream<List<PreOrder>> watchAllLocations({
+    String? locationId,
     OrderStatus? status,
     String? dueFrom,
     String? dueTo,
     int limit = 300,
   }) => _byLocation.stream.map(
     (m) => soonestDueFirst([
-      for (final l in m.values)
-        for (final o in l.values)
-          if ((status == null || o.status == status) &&
-              (dueFrom == null || o.dueDate.compareTo(dueFrom) >= 0) &&
-              (dueTo == null || o.dueDate.compareTo(dueTo) <= 0))
-            o,
+      for (final MapEntry(key: loc, value: l) in m.entries)
+        if (locationId == null || loc == locationId)
+          for (final o in l.values)
+            if ((status == null || o.status == status) &&
+                (dueFrom == null || o.dueDate.compareTo(dueFrom) >= 0) &&
+                (dueTo == null || o.dueDate.compareTo(dueTo) <= 0))
+              o,
     ]).take(limit).toList(),
   );
 }

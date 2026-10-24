@@ -27,6 +27,7 @@ extension ProductCopy on Product {
     unit: unit,
     gstRate: gstRate,
     recipe: recipe,
+    openPrice: openPrice,
     reviewedBy: reviewedBy ?? this.reviewedBy,
     reviewNote: reviewNote ?? this.reviewNote,
     reviewedAt: reviewedAt ?? this.reviewedAt,

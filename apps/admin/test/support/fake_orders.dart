@@ -57,17 +57,22 @@ final class FakeOrderRepository implements OrderRepository {
 
   @override
   Stream<List<PreOrder>> watchAllLocations({
+    String? locationId,
     OrderStatus? status,
     String? dueFrom,
     String? dueTo,
     int limit = 300,
   }) {
-    queries.add('${status?.wire} $dueFrom $dueTo');
+    queries.add(
+      '${status?.wire} $dueFrom $dueTo'
+      '${locationId == null ? '' : ' @$locationId'}',
+    );
     return _orders.watch(
       (l) =>
           [
             for (final o in l)
-              if ((status == null || o.status == status) &&
+              if ((locationId == null || o.locationId == locationId) &&
+                  (status == null || o.status == status) &&
                   (dueFrom == null || o.dueDate.compareTo(dueFrom) >= 0) &&
                   (dueTo == null || o.dueDate.compareTo(dueTo) <= 0))
                 o,

@@ -17,7 +17,8 @@ import 'failure_mapping.dart';
 ///   day they were taken (`clientCreatedAt`; index `orders: status,
 ///   clientCreatedAt DESC`).
 /// - `watchAllLocations`: a collection-group query on `orders`, ordered by
-///   `dueDate` (the collection-group index, rule #18 with `report.all`).
+///   `dueDate` (the collection-group index, rule #18 with `report.all`);
+///   with a `locationId`, the same query on that store's `orders`.
 final class FirestoreOrderRepository implements OrderRepository {
   FirestoreOrderRepository(this._db, {DateTime Function()? clock})
     : _now = clock ?? DateTime.now;
@@ -66,12 +67,15 @@ final class FirestoreOrderRepository implements OrderRepository {
 
   @override
   Stream<List<PreOrder>> watchAllLocations({
+    String? locationId,
     OrderStatus? status,
     String? dueFrom,
     String? dueTo,
     int limit = 300,
   }) {
-    Query<Map<String, dynamic>> q = _db.collectionGroup('orders');
+    Query<Map<String, dynamic>> q = locationId == null
+        ? _db.collectionGroup('orders')
+        : _db.collection(FirestorePaths.orders(locationId));
     if (status != null) q = q.where('status', isEqualTo: status.wire);
     if (dueFrom != null) {
       q = q.where('dueDate', isGreaterThanOrEqualTo: dueFrom);

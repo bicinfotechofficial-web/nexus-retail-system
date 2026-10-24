@@ -442,6 +442,7 @@ final class FakeOrders implements OrderService, OrderRepository {
 
   @override
   Stream<List<PreOrder>> watchAllLocations({
+    String? locationId,
     OrderStatus? status,
     String? dueFrom,
     String? dueTo,
