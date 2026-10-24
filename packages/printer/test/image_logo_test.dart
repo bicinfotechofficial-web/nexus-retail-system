@@ -76,7 +76,7 @@ void main() {
         await expectLater(image, matchesGoldenFile('goldens/image_$name.png'));
       });
     }
-  });
+  }, skip: imageGoldenSkip);
 
   group('goldens, without a logo', () {
     final cases = <String, Future<Uint8List> Function()>{
@@ -130,7 +130,7 @@ void main() {
         matchesGoldenFile('goldens/image_bill_normal_mm80.png'),
       );
     });
-  });
+  }, skip: imageGoldenSkip);
 
   group('the logo block', () {
     for (final width in PaperWidth.values) {

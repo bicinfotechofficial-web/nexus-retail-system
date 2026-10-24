@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:nexus_core/nexus_core.dart';
@@ -5,6 +6,14 @@ import 'package:nexus_printer/nexus_printer.dart';
 
 /// Receipt fixtures shared by the model, layout and golden tests. Totals
 /// come from the core calculators, so they match what the POS saves.
+
+/// Skip reason for the PNG goldens. They are made on Linux, and Flutter on
+/// Windows draws the test font a pixel shorter, so every image differs
+/// there. The text and byte goldens, which are what the printer gets, run
+/// everywhere.
+final String? imageGoldenSkip = Platform.isWindows
+    ? 'PNG goldens are made on Linux; Windows renders the test font differently'
+    : null;
 
 /// 2026-09-25 14:35 IST.
 final DateTime billTime = DateTime.utc(2026, 9, 25, 9, 5);

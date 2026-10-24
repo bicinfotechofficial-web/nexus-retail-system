@@ -53,3 +53,6 @@ firestore-debug.log*
 ui-debug.log*
 database-debug.log*
 .firebase/
+
+# Golden test failure output (flutter_test writes it next to the test)
+**/test/failures/

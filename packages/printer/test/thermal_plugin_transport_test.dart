@@ -1,3 +1,8 @@
+// On Windows the plugin skips the method channel and calls Windows
+// Bluetooth itself, so FakePlugin never sees a call and connect hangs.
+@TestOn('!windows')
+library;
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_printer/src/api.dart';

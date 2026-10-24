@@ -37,7 +37,7 @@ void main() {
         await expectLater(image, matchesGoldenFile('goldens/image_$name.png'));
       });
     }
-  });
+  }, skip: imageGoldenSkip);
 
   group('PNG', () {
     for (final width in PaperWidth.values) {

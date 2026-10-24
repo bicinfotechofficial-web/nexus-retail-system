@@ -88,11 +88,13 @@ mapfile -t DART_FILES < <(
     -not -name '*.g.dart' -not -name '*.freezed.dart' \
     -not -name 'firebase_options.dart' | sort
 )
+# Batches of 100: one call with every file is too long for Windows.
 if [[ ${#DART_FILES[@]} -gt 0 ]]; then
   if [[ $FIX -eq 1 ]]; then
-    dart format "${DART_FILES[@]}"
+    printf '%s\0' "${DART_FILES[@]}" | xargs -0 -n 100 dart format
   else
-    dart format --output=none --set-exit-if-changed "${DART_FILES[@]}" \
+    printf '%s\0' "${DART_FILES[@]}" \
+      | xargs -0 -n 100 dart format --output=none --set-exit-if-changed \
       || fail "unformatted files; run tool/check.sh --fix"
   fi
 fi
