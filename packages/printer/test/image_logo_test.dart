@@ -258,22 +258,23 @@ void main() {
       });
     });
 
-    testWidgets('the default logo (no asset yet) is the text-only image', (
-      tester,
-    ) async {
-      await tester.runAsync(() async {
-        final plain = await renderOrderSlipPng(
-          slip(normalOrder()),
-          PaperWidth.mm58,
-          logo: none,
-        );
-        final dflt = await renderOrderSlipPng(
-          slip(normalOrder()),
-          PaperWidth.mm58,
-        );
-        expect(dflt, plain);
-      });
-    });
+    testWidgets(
+      'the default logo is the shop logo, so it differs from text-only',
+      (tester) async {
+        await tester.runAsync(() async {
+          final plain = await renderOrderSlipPng(
+            slip(normalOrder()),
+            PaperWidth.mm58,
+            logo: none,
+          );
+          final dflt = await renderOrderSlipPng(
+            slip(normalOrder()),
+            PaperWidth.mm58,
+          );
+          expect(dflt, isNot(plain));
+        });
+      },
+    );
   });
 
   group('the advance slip image carries the slip text', () {

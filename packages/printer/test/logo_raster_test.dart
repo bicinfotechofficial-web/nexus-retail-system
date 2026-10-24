@@ -285,9 +285,9 @@ void main() {
       });
     });
 
-    test('rootBundle without the asset gives null', () async {
+    test('rootBundle finds the shop logo', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
-      expect(await AssetReceiptLogo().load(), isNull);
+      expect(await AssetReceiptLogo().load(), isNotNull);
     });
 
     test('loadLogoSafely turns a throwing logo into null', () async {

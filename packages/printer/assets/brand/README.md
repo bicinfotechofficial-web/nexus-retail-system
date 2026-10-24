@@ -2,7 +2,7 @@
 
 The shop logo printed at the top of every bill, return slip and advance
 receipt (D-041) is read from `assets/brand/logo.png` in this package. The
-client supplies the file; it is deliberately not in git yet.
+Caramel Cottage logo is committed here.
 
 Expected file:
 

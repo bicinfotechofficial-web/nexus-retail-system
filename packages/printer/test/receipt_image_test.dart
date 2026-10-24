@@ -27,7 +27,11 @@ void main() {
     for (final MapEntry(key: name, value: (doc, width)) in cases.entries) {
       testWidgets(name, (tester) async {
         final image = (await tester.runAsync(
-          () => renderReceiptImage(doc, width: width),
+          () => renderReceiptImage(
+            doc,
+            width: width,
+            logo: const NoReceiptLogo(),
+          ),
         ))!;
         addTearDown(image.dispose);
         await expectLater(image, matchesGoldenFile('goldens/image_$name.png'));
@@ -67,7 +71,11 @@ void main() {
 
     testWidgets('background is white and ink is black only', (tester) async {
       await tester.runAsync(() async {
-        final png = await renderReceiptPng(normal(), width: PaperWidth.mm80);
+        final png = await renderReceiptPng(
+          normal(),
+          width: PaperWidth.mm80,
+          logo: const NoReceiptLogo(),
+        );
         final codec = await ui.instantiateImageCodec(png);
         final image = (await codec.getNextFrame()).image;
         final data = (await image.toByteData())!;
